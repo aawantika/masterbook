@@ -1,20 +1,20 @@
-import { Link } from 'react-router-dom';
 import { RecipeSummary } from '../api/types';
 
 type RecipeCardProps = {
   recipe: RecipeSummary;
   onToggleWantToTry: (id: number, want: boolean) => void;
+  onSelect: (id: number) => void;
 };
 
-export function RecipeCard({ recipe, onToggleWantToTry }: RecipeCardProps) {
+export function RecipeCard({ recipe, onToggleWantToTry, onSelect }: RecipeCardProps) {
   const wantsToTry = Boolean(recipe.wantToTryAt);
 
   return (
     <div className="recipe-card">
       <div className="recipe-card-header">
-        <Link to={`/recipes/${recipe.id}`} className="recipe-card-title">
+        <button type="button" className="recipe-card-title" onClick={() => onSelect(recipe.id)}>
           {recipe.title}
-        </Link>
+        </button>
         <button
           type="button"
           className={`star-toggle${wantsToTry ? ' active' : ''}`}

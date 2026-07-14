@@ -140,6 +140,7 @@ export type RecipeSummary = {
   id: number;
   title: string;
   sourceType: string;
+  sourceRef: string | null;
   wantToTryAt: string | null;
   avgRating: number | null;
   lastCookedAt: string | null;
@@ -196,8 +197,15 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
   const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
   const orderBy = filters.toTryOnly ? 'ORDER BY r.want_to_try_at ASC' : 'ORDER BY r.updated_at DESC';
 
-  const rows = db.prepare(`SELECT r.id, r.title, r.source_type, r.want_to_try_at FROM recipes r ${where} ${orderBy}`)
-    .all(...params) as Array<{ id: number; title: string; source_type: string; want_to_try_at: string | null }>;
+  const rows = db
+    .prepare(`SELECT r.id, r.title, r.source_type, r.source_ref, r.want_to_try_at FROM recipes r ${where} ${orderBy}`)
+    .all(...params) as Array<{
+    id: number;
+    title: string;
+    source_type: string;
+    source_ref: string | null;
+    want_to_try_at: string | null;
+  }>;
 
   const avgRatingStmt = db.prepare(
     'SELECT AVG(rating) as avg, MAX(attempted_at) as last FROM recipe_attempts WHERE recipe_id = ? AND rating IS NOT NULL'
@@ -215,6 +223,7 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
       id: row.id,
       title: row.title,
       sourceType: row.source_type,
+      sourceRef: row.source_ref,
       wantToTryAt: row.want_to_try_at,
       avgRating: ratingRow.avg,
       lastCookedAt: ratingRow.last,

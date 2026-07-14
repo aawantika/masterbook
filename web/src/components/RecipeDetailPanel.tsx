@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   addAttempt,
   deleteAttempt,
@@ -11,13 +10,16 @@ import {
   updateRecipe
 } from '../api/client';
 import { MetaItem, RecipeDetail, SourceType } from '../api/types';
-import { RecipeDraftEditor } from '../components/RecipeDraftEditor';
-import { CookingLogList } from '../components/CookingLogList';
+import { RecipeDraftEditor } from './RecipeDraftEditor';
+import { CookingLogList } from './CookingLogList';
 
-export function RecipeDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const recipeId = Number(id);
+type RecipeDetailPanelProps = {
+  recipeId: number;
+  onDeleted: () => void;
+  onChanged: () => void;
+};
+
+export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDetailPanelProps) {
   const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
   const [mealTypes, setMealTypes] = useState<MetaItem[]>([]);
   const [cuisines, setCuisines] = useState<MetaItem[]>([]);
@@ -31,29 +33,29 @@ export function RecipeDetailPage() {
   };
 
   useEffect(() => {
+    setEditing(false);
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recipeId]);
 
-  if (!recipe) return <div className="page muted">Loading...</div>;
+  if (!recipe) return <div className="muted">Loading...</div>;
 
   const handleDelete = async () => {
     if (!window.confirm(`Delete "${recipe.title}"? This can't be undone.`)) return;
     await deleteRecipe(recipe.id);
-    navigate('/');
+    onDeleted();
   };
 
   const handleToggleWantToTry = async () => {
     await setWantToTry(recipe.id, !recipe.wantToTryAt);
     load();
+    onChanged();
   };
 
   if (editing) {
     return (
-      <div className="page">
-        <header className="page-header">
-          <h1>Edit recipe</h1>
-        </header>
+      <div className="detail-panel">
+        <h1>Edit recipe</h1>
         <RecipeDraftEditor
           initial={{
             title: recipe.title,
@@ -76,6 +78,7 @@ export function RecipeDetailPage() {
             await updateRecipe(recipe.id, input);
             setEditing(false);
             load();
+            onChanged();
           }}
           onCancel={() => setEditing(false)}
         />
@@ -84,13 +87,7 @@ export function RecipeDetailPage() {
   }
 
   return (
-    <div className="page">
-      <header className="page-header">
-        <Link to="/" className="back-link">
-          ← Back to search
-        </Link>
-      </header>
-
+    <div className="detail-panel">
       <div className="recipe-detail-header">
         <h1>{recipe.title}</h1>
         <button
@@ -150,10 +147,12 @@ export function RecipeDetailPage() {
         onAddAttempt={async (attemptedAt, rating, notes) => {
           await addAttempt(recipe.id, attemptedAt, rating, notes);
           load();
+          onChanged();
         }}
         onDeleteAttempt={async (attemptId) => {
           await deleteAttempt(attemptId);
           load();
+          onChanged();
         }}
       />
     </div>

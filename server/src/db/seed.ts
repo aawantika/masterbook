@@ -16,26 +16,21 @@ export const MEAL_TYPES = [
   'Sauce/Condiment'
 ];
 
+// Fixed list (not free-text) — deliberately short and closed, with "Other" as
+// the catch-all rather than trying to anticipate every cuisine up front.
 export const CUISINE_SUGGESTIONS = [
-  'Italian',
-  'Mexican',
-  'Indian',
+  'American',
   'Chinese',
+  'Korean',
   'Japanese',
-  'Thai',
-  'Vietnamese',
-  'French',
-  'Mediterranean',
+  'Indian',
   'Middle Eastern',
   'Greek',
-  'Spanish',
-  'Korean',
-  'American',
-  'Southern',
-  'Caribbean',
-  'German',
-  'British',
-  'Fusion'
+  'Italian',
+  'Thai',
+  'Vietnamese',
+  'Nepali',
+  'Other'
 ];
 
 export function seed(): void {
@@ -48,4 +43,17 @@ export function seed(): void {
   });
 
   seedAll();
+}
+
+// Cuisine used to be an open free-text list; now it's fixed. Remove any
+// leftover cuisines from the old broader seed list that aren't in the new
+// list AND aren't actually tagged on any recipe (never delete something a
+// recipe still references).
+export function pruneStaleCuisines(): void {
+  const placeholders = CUISINE_SUGGESTIONS.map(() => '?').join(', ');
+  db.prepare(
+    `DELETE FROM cuisines
+     WHERE name NOT IN (${placeholders})
+     AND id NOT IN (SELECT DISTINCT cuisine_id FROM recipe_cuisines)`
+  ).run(...CUISINE_SUGGESTIONS);
 }

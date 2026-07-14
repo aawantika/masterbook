@@ -5,6 +5,7 @@ import {
   deleteRecipe,
   getRecipeById,
   searchRecipes,
+  setFavorite,
   setWantToTry,
   updateRecipe
 } from '../db/recipes.js';
@@ -21,13 +22,14 @@ const ingredientSchema = z.object({
 const recipeInputSchema = z.object({
   title: z.string().min(1),
   servings: z.string().nullable().optional(),
-  prepTimeMinutes: z.number().int().nonnegative().nullable().optional(),
-  cookTimeMinutes: z.number().int().nonnegative().nullable().optional(),
+  totalTimeMinutes: z.number().int().nonnegative().nullable().optional(),
   instructions: z.array(z.string()),
   ingredients: z.array(ingredientSchema),
   rawText: z.string(),
   sourceType: z.enum(['epub', 'instagram', 'website', 'manual']),
   sourceRef: z.string().nullable().optional(),
+  sourceName: z.string().nullable().optional(),
+  imageUrl: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   mealTypeIds: z.array(z.number().int()),
   cuisineNames: z.array(z.string())
@@ -44,8 +46,9 @@ recipesRouter.get('/', (req, res) => {
   const cuisineIds = parseIdList(req.query.cuisineIds);
   const ingredientIds = parseIdList(req.query.ingredientIds);
   const toTryOnly = req.query.toTry === 'true';
+  const favoritesOnly = req.query.favorites === 'true';
 
-  res.json(searchRecipes({ query, mealTypeIds, cuisineIds, ingredientIds, toTryOnly }));
+  res.json(searchRecipes({ query, mealTypeIds, cuisineIds, ingredientIds, toTryOnly, favoritesOnly }));
 });
 
 function parseIdList(raw: unknown): number[] | undefined {
@@ -104,5 +107,18 @@ recipesRouter.post('/:id/want-to-try', (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
   setWantToTry(id, parsed.data.want);
+  res.json(getRecipeById(id));
+});
+
+const favoriteSchema = z.object({ favorite: z.boolean() });
+
+recipesRouter.post('/:id/favorite', (req, res) => {
+  const id = parseIdParam(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid recipe id' });
+
+  const parsed = favoriteSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  setFavorite(id, parsed.data.favorite);
   res.json(getRecipeById(id));
 });

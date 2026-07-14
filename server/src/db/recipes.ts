@@ -4,13 +4,14 @@ import { ParsedIngredientLine } from '../types/recipe.js';
 export type RecipeInput = {
   title: string;
   servings?: string | null;
-  prepTimeMinutes?: number | null;
-  cookTimeMinutes?: number | null;
+  totalTimeMinutes?: number | null;
   instructions: string[];
   ingredients: ParsedIngredientLine[];
   rawText: string;
   sourceType: 'epub' | 'instagram' | 'website' | 'manual';
   sourceRef?: string | null;
+  sourceName?: string | null;
+  imageUrl?: string | null;
   notes?: string | null;
   mealTypeIds: number[];
   cuisineNames: string[];
@@ -69,19 +70,20 @@ export function createRecipe(input: RecipeInput): number {
     const result = db
       .prepare(
         `INSERT INTO recipes
-          (title, servings, prep_time_minutes, cook_time_minutes, instructions_json, ingredients_text, raw_text, source_type, source_ref, notes, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          (title, servings, total_time_minutes, instructions_json, ingredients_text, raw_text, source_type, source_ref, source_name, image_url, notes, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         input.title,
         input.servings ?? null,
-        input.prepTimeMinutes ?? null,
-        input.cookTimeMinutes ?? null,
+        input.totalTimeMinutes ?? null,
         JSON.stringify(input.instructions),
         '',
         input.rawText,
         input.sourceType,
         input.sourceRef ?? null,
+        input.sourceName ?? null,
+        input.imageUrl ?? null,
         input.notes ?? null,
         now,
         now
@@ -101,18 +103,19 @@ export function updateRecipe(recipeId: number, input: RecipeInput): void {
   const update = db.transaction(() => {
     db.prepare(
       `UPDATE recipes SET
-        title = ?, servings = ?, prep_time_minutes = ?, cook_time_minutes = ?,
-        instructions_json = ?, raw_text = ?, source_type = ?, source_ref = ?, notes = ?, updated_at = ?
+        title = ?, servings = ?, total_time_minutes = ?,
+        instructions_json = ?, raw_text = ?, source_type = ?, source_ref = ?, source_name = ?, image_url = ?, notes = ?, updated_at = ?
        WHERE id = ?`
     ).run(
       input.title,
       input.servings ?? null,
-      input.prepTimeMinutes ?? null,
-      input.cookTimeMinutes ?? null,
+      input.totalTimeMinutes ?? null,
       JSON.stringify(input.instructions),
       input.rawText,
       input.sourceType,
       input.sourceRef ?? null,
+      input.sourceName ?? null,
+      input.imageUrl ?? null,
       input.notes ?? null,
       now,
       recipeId
@@ -136,12 +139,22 @@ export function setWantToTry(recipeId: number, want: boolean): void {
   );
 }
 
+export function setFavorite(recipeId: number, favorite: boolean): void {
+  db.prepare('UPDATE recipes SET favorited_at = ? WHERE id = ?').run(
+    favorite ? new Date().toISOString() : null,
+    recipeId
+  );
+}
+
 export type RecipeSummary = {
   id: number;
   title: string;
   sourceType: string;
   sourceRef: string | null;
+  sourceName: string | null;
+  imageUrl: string | null;
   wantToTryAt: string | null;
+  favoritedAt: string | null;
   avgRating: number | null;
   lastCookedAt: string | null;
   mealTypes: string[];
@@ -154,6 +167,7 @@ export type SearchFilters = {
   cuisineIds?: number[];
   ingredientIds?: number[];
   toTryOnly?: boolean;
+  favoritesOnly?: boolean;
 };
 
 function sanitizeFtsQuery(query: string): string {
@@ -193,18 +207,30 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
   if (filters.toTryOnly) {
     clauses.push('r.want_to_try_at IS NOT NULL');
   }
+  if (filters.favoritesOnly) {
+    clauses.push('r.favorited_at IS NOT NULL');
+  }
 
   const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
-  const orderBy = filters.toTryOnly ? 'ORDER BY r.want_to_try_at ASC' : 'ORDER BY r.updated_at DESC';
+  const orderBy = filters.toTryOnly
+    ? 'ORDER BY r.want_to_try_at ASC'
+    : filters.favoritesOnly
+      ? 'ORDER BY r.favorited_at DESC'
+      : 'ORDER BY r.updated_at DESC';
 
   const rows = db
-    .prepare(`SELECT r.id, r.title, r.source_type, r.source_ref, r.want_to_try_at FROM recipes r ${where} ${orderBy}`)
+    .prepare(
+      `SELECT r.id, r.title, r.source_type, r.source_ref, r.source_name, r.image_url, r.want_to_try_at, r.favorited_at FROM recipes r ${where} ${orderBy}`
+    )
     .all(...params) as Array<{
     id: number;
     title: string;
     source_type: string;
     source_ref: string | null;
+    source_name: string | null;
+    image_url: string | null;
     want_to_try_at: string | null;
+    favorited_at: string | null;
   }>;
 
   const avgRatingStmt = db.prepare(
@@ -224,7 +250,10 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
       title: row.title,
       sourceType: row.source_type,
       sourceRef: row.source_ref,
+      sourceName: row.source_name,
+      imageUrl: row.image_url,
       wantToTryAt: row.want_to_try_at,
+      favoritedAt: row.favorited_at,
       avgRating: ratingRow.avg,
       lastCookedAt: ratingRow.last,
       mealTypes: (mealTypesStmt.all(row.id) as Array<{ name: string }>).map((r) => r.name),
@@ -237,15 +266,17 @@ export type RecipeDetail = {
   id: number;
   title: string;
   servings: string | null;
-  prepTimeMinutes: number | null;
-  cookTimeMinutes: number | null;
+  totalTimeMinutes: number | null;
   instructions: string[];
   ingredients: Array<{ rawText: string; quantity: string | null; unit: string | null; name: string | null }>;
   rawText: string;
   sourceType: string;
   sourceRef: string | null;
+  sourceName: string | null;
+  imageUrl: string | null;
   notes: string | null;
   wantToTryAt: string | null;
+  favoritedAt: string | null;
   mealTypeIds: number[];
   cuisineNames: string[];
   attempts: Array<{ id: number; attemptedAt: string; rating: number | null; notes: string | null }>;
@@ -257,14 +288,16 @@ export function getRecipeById(recipeId: number): RecipeDetail | null {
         id: number;
         title: string;
         servings: string | null;
-        prep_time_minutes: number | null;
-        cook_time_minutes: number | null;
+        total_time_minutes: number | null;
         instructions_json: string;
         raw_text: string;
         source_type: string;
         source_ref: string | null;
+        source_name: string | null;
+        image_url: string | null;
         notes: string | null;
         want_to_try_at: string | null;
+        favorited_at: string | null;
       }
     | undefined;
   if (!row) return null;
@@ -300,15 +333,17 @@ export function getRecipeById(recipeId: number): RecipeDetail | null {
     id: row.id,
     title: row.title,
     servings: row.servings,
-    prepTimeMinutes: row.prep_time_minutes,
-    cookTimeMinutes: row.cook_time_minutes,
+    totalTimeMinutes: row.total_time_minutes,
     instructions: JSON.parse(row.instructions_json || '[]'),
     ingredients: ingredients.map((i) => ({ rawText: i.raw_text, quantity: i.quantity, unit: i.unit, name: i.name })),
     rawText: row.raw_text,
     sourceType: row.source_type,
     sourceRef: row.source_ref,
+    sourceName: row.source_name,
+    imageUrl: row.image_url,
     notes: row.notes,
     wantToTryAt: row.want_to_try_at,
+    favoritedAt: row.favorited_at,
     mealTypeIds,
     cuisineNames,
     attempts: attempts.map((a) => ({ id: a.id, attemptedAt: a.attempted_at, rating: a.rating, notes: a.notes }))

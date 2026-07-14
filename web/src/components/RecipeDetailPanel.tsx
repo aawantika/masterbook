@@ -1,17 +1,15 @@
 import { useEffect, useState } from 'react';
 import {
-  addAttempt,
-  deleteAttempt,
   deleteRecipe,
   getCuisines,
   getMealTypes,
   getRecipe,
+  setFavorite,
   setWantToTry,
   updateRecipe
 } from '../api/client';
 import { MetaItem, RecipeDetail, SourceType } from '../api/types';
 import { RecipeDraftEditor } from './RecipeDraftEditor';
-import { CookingLogList } from './CookingLogList';
 
 type RecipeDetailPanelProps = {
   recipeId: number;
@@ -52,6 +50,12 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
     onChanged();
   };
 
+  const handleToggleFavorite = async () => {
+    await setFavorite(recipe.id, !recipe.favoritedAt);
+    load();
+    onChanged();
+  };
+
   if (editing) {
     return (
       <div className="detail-panel">
@@ -60,13 +64,14 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
           initial={{
             title: recipe.title,
             servings: recipe.servings,
-            prepTimeMinutes: recipe.prepTimeMinutes,
-            cookTimeMinutes: recipe.cookTimeMinutes,
+            totalTimeMinutes: recipe.totalTimeMinutes,
             instructions: recipe.instructions,
             ingredients: recipe.ingredients,
             rawText: recipe.rawText,
             sourceType: recipe.sourceType as SourceType,
             sourceRef: recipe.sourceRef,
+            sourceName: recipe.sourceName,
+            imageUrl: recipe.imageUrl,
             notes: recipe.notes,
             mealTypeIds: recipe.mealTypeIds,
             cuisineNames: recipe.cuisineNames
@@ -90,21 +95,42 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
     <div className="detail-panel">
       <div className="recipe-detail-header">
         <h1>{recipe.title}</h1>
-        <button
-          type="button"
-          className={`star-toggle${recipe.wantToTryAt ? ' active' : ''}`}
-          onClick={handleToggleWantToTry}
-        >
-          {recipe.wantToTryAt ? '★ Want to try' : '☆ Want to try'}
-        </button>
+        <div className="recipe-card-toggles">
+          <button
+            type="button"
+            className={`heart-toggle${recipe.favoritedAt ? ' active' : ''}`}
+            onClick={handleToggleFavorite}
+          >
+            {recipe.favoritedAt ? '❤ Favorited' : '♡ Favorite'}
+          </button>
+          <button
+            type="button"
+            className={`star-toggle${recipe.wantToTryAt ? ' active' : ''}`}
+            onClick={handleToggleWantToTry}
+          >
+            {recipe.wantToTryAt ? '★ In queue' : '☆ Add to queue'}
+          </button>
+        </div>
       </div>
+
+      {recipe.imageUrl && (
+        <div className="recipe-detail-image-wrap">
+          <img className="recipe-detail-image" src={recipe.imageUrl} alt={recipe.title} />
+        </div>
+      )}
 
       <div className="recipe-detail-meta">
         {recipe.servings && <span>Serves {recipe.servings}</span>}
-        {recipe.prepTimeMinutes != null && <span>Prep {recipe.prepTimeMinutes} min</span>}
-        {recipe.cookTimeMinutes != null && <span>Cook {recipe.cookTimeMinutes} min</span>}
-        <span className="badge">{recipe.sourceType}</span>
-        {recipe.sourceRef && <span className="muted">{recipe.sourceRef}</span>}
+        {recipe.totalTimeMinutes != null && <span>Total time {recipe.totalTimeMinutes} min</span>}
+        <span className="badge">{recipe.sourceName || recipe.sourceType}</span>
+        {recipe.sourceRef &&
+          (/^https?:\/\//i.test(recipe.sourceRef) ? (
+            <a href={recipe.sourceRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
+              {recipe.sourceRef}
+            </a>
+          ) : (
+            <span className="muted">{recipe.sourceRef}</span>
+          ))}
       </div>
 
       <div className="recipe-detail-body">
@@ -141,20 +167,6 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
           Delete
         </button>
       </div>
-
-      <CookingLogList
-        attempts={recipe.attempts}
-        onAddAttempt={async (attemptedAt, rating, notes) => {
-          await addAttempt(recipe.id, attemptedAt, rating, notes);
-          load();
-          onChanged();
-        }}
-        onDeleteAttempt={async (attemptId) => {
-          await deleteAttempt(attemptId);
-          load();
-          onChanged();
-        }}
-      />
     </div>
   );
 }

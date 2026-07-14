@@ -33,6 +33,7 @@ export type RecipeSummary = {
   id: number;
   title: string;
   sourceType: string;
+  sourceRef: string | null;
   wantToTryAt: string | null;
   avgRating: number | null;
   lastCookedAt: string | null;

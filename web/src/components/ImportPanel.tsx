@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { createRecipe, getCuisines, getMealTypes, parseManualPaste } from '../api/client';
 import { MetaItem, RecipeDraft, RecipeInput, SourceType } from '../api/types';
-import { RecipeDraftEditor } from '../components/RecipeDraftEditor';
+import { RecipeDraftEditor } from './RecipeDraftEditor';
 
-export function ImportManualPage() {
-  const navigate = useNavigate();
+type ImportPanelProps = {
+  onCreated: (recipeId: number) => void;
+  onCancel: () => void;
+};
+
+export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
   const [pasteText, setPasteText] = useState('');
   const [sourceType, setSourceType] = useState<SourceType>('instagram');
   const [sourceRef, setSourceRef] = useState('');
@@ -28,14 +31,12 @@ export function ImportManualPage() {
 
   const handleSave = async (input: RecipeInput) => {
     const recipe = await createRecipe({ ...input, sourceType, sourceRef: sourceRef.trim() || null });
-    navigate(`/recipes/${recipe.id}`);
+    onCreated(recipe.id);
   };
 
   return (
-    <div className="page">
-      <header className="page-header">
-        <h1>Add a recipe</h1>
-      </header>
+    <div className="detail-panel">
+      <h1>Add a recipe</h1>
 
       {!draft ? (
         <div className="import-paste-box">
@@ -60,9 +61,14 @@ export function ImportManualPage() {
               placeholder={'Title\n\nIngredients:\n1 cup flour\n...\n\nInstructions:\n1. Mix...\n...'}
             />
           </label>
-          <button type="button" onClick={handleParse}>
-            Parse recipe
-          </button>
+          <div className="editor-actions">
+            <button type="button" onClick={handleParse}>
+              Parse recipe
+            </button>
+            <button type="button" className="secondary" onClick={onCancel}>
+              Cancel
+            </button>
+          </div>
         </div>
       ) : (
         <RecipeDraftEditor

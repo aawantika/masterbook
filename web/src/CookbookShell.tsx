@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { getCuisines, getIngredientNames, getMealTypes, searchRecipes, setWantToTry } from './api/client';
+import { getCuisines, getIngredientNames, getMealTypes, searchRecipes, setFavorite, setWantToTry } from './api/client';
 import { MetaItem, RecipeSummary } from './api/types';
 import { Sidebar } from './components/Sidebar';
 import { FilterBar } from './components/FilterBar';
 import { RecipeCard } from './components/RecipeCard';
 import { RecipeDetailPanel } from './components/RecipeDetailPanel';
 import { ImportPanel } from './components/ImportPanel';
+import { CookingLogPanel } from './components/CookingLogPanel';
 
 function useDebounced<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -33,6 +34,7 @@ export function CookbookShell() {
   const [selectedCuisineIds, setSelectedCuisineIds] = useState<Set<number>>(new Set());
   const [selectedIngredientIds, setSelectedIngredientIds] = useState<Set<number>>(new Set());
   const [toTryOnly, setToTryOnly] = useState(false);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [results, setResults] = useState<RecipeSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -52,7 +54,8 @@ export function CookbookShell() {
         mealTypeIds: Array.from(selectedMealTypeIds),
         cuisineIds: Array.from(selectedCuisineIds),
         ingredientIds: Array.from(selectedIngredientIds),
-        toTry: toTryOnly
+        toTry: toTryOnly,
+        favorites: favoritesOnly
       });
       setResults(data);
     } finally {
@@ -63,7 +66,15 @@ export function CookbookShell() {
   useEffect(() => {
     runSearch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQuery, selectedMealTypeIds, selectedCuisineIds, selectedIngredientIds, toTryOnly, reloadSignal]);
+  }, [
+    debouncedQuery,
+    selectedMealTypeIds,
+    selectedCuisineIds,
+    selectedIngredientIds,
+    toTryOnly,
+    favoritesOnly,
+    reloadSignal
+  ]);
 
   const toggleInSet = (setter: React.Dispatch<React.SetStateAction<Set<number>>>, id: number) => {
     setter((prev) => {
@@ -76,6 +87,11 @@ export function CookbookShell() {
 
   const handleToggleWantToTry = async (id: number, want: boolean) => {
     await setWantToTry(id, want);
+    bumpReload();
+  };
+
+  const handleToggleFavorite = async (id: number, favorite: boolean) => {
+    await setFavorite(id, favorite);
     bumpReload();
   };
 
@@ -115,6 +131,8 @@ export function CookbookShell() {
           onToggleIngredient={(id) => toggleInSet(setSelectedIngredientIds, id)}
           toTryOnly={toTryOnly}
           onToggleToTryOnly={() => setToTryOnly((prev) => !prev)}
+          favoritesOnly={favoritesOnly}
+          onToggleFavoritesOnly={() => setFavoritesOnly((prev) => !prev)}
         />
 
         <div className="middle-content">
@@ -129,15 +147,18 @@ export function CookbookShell() {
           )}
 
           {viewMode === 'detail' && selectedRecipeId != null && (
-            <RecipeDetailPanel
-              recipeId={selectedRecipeId}
-              onDeleted={() => {
-                setSelectedRecipeId(null);
-                setViewMode('list');
-                bumpReload();
-              }}
-              onChanged={bumpReload}
-            />
+            <>
+              <RecipeDetailPanel
+                recipeId={selectedRecipeId}
+                onDeleted={() => {
+                  setSelectedRecipeId(null);
+                  setViewMode('list');
+                  bumpReload();
+                }}
+                onChanged={bumpReload}
+              />
+              <CookingLogPanel recipeId={selectedRecipeId} onChanged={bumpReload} />
+            </>
           )}
 
           {viewMode === 'list' &&
@@ -152,6 +173,7 @@ export function CookbookShell() {
                     key={recipe.id}
                     recipe={recipe}
                     onToggleWantToTry={handleToggleWantToTry}
+                    onToggleFavorite={handleToggleFavorite}
                     onSelect={handleSelectRecipe}
                   />
                 ))}
@@ -159,10 +181,6 @@ export function CookbookShell() {
             ))}
         </div>
       </main>
-
-      <aside className="shell-pane shell-pane-right">
-        <div className="shell-pane-placeholder muted">Reserved for later.</div>
-      </aside>
     </div>
   );
 }

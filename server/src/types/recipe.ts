@@ -12,4 +12,12 @@ export type RecipeDraft = {
   ingredients: ParsedIngredientLine[];
   instructions: string[];
   rawText: string;
+  // Only populated when the draft came from structured data (e.g. a site's
+  // schema.org Recipe JSON-LD) — the plain-text paste splitter has no way to
+  // know these, so they stay undefined for that path.
+  servings?: string | null;
+  totalTimeMinutes?: number | null;
+  cuisineNames?: string[];
+  imageUrl?: string | null;
+  sourceName?: string | null;
 };

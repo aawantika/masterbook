@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { createRecipe, getCuisines, getMealTypes, parseManualPaste } from '../api/client';
+import { createRecipe, fetchRecipeFromUrl, getCuisines, getMealTypes, parseManualPaste } from '../api/client';
 import { MetaItem, RecipeDraft, RecipeInput, SourceType } from '../api/types';
 import { RecipeDraftEditor } from './RecipeDraftEditor';
 
@@ -10,11 +10,15 @@ type ImportPanelProps = {
 
 export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
   const [pasteText, setPasteText] = useState('');
+  const [fetchUrl, setFetchUrl] = useState('');
   const [sourceType, setSourceType] = useState<SourceType>('instagram');
   const [sourceRef, setSourceRef] = useState('');
   const [draft, setDraft] = useState<RecipeDraft | null>(null);
   const [mealTypes, setMealTypes] = useState<MetaItem[]>([]);
   const [cuisines, setCuisines] = useState<MetaItem[]>([]);
+  const [fetching, setFetching] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [fetchNotice, setFetchNotice] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([getMealTypes(), getCuisines()]).then(([mt, c]) => {
@@ -27,6 +31,31 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
     if (!pasteText.trim()) return;
     const parsed = await parseManualPaste(pasteText);
     setDraft(parsed);
+  };
+
+  const handleFetch = async () => {
+    if (!fetchUrl.trim()) return;
+    setFetching(true);
+    setFetchError(null);
+    setFetchNotice(null);
+    try {
+      const result = await fetchRecipeFromUrl(fetchUrl.trim());
+      setSourceRef(fetchUrl.trim());
+      setDraft(result);
+      if (!result.usedStructuredData) {
+        setFetchNotice(
+          "This page didn't have structured recipe data — split from the page text instead, so double-check it carefully."
+        );
+      }
+    } catch (err) {
+      setFetchError(
+        err instanceof Error
+          ? `${err.message}. Try pasting the recipe text instead.`
+          : 'Failed to fetch that page. Try pasting the recipe text instead.'
+      );
+    } finally {
+      setFetching(false);
+    }
   };
 
   const handleSave = async (input: RecipeInput) => {
@@ -48,6 +77,25 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
               <option value="manual">Manual</option>
             </select>
           </label>
+
+          {sourceType === 'website' && (
+            <>
+              <label className="field">
+                <span>Fetch from URL</span>
+                <input
+                  value={fetchUrl}
+                  onChange={(e) => setFetchUrl(e.target.value)}
+                  placeholder="https://www.example.com/some-recipe"
+                />
+              </label>
+              {fetchError && <div className="editor-error">{fetchError}</div>}
+              <button type="button" onClick={handleFetch} disabled={fetching}>
+                {fetching ? 'Fetching...' : 'Fetch recipe'}
+              </button>
+              <div className="import-divider">— or paste the recipe text below —</div>
+            </>
+          )}
+
           <label className="field">
             <span>Source URL / reference (optional)</span>
             <input value={sourceRef} onChange={(e) => setSourceRef(e.target.value)} placeholder="https://..." />
@@ -71,13 +119,22 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
           </div>
         </div>
       ) : (
-        <RecipeDraftEditor
-          initial={{ ...draft, sourceType, sourceRef, mealTypeIds: [], cuisineNames: [] }}
-          mealTypes={mealTypes}
-          cuisineSuggestions={cuisines}
-          onSave={handleSave}
-          onCancel={() => setDraft(null)}
-        />
+        <>
+          {fetchNotice && <div className="editor-notice">{fetchNotice}</div>}
+          <RecipeDraftEditor
+            initial={{
+              ...draft,
+              sourceType,
+              sourceRef,
+              mealTypeIds: [],
+              cuisineNames: draft.cuisineNames ?? []
+            }}
+            mealTypes={mealTypes}
+            cuisineSuggestions={cuisines}
+            onSave={handleSave}
+            onCancel={() => setDraft(null)}
+          />
+        </>
       )}
     </div>
   );

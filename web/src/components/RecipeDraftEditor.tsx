@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { MetaItem, ParsedIngredientLine, RecipeInput, SourceType } from '../api/types';
+import { CANONICAL_UNITS } from '../constants';
+import { AutoGrowTextarea } from './AutoGrowTextarea';
 
 type RecipeDraftEditorProps = {
   initial?: Partial<RecipeInput>;
@@ -24,11 +26,8 @@ export function RecipeDraftEditor({
 }: RecipeDraftEditorProps) {
   const [title, setTitle] = useState(initial?.title ?? '');
   const [servings, setServings] = useState(initial?.servings ?? '');
-  const [prepTimeMinutes, setPrepTimeMinutes] = useState<string>(
-    initial?.prepTimeMinutes != null ? String(initial.prepTimeMinutes) : ''
-  );
-  const [cookTimeMinutes, setCookTimeMinutes] = useState<string>(
-    initial?.cookTimeMinutes != null ? String(initial.cookTimeMinutes) : ''
+  const [totalTimeMinutes, setTotalTimeMinutes] = useState<string>(
+    initial?.totalTimeMinutes != null ? String(initial.totalTimeMinutes) : ''
   );
   const [ingredients, setIngredients] = useState<ParsedIngredientLine[]>(
     initial?.ingredients && initial.ingredients.length > 0 ? initial.ingredients : [emptyIngredient()]
@@ -37,10 +36,12 @@ export function RecipeDraftEditor({
     initial?.instructions && initial.instructions.length > 0 ? initial.instructions : ['']
   );
   const [mealTypeIds, setMealTypeIds] = useState<Set<number>>(new Set(initial?.mealTypeIds ?? []));
-  const [cuisineText, setCuisineText] = useState((initial?.cuisineNames ?? []).join(', '));
+  const [cuisineNames, setCuisineNames] = useState<Set<string>>(new Set(initial?.cuisineNames ?? []));
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const [sourceType] = useState<SourceType>(initial?.sourceType ?? 'manual');
   const [sourceRef, setSourceRef] = useState(initial?.sourceRef ?? '');
+  const [sourceName, setSourceName] = useState(initial?.sourceName ?? '');
+  const [imageUrl, setImageUrl] = useState(initial?.imageUrl ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,6 +70,15 @@ export function RecipeDraftEditor({
     });
   };
 
+  const toggleCuisine = (name: string) => {
+    setCuisineNames((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
   const handleSave = async () => {
     setError(null);
     if (!title.trim()) {
@@ -81,24 +91,21 @@ export function RecipeDraftEditor({
         .filter((ing) => ing.name.trim() || ing.rawText.trim())
         .map((ing) => ({ ...ing, rawText: ing.rawText || [ing.quantity, ing.unit, ing.name].filter(Boolean).join(' ') }));
       const cleanedInstructions = instructions.map((step) => step.trim()).filter(Boolean);
-      const cuisineNames = cuisineText
-        .split(',')
-        .map((name) => name.trim())
-        .filter(Boolean);
 
       const input: RecipeInput = {
         title: title.trim(),
         servings: servings.trim() || null,
-        prepTimeMinutes: prepTimeMinutes.trim() ? Number(prepTimeMinutes) : null,
-        cookTimeMinutes: cookTimeMinutes.trim() ? Number(cookTimeMinutes) : null,
+        totalTimeMinutes: totalTimeMinutes.trim() ? Number(totalTimeMinutes) : null,
         instructions: cleanedInstructions,
         ingredients: cleanedIngredients,
         rawText: initial?.rawText ?? '',
         sourceType,
         sourceRef: sourceRef.trim() || null,
+        sourceName: sourceName.trim() || null,
+        imageUrl: imageUrl.trim() || null,
         notes: notes.trim() || null,
         mealTypeIds: Array.from(mealTypeIds),
-        cuisineNames
+        cuisineNames: Array.from(cuisineNames)
       };
       await onSave(input);
     } catch (err) {
@@ -123,28 +130,39 @@ export function RecipeDraftEditor({
           <input value={servings ?? ''} onChange={(e) => setServings(e.target.value)} placeholder="e.g. 4" />
         </label>
         <label className="field">
-          <span>Prep time (min)</span>
+          <span>Total time (min)</span>
           <input
             type="number"
             min={0}
-            value={prepTimeMinutes}
-            onChange={(e) => setPrepTimeMinutes(e.target.value)}
-          />
-        </label>
-        <label className="field">
-          <span>Cook time (min)</span>
-          <input
-            type="number"
-            min={0}
-            value={cookTimeMinutes}
-            onChange={(e) => setCookTimeMinutes(e.target.value)}
+            value={totalTimeMinutes}
+            onChange={(e) => setTotalTimeMinutes(e.target.value)}
           />
         </label>
       </div>
 
+      <div className="field-row">
+        <label className="field">
+          <span>Source name</span>
+          <input
+            value={sourceName}
+            onChange={(e) => setSourceName(e.target.value)}
+            placeholder="e.g. The Woks of Life, @handle, cookbook title"
+          />
+        </label>
+        <label className="field">
+          <span>Source link</span>
+          <input value={sourceRef ?? ''} onChange={(e) => setSourceRef(e.target.value)} placeholder="Optional" />
+        </label>
+      </div>
+
       <label className="field">
-        <span>Source (URL, book title, etc.)</span>
-        <input value={sourceRef ?? ''} onChange={(e) => setSourceRef(e.target.value)} placeholder="Optional" />
+        <span>Image URL</span>
+        <input
+          value={imageUrl}
+          onChange={(e) => setImageUrl(e.target.value)}
+          placeholder="https://... (optional — never downloaded, just linked)"
+        />
+        {imageUrl.trim() && <img className="editor-image-preview" src={imageUrl.trim()} alt="" />}
       </label>
 
       <fieldset className="field">
@@ -159,48 +177,57 @@ export function RecipeDraftEditor({
         </div>
       </fieldset>
 
-      <label className="field">
-        <span>Cuisine (comma-separated)</span>
-        <input
-          value={cuisineText}
-          onChange={(e) => setCuisineText(e.target.value)}
-          placeholder="e.g. Italian, Fusion"
-          list="cuisine-suggestions"
-        />
-        <datalist id="cuisine-suggestions">
+      <fieldset className="field">
+        <legend>Cuisine</legend>
+        <div className="chip-checkbox-row">
           {cuisineSuggestions.map((c) => (
-            <option key={c.id} value={c.name} />
+            <label key={c.id} className={`chip-checkbox${cuisineNames.has(c.name) ? ' active' : ''}`}>
+              <input type="checkbox" checked={cuisineNames.has(c.name)} onChange={() => toggleCuisine(c.name)} />
+              {c.name}
+            </label>
           ))}
-        </datalist>
-      </label>
+        </div>
+      </fieldset>
 
       <div className="field">
         <span>Ingredients</span>
-        {ingredients.map((ingredient, index) => (
-          <div className="ingredient-row" key={index}>
-            <input
-              className="ingredient-quantity"
-              value={ingredient.quantity ?? ''}
-              onChange={(e) => updateIngredient(index, { quantity: e.target.value })}
-              placeholder="qty"
-            />
-            <input
-              className="ingredient-unit"
-              value={ingredient.unit ?? ''}
-              onChange={(e) => updateIngredient(index, { unit: e.target.value })}
-              placeholder="unit"
-            />
-            <input
-              className="ingredient-name"
-              value={ingredient.name}
-              onChange={(e) => updateIngredient(index, { name: e.target.value })}
-              placeholder="ingredient"
-            />
-            <button type="button" onClick={() => removeIngredient(index)} title="Remove ingredient">
-              ×
-            </button>
-          </div>
-        ))}
+        {ingredients.map((ingredient, index) => {
+          const unitOptions =
+            ingredient.unit && !CANONICAL_UNITS.includes(ingredient.unit)
+              ? [ingredient.unit, ...CANONICAL_UNITS]
+              : CANONICAL_UNITS;
+          return (
+            <div className="ingredient-row" key={index}>
+              <input
+                className="ingredient-quantity"
+                value={ingredient.quantity ?? ''}
+                onChange={(e) => updateIngredient(index, { quantity: e.target.value })}
+                placeholder="qty"
+              />
+              <select
+                className="ingredient-unit"
+                value={ingredient.unit ?? ''}
+                onChange={(e) => updateIngredient(index, { unit: e.target.value || null })}
+              >
+                <option value="">unit</option>
+                {unitOptions.map((unit) => (
+                  <option key={unit} value={unit}>
+                    {unit}
+                  </option>
+                ))}
+              </select>
+              <input
+                className="ingredient-name"
+                value={ingredient.name}
+                onChange={(e) => updateIngredient(index, { name: e.target.value })}
+                placeholder="ingredient"
+              />
+              <button type="button" onClick={() => removeIngredient(index)} title="Remove ingredient">
+                ×
+              </button>
+            </div>
+          );
+        })}
         <button type="button" onClick={() => setIngredients((prev) => [...prev, emptyIngredient()])}>
           + Add ingredient
         </button>
@@ -211,11 +238,10 @@ export function RecipeDraftEditor({
         {instructions.map((step, index) => (
           <div className="instruction-row" key={index}>
             <span className="instruction-index">{index + 1}.</span>
-            <textarea
+            <AutoGrowTextarea
               value={step}
-              onChange={(e) => updateInstruction(index, e.target.value)}
+              onChange={(value) => updateInstruction(index, value)}
               placeholder={`Step ${index + 1}`}
-              rows={2}
             />
             <button type="button" onClick={() => removeInstruction(index)} title="Remove step">
               ×

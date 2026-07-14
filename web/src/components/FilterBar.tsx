@@ -14,6 +14,8 @@ type FilterBarProps = {
   onToggleIngredient: (id: number) => void;
   toTryOnly: boolean;
   onToggleToTryOnly: () => void;
+  favoritesOnly: boolean;
+  onToggleFavoritesOnly: () => void;
 };
 
 function FilterGroup({
@@ -59,7 +61,9 @@ export function FilterBar({
   selectedIngredientIds,
   onToggleIngredient,
   toTryOnly,
-  onToggleToTryOnly
+  onToggleToTryOnly,
+  favoritesOnly,
+  onToggleFavoritesOnly
 }: FilterBarProps) {
   return (
     <div className="filter-bar">
@@ -75,7 +79,14 @@ export function FilterBar({
           className={`chip-checkbox to-try-toggle${toTryOnly ? ' active' : ''}`}
           onClick={onToggleToTryOnly}
         >
-          ★ To Try
+          ★ Queue
+        </button>
+        <button
+          type="button"
+          className={`chip-checkbox to-try-toggle${favoritesOnly ? ' active' : ''}`}
+          onClick={onToggleFavoritesOnly}
+        >
+          ❤ Favorites
         </button>
         <FilterGroup label="Meal type" items={mealTypes} selected={selectedMealTypeIds} onToggle={onToggleMealType} />
         <FilterGroup label="Cuisine" items={cuisines} selected={selectedCuisineIds} onToggle={onToggleCuisine} />

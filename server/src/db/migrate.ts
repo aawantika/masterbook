@@ -1,8 +1,40 @@
 import { db, getSchemaSql } from './client.js';
-import { seed } from './seed.js';
+import { seed, pruneStaleCuisines } from './seed.js';
+
+// Ad-hoc column migration for existing dev databases — `CREATE TABLE IF NOT
+// EXISTS` in schema.sql only affects brand-new tables, so a real schema
+// change on an already-created table needs an explicit ALTER TABLE step,
+// guarded by checking what columns currently exist.
+function migrateRecipeTimeColumns(): void {
+  const columns = db.prepare('PRAGMA table_info(recipes)').all() as Array<{ name: string }>;
+  const names = new Set(columns.map((c) => c.name));
+
+  if (!names.has('total_time_minutes')) {
+    db.exec('ALTER TABLE recipes ADD COLUMN total_time_minutes INTEGER');
+    if (names.has('prep_time_minutes') || names.has('cook_time_minutes')) {
+      db.exec(`
+        UPDATE recipes
+        SET total_time_minutes = COALESCE(prep_time_minutes, 0) + COALESCE(cook_time_minutes, 0)
+        WHERE prep_time_minutes IS NOT NULL OR cook_time_minutes IS NOT NULL
+      `);
+    }
+  }
+  if (names.has('prep_time_minutes')) db.exec('ALTER TABLE recipes DROP COLUMN prep_time_minutes');
+  if (names.has('cook_time_minutes')) db.exec('ALTER TABLE recipes DROP COLUMN cook_time_minutes');
+}
+
+function migrateNewColumns(): void {
+  const columns = db.prepare('PRAGMA table_info(recipes)').all() as Array<{ name: string }>;
+  const names = new Set(columns.map((c) => c.name));
+  if (!names.has('favorited_at')) db.exec('ALTER TABLE recipes ADD COLUMN favorited_at TEXT');
+  if (!names.has('image_url')) db.exec('ALTER TABLE recipes ADD COLUMN image_url TEXT');
+  if (!names.has('source_name')) db.exec('ALTER TABLE recipes ADD COLUMN source_name TEXT');
+}
 
 export function migrate(): void {
   db.exec(getSchemaSql());
+  migrateRecipeTimeColumns();
+  migrateNewColumns();
 
   const fts5Check = db.prepare(
     "SELECT count(*) as count FROM pragma_compile_options WHERE compile_options LIKE '%FTS5%'"
@@ -15,6 +47,7 @@ export function migrate(): void {
   }
 
   seed();
+  pruneStaleCuisines();
 }
 
 const isMain = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;

@@ -17,6 +17,21 @@ type RecipeDetailPanelProps = {
   onChanged: () => void;
 };
 
+type IngredientDisplayGroup = { section: string | null; items: RecipeDetail['ingredients'] };
+
+function groupIngredientsForDisplay(ingredients: RecipeDetail['ingredients']): IngredientDisplayGroup[] {
+  const groups: IngredientDisplayGroup[] = [];
+  for (const ing of ingredients) {
+    const last = groups[groups.length - 1];
+    if (last && last.section === ing.section) {
+      last.items.push(ing);
+    } else {
+      groups.push({ section: ing.section, items: [ing] });
+    }
+  }
+  return groups;
+}
+
 export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDetailPanelProps) {
   const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
   const [mealTypes, setMealTypes] = useState<MetaItem[]>([]);
@@ -136,11 +151,16 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
       <div className="recipe-detail-body">
         <div className="recipe-ingredients">
           <h3>Ingredients</h3>
-          <ul>
-            {recipe.ingredients.map((ing, i) => (
-              <li key={i}>{ing.rawText || [ing.quantity, ing.unit, ing.name].filter(Boolean).join(' ')}</li>
-            ))}
-          </ul>
+          {groupIngredientsForDisplay(recipe.ingredients).map((group, groupIndex) => (
+            <div className="ingredient-display-group" key={groupIndex}>
+              {group.section && <h4 className="ingredient-section-heading">{group.section}</h4>}
+              <ul>
+                {group.items.map((ing, i) => (
+                  <li key={i}>{ing.rawText || [ing.quantity, ing.unit, ing.name].filter(Boolean).join(' ')}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
         <div className="recipe-instructions">
           <h3>Instructions</h3>

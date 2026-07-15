@@ -144,21 +144,6 @@ export function Sidebar({ selectedRecipeId, onSelectRecipe, reloadSignal }: Side
         </button>
       </div>
 
-      {recipes.length === 0 ? (
-        <div className="sidebar-empty muted">No recipes yet.</div>
-      ) : (
-        <div className="sidebar-tree">
-          {groups.map((group) => (
-            <details key={group.label} open>
-              <summary>
-                {group.label} <span className="sidebar-count">({group.recipes.length})</span>
-              </summary>
-              <RecipeLinkList recipes={group.recipes} selectedRecipeId={selectedRecipeId} onSelectRecipe={onSelectRecipe} />
-            </details>
-          ))}
-        </div>
-      )}
-
       <details className="sidebar-quick-section">
         <summary>
           ★ Queue <span className="sidebar-count">({queueRecipes.length})</span>
@@ -184,6 +169,21 @@ export function Sidebar({ selectedRecipeId, onSelectRecipe, reloadSignal }: Side
           />
         )}
       </details>
+
+      {recipes.length === 0 ? (
+        <div className="sidebar-empty muted">No recipes yet.</div>
+      ) : (
+        <div className="sidebar-tree">
+          {groups.map((group) => (
+            <details key={group.label} open>
+              <summary>
+                {group.label} <span className="sidebar-count">({group.recipes.length})</span>
+              </summary>
+              <RecipeLinkList recipes={group.recipes} selectedRecipeId={selectedRecipeId} onSelectRecipe={onSelectRecipe} />
+            </details>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

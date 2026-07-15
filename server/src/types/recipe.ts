@@ -5,6 +5,8 @@ export type ParsedIngredientLine = {
   quantity: string | null;
   unit: string | null;
   name: string;
+  // e.g. "For the chicken" — null for ingredients with no section grouping.
+  section: string | null;
 };
 
 export type RecipeDraft = {

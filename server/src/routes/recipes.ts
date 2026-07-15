@@ -16,7 +16,8 @@ const ingredientSchema = z.object({
   rawText: z.string(),
   quantity: z.string().nullable().default(null),
   unit: z.string().nullable().default(null),
-  name: z.string()
+  name: z.string(),
+  section: z.string().nullable().default(null)
 });
 
 const recipeInputSchema = z.object({

@@ -1,4 +1,4 @@
-import { parseIngredientLine } from './parseIngredientLine.js';
+import { groupIngredientLinesBySections } from './parseIngredientLine.js';
 import { RecipeDraft } from '../../types/recipe.js';
 
 const INGREDIENTS_HEADING = /^ingredients?\s*:?\s*$/i;
@@ -38,7 +38,7 @@ export function parseManualPaste(input: string): RecipeDraft {
 
   return {
     title,
-    ingredients: ingredientLines.map((line) => parseIngredientLine(stripLeadingMarker(line))),
+    ingredients: groupIngredientLinesBySections(ingredientLines.map(stripLeadingMarker)),
     instructions: instructionLines.map(stripLeadingMarker),
     rawText
   };

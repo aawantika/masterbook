@@ -5,6 +5,7 @@ export type ParsedIngredientLine = {
   quantity: string | null;
   unit: string | null;
   name: string;
+  section: string | null;
 };
 
 export type RecipeDraft = {

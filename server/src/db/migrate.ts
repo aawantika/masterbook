@@ -29,6 +29,11 @@ function migrateNewColumns(): void {
   if (!names.has('favorited_at')) db.exec('ALTER TABLE recipes ADD COLUMN favorited_at TEXT');
   if (!names.has('image_url')) db.exec('ALTER TABLE recipes ADD COLUMN image_url TEXT');
   if (!names.has('source_name')) db.exec('ALTER TABLE recipes ADD COLUMN source_name TEXT');
+
+  const ingredientColumns = db.prepare('PRAGMA table_info(recipe_ingredients)').all() as Array<{ name: string }>;
+  if (!ingredientColumns.some((c) => c.name === 'section')) {
+    db.exec('ALTER TABLE recipe_ingredients ADD COLUMN section TEXT');
+  }
 }
 
 export function migrate(): void {

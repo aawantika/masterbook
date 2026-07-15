@@ -50,6 +50,11 @@ html, body, #root {
   margin-bottom: 16px;
 }
 
+.shell-title-link {
+  color: inherit;
+  text-decoration: none;
+}
+
 .shell-title {
   font-size: 18px;
   margin: 0;
@@ -186,6 +191,7 @@ html, body, #root {
 }
 
 .button-link {
+  display: inline-block;
   padding: 8px 14px;
   border-radius: 8px;
   border: none;
@@ -193,6 +199,7 @@ html, body, #root {
   color: white;
   font-size: 14px;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .filter-bar {
@@ -402,6 +409,37 @@ html, body, #root {
   gap: 6px;
 }
 
+.ingredient-group {
+  margin-bottom: 12px;
+  padding-left: 10px;
+  border-left: 2px solid #f0e6d6;
+}
+
+.ingredient-section-label {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  margin: 0 0 8px;
+  padding: 4px 8px;
+  border: none;
+  border-bottom: 1px dashed #d1d5db;
+  background: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: #92400e;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ingredient-group-add {
+  padding: 4px 8px;
+  border: none;
+  background: none;
+  color: #6b7280;
+  font-size: 12px;
+  cursor: pointer;
+}
+
 .ingredient-row {
   display: flex;
   gap: 6px;
@@ -564,6 +602,19 @@ html, body, #root {
   display: grid;
   grid-template-columns: 1fr 2fr;
   gap: 24px;
+}
+
+.ingredient-display-group {
+  margin-bottom: 14px;
+}
+
+.ingredient-section-heading {
+  font-size: 12px;
+  font-weight: 600;
+  color: #92400e;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 0 0 4px;
 }
 
 .recipe-detail-actions {

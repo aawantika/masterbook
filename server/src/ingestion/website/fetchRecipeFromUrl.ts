@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { parseIngredientLine } from '../shared/parseIngredientLine.js';
+import { groupIngredientLinesBySections } from '../shared/parseIngredientLine.js';
 import { parseManualPaste } from '../shared/parseManualPaste.js';
 import { RecipeDraft } from '../../types/recipe.js';
 
@@ -175,7 +175,12 @@ export async function fetchRecipeFromUrl(url: string): Promise<WebsiteFetchResul
     const cuisineNames = extractStringList(node.recipeCuisine);
     const imageUrl = extractImageUrl(node.image);
     const sourceName = deriveSourceNameFromUrl(url);
-    const ingredients = ingredientLines.map((line) => parseIngredientLine(line));
+    // Schema.org's Recipe spec has no official ingredient-group field, so
+    // sites that display sectioned ingredients ("For the chicken") often
+    // just embed the header as a plain string within the flat
+    // recipeIngredient array — the same section-detection heuristic used
+    // for manual pastes picks these up here too.
+    const ingredients = groupIngredientLinesBySections(ingredientLines);
 
     return {
       title,

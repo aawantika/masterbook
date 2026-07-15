@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS recipe_ingredients (
   raw_text TEXT NOT NULL,
   quantity TEXT,
   unit TEXT,
+  section TEXT,
   position INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_recipe_ingredients_recipe ON recipe_ingredients(recipe_id);

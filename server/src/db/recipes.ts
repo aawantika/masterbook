@@ -40,11 +40,11 @@ function getOrCreateCuisine(name: string): number | null {
 function writeIngredients(recipeId: number, ingredients: ParsedIngredientLine[]): string {
   db.prepare('DELETE FROM recipe_ingredients WHERE recipe_id = ?').run(recipeId);
   const insert = db.prepare(
-    'INSERT INTO recipe_ingredients (recipe_id, ingredient_id, raw_text, quantity, unit, position) VALUES (?, ?, ?, ?, ?, ?)'
+    'INSERT INTO recipe_ingredients (recipe_id, ingredient_id, raw_text, quantity, unit, section, position) VALUES (?, ?, ?, ?, ?, ?, ?)'
   );
   ingredients.forEach((ingredient, index) => {
     const ingredientId = getOrCreateIngredient(ingredient.name);
-    insert.run(recipeId, ingredientId, ingredient.rawText, ingredient.quantity, ingredient.unit, index);
+    insert.run(recipeId, ingredientId, ingredient.rawText, ingredient.quantity, ingredient.unit, ingredient.section, index);
   });
   return ingredients.map((i) => i.rawText).join('\n');
 }
@@ -268,7 +268,13 @@ export type RecipeDetail = {
   servings: string | null;
   totalTimeMinutes: number | null;
   instructions: string[];
-  ingredients: Array<{ rawText: string; quantity: string | null; unit: string | null; name: string | null }>;
+  ingredients: Array<{
+    rawText: string;
+    quantity: string | null;
+    unit: string | null;
+    name: string | null;
+    section: string | null;
+  }>;
   rawText: string;
   sourceType: string;
   sourceRef: string | null;
@@ -304,12 +310,18 @@ export function getRecipeById(recipeId: number): RecipeDetail | null {
 
   const ingredients = db
     .prepare(
-      `SELECT ri.raw_text, ri.quantity, ri.unit, ic.canonical_name as name
+      `SELECT ri.raw_text, ri.quantity, ri.unit, ri.section, ic.canonical_name as name
        FROM recipe_ingredients ri
        LEFT JOIN ingredient_catalog ic ON ic.id = ri.ingredient_id
        WHERE ri.recipe_id = ? ORDER BY ri.position ASC`
     )
-    .all(recipeId) as Array<{ raw_text: string; quantity: string | null; unit: string | null; name: string | null }>;
+    .all(recipeId) as Array<{
+    raw_text: string;
+    quantity: string | null;
+    unit: string | null;
+    section: string | null;
+    name: string | null;
+  }>;
 
   const mealTypeIds = (
     db.prepare('SELECT meal_type_id FROM recipe_meal_types WHERE recipe_id = ?').all(recipeId) as Array<{
@@ -335,7 +347,13 @@ export function getRecipeById(recipeId: number): RecipeDetail | null {
     servings: row.servings,
     totalTimeMinutes: row.total_time_minutes,
     instructions: JSON.parse(row.instructions_json || '[]'),
-    ingredients: ingredients.map((i) => ({ rawText: i.raw_text, quantity: i.quantity, unit: i.unit, name: i.name })),
+    ingredients: ingredients.map((i) => ({
+      rawText: i.raw_text,
+      quantity: i.quantity,
+      unit: i.unit,
+      name: i.name,
+      section: i.section
+    })),
     rawText: row.raw_text,
     sourceType: row.source_type,
     sourceRef: row.source_ref,

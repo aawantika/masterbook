@@ -1,12 +1,8 @@
 import { useEffect, useState } from 'react';
+import { Link, Outlet, useNavigate, useParams } from 'react-router-dom';
 import { getCuisines, getIngredientNames, getMealTypes, searchRecipes, setFavorite, setWantToTry } from './api/client';
 import { MetaItem, RecipeSummary } from './api/types';
 import { Sidebar } from './components/Sidebar';
-import { FilterBar } from './components/FilterBar';
-import { RecipeCard } from './components/RecipeCard';
-import { RecipeDetailPanel } from './components/RecipeDetailPanel';
-import { ImportPanel } from './components/ImportPanel';
-import { CookingLogPanel } from './components/CookingLogPanel';
 
 function useDebounced<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -17,11 +13,34 @@ function useDebounced<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
-type ViewMode = 'list' | 'detail' | 'import';
+export type ShellContext = {
+  bumpReload: () => void;
+  query: string;
+  setQuery: (value: string) => void;
+  mealTypes: MetaItem[];
+  cuisines: MetaItem[];
+  ingredients: MetaItem[];
+  selectedMealTypeIds: Set<number>;
+  toggleMealType: (id: number) => void;
+  selectedCuisineIds: Set<number>;
+  toggleCuisine: (id: number) => void;
+  selectedIngredientIds: Set<number>;
+  toggleIngredient: (id: number) => void;
+  toTryOnly: boolean;
+  toggleToTryOnly: () => void;
+  favoritesOnly: boolean;
+  toggleFavoritesOnly: () => void;
+  results: RecipeSummary[];
+  loading: boolean;
+  handleToggleWantToTry: (id: number, want: boolean) => void;
+  handleToggleFavorite: (id: number, favorite: boolean) => void;
+};
 
 export function CookbookShell() {
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [selectedRecipeId, setSelectedRecipeId] = useState<number | null>(null);
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const selectedRecipeId = id ? Number(id) : null;
+
   const [reloadSignal, setReloadSignal] = useState(0);
   const bumpReload = () => setReloadSignal((n) => n + 1);
 
@@ -85,100 +104,61 @@ export function CookbookShell() {
     });
   };
 
-  const handleToggleWantToTry = async (id: number, want: boolean) => {
-    await setWantToTry(id, want);
+  const handleToggleWantToTry = async (recipeId: number, want: boolean) => {
+    await setWantToTry(recipeId, want);
     bumpReload();
   };
 
-  const handleToggleFavorite = async (id: number, favorite: boolean) => {
-    await setFavorite(id, favorite);
+  const handleToggleFavorite = async (recipeId: number, favorite: boolean) => {
+    await setFavorite(recipeId, favorite);
     bumpReload();
   };
 
-  const handleSelectRecipe = (id: number) => {
-    setSelectedRecipeId(id);
-    setViewMode('detail');
+  const context: ShellContext = {
+    bumpReload,
+    query,
+    setQuery,
+    mealTypes,
+    cuisines,
+    ingredients,
+    selectedMealTypeIds,
+    toggleMealType: (mealTypeId) => toggleInSet(setSelectedMealTypeIds, mealTypeId),
+    selectedCuisineIds,
+    toggleCuisine: (cuisineId) => toggleInSet(setSelectedCuisineIds, cuisineId),
+    selectedIngredientIds,
+    toggleIngredient: (ingredientId) => toggleInSet(setSelectedIngredientIds, ingredientId),
+    toTryOnly,
+    toggleToTryOnly: () => setToTryOnly((prev) => !prev),
+    favoritesOnly,
+    toggleFavoritesOnly: () => setFavoritesOnly((prev) => !prev),
+    results,
+    loading,
+    handleToggleWantToTry,
+    handleToggleFavorite
   };
 
   return (
     <div className="cookbook-shell">
       <aside className="shell-pane shell-pane-left">
-        <Sidebar selectedRecipeId={selectedRecipeId} onSelectRecipe={handleSelectRecipe} reloadSignal={reloadSignal} />
+        <Sidebar
+          selectedRecipeId={selectedRecipeId}
+          onSelectRecipe={(recipeId) => navigate(`/recipes/${recipeId}`)}
+          reloadSignal={reloadSignal}
+        />
       </aside>
 
       <main className="shell-pane shell-pane-middle">
         <div className="middle-topbar">
-          <h1 className="shell-title">Local Cookbook</h1>
-          <button type="button" className="button-link" onClick={() => setViewMode('import')}>
+          <Link to="/" className="shell-title-link">
+            <h1 className="shell-title">Local Cookbook</h1>
+          </Link>
+          <Link to="/add" className="button-link">
             + Add recipe
-          </button>
+          </Link>
         </div>
 
-        <FilterBar
-          query={query}
-          onQueryChange={(value) => {
-            setQuery(value);
-            setViewMode('list');
-          }}
-          mealTypes={mealTypes}
-          selectedMealTypeIds={selectedMealTypeIds}
-          onToggleMealType={(id) => toggleInSet(setSelectedMealTypeIds, id)}
-          cuisines={cuisines}
-          selectedCuisineIds={selectedCuisineIds}
-          onToggleCuisine={(id) => toggleInSet(setSelectedCuisineIds, id)}
-          ingredients={ingredients}
-          selectedIngredientIds={selectedIngredientIds}
-          onToggleIngredient={(id) => toggleInSet(setSelectedIngredientIds, id)}
-          toTryOnly={toTryOnly}
-          onToggleToTryOnly={() => setToTryOnly((prev) => !prev)}
-          favoritesOnly={favoritesOnly}
-          onToggleFavoritesOnly={() => setFavoritesOnly((prev) => !prev)}
-        />
-
         <div className="middle-content">
-          {viewMode === 'import' && (
-            <ImportPanel
-              onCreated={(id) => {
-                bumpReload();
-                handleSelectRecipe(id);
-              }}
-              onCancel={() => setViewMode('list')}
-            />
-          )}
-
-          {viewMode === 'detail' && selectedRecipeId != null && (
-            <>
-              <RecipeDetailPanel
-                recipeId={selectedRecipeId}
-                onDeleted={() => {
-                  setSelectedRecipeId(null);
-                  setViewMode('list');
-                  bumpReload();
-                }}
-                onChanged={bumpReload}
-              />
-              <CookingLogPanel recipeId={selectedRecipeId} onChanged={bumpReload} />
-            </>
-          )}
-
-          {viewMode === 'list' &&
-            (loading ? (
-              <div className="muted">Loading...</div>
-            ) : results.length === 0 ? (
-              <div className="muted">No recipes match. Try adjusting filters, or add a new recipe.</div>
-            ) : (
-              <div className="recipe-grid">
-                {results.map((recipe) => (
-                  <RecipeCard
-                    key={recipe.id}
-                    recipe={recipe}
-                    onToggleWantToTry={handleToggleWantToTry}
-                    onToggleFavorite={handleToggleFavorite}
-                    onSelect={handleSelectRecipe}
-                  />
-                ))}
-              </div>
-            ))}
+          <Outlet context={context} />
         </div>
       </main>
     </div>

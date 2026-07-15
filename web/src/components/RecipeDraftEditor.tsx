@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { MetaItem, ParsedIngredientLine, RecipeInput, SourceType } from '../api/types';
 import { CANONICAL_UNITS } from '../constants';
 import { AutoGrowTextarea } from './AutoGrowTextarea';
@@ -12,8 +12,27 @@ type RecipeDraftEditorProps = {
   saveLabel?: string;
 };
 
-function emptyIngredient(): ParsedIngredientLine {
-  return { rawText: '', quantity: null, unit: null, name: '' };
+function emptyIngredient(section: string | null = null): ParsedIngredientLine {
+  return { rawText: '', quantity: null, unit: null, name: '', section };
+}
+
+type IngredientGroup = { section: string | null; indices: number[] };
+
+// Consecutive ingredients sharing the same section value render as one
+// visual group with a single editable header — matches how sections are
+// actually stored (a flat list, each row tagged with its section) without
+// needing a separate nested data shape just for the editor.
+function groupIngredientsBySection(ingredients: ParsedIngredientLine[]): IngredientGroup[] {
+  const groups: IngredientGroup[] = [];
+  ingredients.forEach((ing, index) => {
+    const last = groups[groups.length - 1];
+    if (last && last.section === ing.section) {
+      last.indices.push(index);
+    } else {
+      groups.push({ section: ing.section, indices: [index] });
+    }
+  });
+  return groups;
 }
 
 export function RecipeDraftEditor({
@@ -53,6 +72,28 @@ export function RecipeDraftEditor({
     setIngredients((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const ingredientGroups = useMemo(() => groupIngredientsBySection(ingredients), [ingredients]);
+
+  // Stores exactly what's typed (including empty string mid-edit) rather
+  // than normalizing to null right away — collapsing to null the moment the
+  // field is empty would reclassify the group as "ungrouped" while the user
+  // is still typing. Empty sections get normalized to null at save time.
+  const updateGroupSection = (indices: number[], newLabel: string) => {
+    setIngredients((prev) => prev.map((ing, i) => (indices.includes(i) ? { ...ing, section: newLabel } : ing)));
+  };
+
+  const addIngredientToGroup = (afterIndex: number, section: string | null) => {
+    setIngredients((prev) => {
+      const next = [...prev];
+      next.splice(afterIndex + 1, 0, emptyIngredient(section));
+      return next;
+    });
+  };
+
+  const addSection = () => {
+    setIngredients((prev) => [...prev, emptyIngredient('')]);
+  };
+
   const updateInstruction = (index: number, value: string) => {
     setInstructions((prev) => prev.map((step, i) => (i === index ? value : step)));
   };
@@ -89,7 +130,11 @@ export function RecipeDraftEditor({
     try {
       const cleanedIngredients = ingredients
         .filter((ing) => ing.name.trim() || ing.rawText.trim())
-        .map((ing) => ({ ...ing, rawText: ing.rawText || [ing.quantity, ing.unit, ing.name].filter(Boolean).join(' ') }));
+        .map((ing) => ({
+          ...ing,
+          rawText: ing.rawText || [ing.quantity, ing.unit, ing.name].filter(Boolean).join(' '),
+          section: ing.section?.trim() || null
+        }));
       const cleanedInstructions = instructions.map((step) => step.trim()).filter(Boolean);
 
       const input: RecipeInput = {
@@ -191,45 +236,70 @@ export function RecipeDraftEditor({
 
       <div className="field">
         <span>Ingredients</span>
-        {ingredients.map((ingredient, index) => {
-          const unitOptions =
-            ingredient.unit && !CANONICAL_UNITS.includes(ingredient.unit)
-              ? [ingredient.unit, ...CANONICAL_UNITS]
-              : CANONICAL_UNITS;
-          return (
-            <div className="ingredient-row" key={index}>
+        {ingredients.length === 0 && (
+          <button type="button" onClick={() => setIngredients([emptyIngredient()])}>
+            + Add ingredient
+          </button>
+        )}
+        {ingredientGroups.map((group, groupIndex) => (
+          <div className="ingredient-group" key={groupIndex}>
+            {group.section !== null && (
               <input
-                className="ingredient-quantity"
-                value={ingredient.quantity ?? ''}
-                onChange={(e) => updateIngredient(index, { quantity: e.target.value })}
-                placeholder="qty"
+                className="ingredient-section-label"
+                value={group.section}
+                onChange={(e) => updateGroupSection(group.indices, e.target.value)}
+                placeholder="Section name (e.g. For the chicken)"
               />
-              <select
-                className="ingredient-unit"
-                value={ingredient.unit ?? ''}
-                onChange={(e) => updateIngredient(index, { unit: e.target.value || null })}
-              >
-                <option value="">unit</option>
-                {unitOptions.map((unit) => (
-                  <option key={unit} value={unit}>
-                    {unit}
-                  </option>
-                ))}
-              </select>
-              <input
-                className="ingredient-name"
-                value={ingredient.name}
-                onChange={(e) => updateIngredient(index, { name: e.target.value })}
-                placeholder="ingredient"
-              />
-              <button type="button" onClick={() => removeIngredient(index)} title="Remove ingredient">
-                ×
-              </button>
-            </div>
-          );
-        })}
-        <button type="button" onClick={() => setIngredients((prev) => [...prev, emptyIngredient()])}>
-          + Add ingredient
+            )}
+            {group.indices.map((index) => {
+              const ingredient = ingredients[index];
+              const unitOptions =
+                ingredient.unit && !CANONICAL_UNITS.includes(ingredient.unit)
+                  ? [ingredient.unit, ...CANONICAL_UNITS]
+                  : CANONICAL_UNITS;
+              return (
+                <div className="ingredient-row" key={index}>
+                  <input
+                    className="ingredient-quantity"
+                    value={ingredient.quantity ?? ''}
+                    onChange={(e) => updateIngredient(index, { quantity: e.target.value })}
+                    placeholder="qty"
+                  />
+                  <select
+                    className="ingredient-unit"
+                    value={ingredient.unit ?? ''}
+                    onChange={(e) => updateIngredient(index, { unit: e.target.value || null })}
+                  >
+                    <option value="">unit</option>
+                    {unitOptions.map((unit) => (
+                      <option key={unit} value={unit}>
+                        {unit}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="ingredient-name"
+                    value={ingredient.name}
+                    onChange={(e) => updateIngredient(index, { name: e.target.value })}
+                    placeholder="ingredient"
+                  />
+                  <button type="button" onClick={() => removeIngredient(index)} title="Remove ingredient">
+                    ×
+                  </button>
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              className="ingredient-group-add"
+              onClick={() => addIngredientToGroup(group.indices[group.indices.length - 1], group.section)}
+            >
+              + Add ingredient
+            </button>
+          </div>
+        ))}
+        <button type="button" className="secondary" onClick={addSection}>
+          + Add section
         </button>
       </div>
 

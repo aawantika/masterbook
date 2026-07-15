@@ -11,7 +11,7 @@ type ImportPanelProps = {
 export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
   const [pasteText, setPasteText] = useState('');
   const [fetchUrl, setFetchUrl] = useState('');
-  const [sourceType, setSourceType] = useState<SourceType>('instagram');
+  const [sourceType, setSourceType] = useState<SourceType>('manual');
   const [sourceRef, setSourceRef] = useState('');
   const [draft, setDraft] = useState<RecipeDraft | null>(null);
   const [mealTypes, setMealTypes] = useState<MetaItem[]>([]);
@@ -34,13 +34,34 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
   };
 
   const handleFetch = async () => {
-    if (!fetchUrl.trim()) return;
-    setFetching(true);
+    const url = fetchUrl.trim();
+    if (!url) return;
     setFetchError(null);
     setFetchNotice(null);
+
+    let hostname = '';
     try {
-      const result = await fetchRecipeFromUrl(fetchUrl.trim());
-      setSourceRef(fetchUrl.trim());
+      hostname = new URL(url).hostname.toLowerCase();
+    } catch {
+      setFetchError('That doesn\'t look like a valid link. Try pasting the recipe text instead.');
+      return;
+    }
+
+    // Instagram is login-gated and JS-rendered — there's no page to fetch and
+    // extract from, so skip straight to "paste the text" rather than trying
+    // and failing.
+    if (hostname.includes('instagram.com')) {
+      setSourceType('instagram');
+      setSourceRef(url);
+      setFetchNotice("Instagram can't be auto-fetched — paste the recipe text below and I'll structure it.");
+      return;
+    }
+
+    setFetching(true);
+    try {
+      const result = await fetchRecipeFromUrl(url);
+      setSourceType('website');
+      setSourceRef(url);
       setDraft(result);
       if (!result.usedStructuredData) {
         setFetchNotice(
@@ -70,36 +91,26 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
       {!draft ? (
         <div className="import-paste-box">
           <label className="field">
-            <span>Source</span>
-            <select value={sourceType} onChange={(e) => setSourceType(e.target.value as SourceType)}>
-              <option value="instagram">Instagram</option>
-              <option value="website">Website</option>
-              <option value="manual">Manual</option>
-            </select>
+            <span>Paste a website or Instagram link</span>
+            <input
+              value={fetchUrl}
+              onChange={(e) => setFetchUrl(e.target.value)}
+              placeholder="https://..."
+            />
           </label>
+          {fetchError && <div className="editor-error">{fetchError}</div>}
+          {fetchNotice && <div className="editor-notice">{fetchNotice}</div>}
+          <div className="editor-actions">
+            <button type="button" onClick={handleFetch} disabled={fetching}>
+              {fetching ? 'Fetching...' : 'Fetch recipe'}
+            </button>
+            <button type="button" className="secondary" disabled title="EPUB import isn't built yet">
+              + Add from EPUB (coming soon)
+            </button>
+          </div>
 
-          {sourceType === 'website' && (
-            <>
-              <label className="field">
-                <span>Fetch from URL</span>
-                <input
-                  value={fetchUrl}
-                  onChange={(e) => setFetchUrl(e.target.value)}
-                  placeholder="https://www.example.com/some-recipe"
-                />
-              </label>
-              {fetchError && <div className="editor-error">{fetchError}</div>}
-              <button type="button" onClick={handleFetch} disabled={fetching}>
-                {fetching ? 'Fetching...' : 'Fetch recipe'}
-              </button>
-              <div className="import-divider">— or paste the recipe text below —</div>
-            </>
-          )}
+          <div className="import-divider">— or paste the recipe text directly —</div>
 
-          <label className="field">
-            <span>Source URL / reference (optional)</span>
-            <input value={sourceRef} onChange={(e) => setSourceRef(e.target.value)} placeholder="https://..." />
-          </label>
           <label className="field">
             <span>Paste recipe text</span>
             <textarea

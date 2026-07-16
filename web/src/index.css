@@ -447,6 +447,23 @@ html, body, #root {
   margin-bottom: 6px;
 }
 
+.insert-section-btn {
+  padding: 2px 6px;
+  border: 1px dashed #d1d5db;
+  border-radius: 6px;
+  background: none;
+  color: #92400e;
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.ingredient-row:hover .insert-section-btn,
+.insert-section-btn:focus-visible {
+  opacity: 1;
+}
+
 .instruction-row {
   display: flex;
   gap: 6px;
@@ -596,6 +613,24 @@ html, body, #root {
   font-size: 13px;
   color: #6b7280;
   margin: 10px 0 20px;
+}
+
+.servings-scaler {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.servings-scaler button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  line-height: 1;
+}
+
+.servings-scaler input {
+  width: 44px;
+  text-align: center;
 }
 
 .recipe-detail-body {

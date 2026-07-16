@@ -79,3 +79,5 @@ export type RecipeDetail = {
 };
 
 export type MetaItem = { id: number; name: string };
+
+export type DuplicateMatch = { id: number; title: string; sourceName: string | null };

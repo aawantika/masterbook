@@ -1,4 +1,5 @@
 import {
+  DuplicateMatch,
   MetaItem,
   RecipeDetail,
   RecipeDraft,
@@ -76,6 +77,13 @@ export function getRecipe(id: number): Promise<RecipeDetail> {
 
 export function createRecipe(input: RecipeInput): Promise<RecipeDetail> {
   return request<RecipeDetail>('/recipes', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export function checkDuplicates(sourceRef: string | null, title: string): Promise<DuplicateMatch[]> {
+  const query = new URLSearchParams();
+  if (sourceRef) query.set('sourceRef', sourceRef);
+  if (title) query.set('title', title);
+  return request<DuplicateMatch[]>(`/recipes/duplicates?${query.toString()}`);
 }
 
 export function updateRecipe(id: number, input: RecipeInput): Promise<RecipeDetail> {

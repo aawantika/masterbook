@@ -128,6 +128,32 @@ export function updateRecipe(recipeId: number, input: RecipeInput): void {
   update();
 }
 
+export type DuplicateMatch = { id: number; title: string; sourceName: string | null };
+
+// Two signals, either sufficient on its own: an exact source-link match
+// (reliable for website/Instagram re-pastes of the same URL) or an
+// exact-normalized-title match (catches manual re-pastes with no source
+// link, or the same recipe re-fetched from a different URL/mirror).
+export function findPotentialDuplicates(sourceRef: string | null, title: string): DuplicateMatch[] {
+  const trimmedRef = sourceRef?.trim() || null;
+  const trimmedTitle = title.trim();
+  if (!trimmedRef && !trimmedTitle) return [];
+
+  const rows = db
+    .prepare(
+      `SELECT id, title, source_name FROM recipes
+       WHERE (? IS NOT NULL AND source_ref = ?)
+          OR (? != '' AND LOWER(TRIM(title)) = LOWER(?))`
+    )
+    .all(trimmedRef, trimmedRef, trimmedTitle, trimmedTitle) as Array<{
+    id: number;
+    title: string;
+    source_name: string | null;
+  }>;
+
+  return rows.map((r) => ({ id: r.id, title: r.title, sourceName: r.source_name }));
+}
+
 export function deleteRecipe(recipeId: number): void {
   db.prepare('DELETE FROM recipes WHERE id = ?').run(recipeId);
 }

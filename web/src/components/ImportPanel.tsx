@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { createRecipe, fetchRecipeFromUrl, getCuisines, getMealTypes, parseManualPaste } from '../api/client';
+import { checkDuplicates, createRecipe, fetchRecipeFromUrl, getCuisines, getMealTypes, parseManualPaste } from '../api/client';
 import { MetaItem, RecipeDraft, RecipeInput, SourceType } from '../api/types';
 import { RecipeDraftEditor } from './RecipeDraftEditor';
 
@@ -80,7 +80,16 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
   };
 
   const handleSave = async (input: RecipeInput) => {
-    const recipe = await createRecipe({ ...input, sourceType, sourceRef: sourceRef.trim() || null });
+    const finalSourceRef = sourceRef.trim() || null;
+    const matches = await checkDuplicates(finalSourceRef, input.title);
+    if (matches.length > 0) {
+      const names = matches.map((m) => (m.sourceName ? `"${m.title}" (${m.sourceName})` : `"${m.title}"`)).join(', ');
+      const proceed = window.confirm(
+        `This might already be in your cookbook: ${names}. Save this as a new recipe anyway?`
+      );
+      if (!proceed) return;
+    }
+    const recipe = await createRecipe({ ...input, sourceType, sourceRef: finalSourceRef });
     onCreated(recipe.id);
   };
 

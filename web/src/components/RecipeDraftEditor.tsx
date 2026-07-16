@@ -90,6 +90,21 @@ export function RecipeDraftEditor({
     });
   };
 
+  // Splits the run of ingredients that share `index`'s section into a new,
+  // separately-labeled section starting at `index` — so a correctly-parsed
+  // ingredient list only needs section headers dropped in at the right
+  // spots, not retyped from scratch. Only the ingredients from `index` to
+  // the end of the current run are affected; anything before, or any
+  // already-named section after, is untouched.
+  const insertSectionBreak = (index: number) => {
+    setIngredients((prev) => {
+      const runSection = prev[index].section;
+      let end = index;
+      while (end < prev.length && prev[end].section === runSection) end++;
+      return prev.map((ing, i) => (i >= index && i < end ? { ...ing, section: '' } : ing));
+    });
+  };
+
   const addSection = () => {
     setIngredients((prev) => [...prev, emptyIngredient('')]);
   };
@@ -259,6 +274,14 @@ export function RecipeDraftEditor({
                   : CANONICAL_UNITS;
               return (
                 <div className="ingredient-row" key={index}>
+                  <button
+                    type="button"
+                    className="insert-section-btn"
+                    title="Insert a section header here"
+                    onClick={() => insertSectionBreak(index)}
+                  >
+                    + section
+                  </button>
                   <input
                     className="ingredient-quantity"
                     value={ingredient.quantity ?? ''}

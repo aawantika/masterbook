@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
-import { groupIngredientLinesBySections } from '../shared/parseIngredientLine.js';
+import { groupIngredientLinesBySections, parseIngredientLine } from '../shared/parseIngredientLine.js';
 import { parseManualPaste } from '../shared/parseManualPaste.js';
-import { RecipeDraft } from '../../types/recipe.js';
+import { ParsedIngredientLine, RecipeDraft } from '../../types/recipe.js';
 
 // A generic modern-browser UA. Many sites (this project's motivating case:
 // Serious Eats) block whatever user-agent Claude's own WebFetch tool
@@ -33,14 +33,14 @@ function parseIsoDurationToMinutes(value: unknown): number | null {
 }
 
 function instructionEntryToText(entry: unknown): string | null {
-  if (typeof entry === 'string') return entry.trim() || null;
+  if (typeof entry === 'string') return decodeHtmlEntities(entry.trim()) || null;
   if (entry && typeof entry === 'object') {
     const obj = entry as Record<string, unknown>;
-    if (typeof obj.text === 'string' && obj.text.trim()) return obj.text.trim();
+    if (typeof obj.text === 'string' && obj.text.trim()) return decodeHtmlEntities(obj.text.trim());
     if (Array.isArray(obj.itemListElement)) {
       return obj.itemListElement.map(instructionEntryToText).filter(Boolean).join(' ');
     }
-    if (typeof obj.name === 'string' && obj.name.trim()) return obj.name.trim();
+    if (typeof obj.name === 'string' && obj.name.trim()) return decodeHtmlEntities(obj.name.trim());
   }
   return null;
 }
@@ -50,7 +50,7 @@ function extractInstructions(raw: unknown): string[] {
   if (typeof raw === 'string') {
     return raw
       .split(/\n+/)
-      .map((s) => s.trim())
+      .map((s) => decodeHtmlEntities(s.trim()))
       .filter(Boolean);
   }
   if (Array.isArray(raw)) {
@@ -59,12 +59,77 @@ function extractInstructions(raw: unknown): string[] {
   return [];
 }
 
+// Several WP recipe plugins (WP Recipe Maker and others) write literal HTML
+// entities into their JSON-LD string values ("Rao&#8217;s", "spooned &amp;
+// leveled") instead of the real characters — a JSON string has no entity
+// syntax of its own, so `JSON.parse` leaves them untouched. Decoding via a
+// throwaway HTML text node reuses cheerio's existing entity decoder rather
+// than hand-rolling a named-entity table.
+function decodeHtmlEntities(text: string): string {
+  if (!text.includes('&')) return text;
+  return cheerio.load(`<div>${text}</div>`)('div').text();
+}
+
 function extractStringList(raw: unknown): string[] {
-  if (typeof raw === 'string') return [raw.trim()].filter(Boolean);
+  if (typeof raw === 'string') return [decodeHtmlEntities(raw.trim())].filter(Boolean);
   if (Array.isArray(raw)) {
-    return raw.filter((v): v is string => typeof v === 'string').map((v) => v.trim()).filter(Boolean);
+    return raw
+      .filter((v): v is string => typeof v === 'string')
+      .map((v) => decodeHtmlEntities(v.trim()))
+      .filter(Boolean);
   }
   return [];
+}
+
+// Ingredient/instruction list items rendered straight into the DOM,
+// for sites whose JSON-LD ships empty recipeIngredient/recipeInstructions
+// arrays and fills them in client-side via JS after page load (confirmed on
+// bongeats.com — the JSON-LD's arrays are empty at fetch time, but the same
+// text lives in these list items in the static HTML all along).
+function extractListItemsBySelector($: cheerio.CheerioAPI, selectors: string[]): string[] {
+  for (const selector of selectors) {
+    const items = $(selector)
+      .find('li')
+      .toArray()
+      .map((el) => decodeHtmlEntities($(el).text().replace(/\s+/g, ' ').trim()))
+      .filter(Boolean);
+    if (items.length > 0) return items;
+  }
+  return [];
+}
+
+// WP Recipe Maker (one of the most common WordPress recipe plugins —
+// confirmed on omnivorescookbook.com, likely others) renders ingredient
+// section headers ("Marinade", "Sauce") as DOM elements between groups of
+// <li>s, but never includes them in the JSON-LD recipeIngredient array at
+// all — there's no section signal left in the structured data to recover.
+// This reads the groups straight from the DOM instead, which also sidesteps
+// the site's own doubled-parens/leading-comma JSON-LD quirks entirely, since
+// we're reconstructing from the plugin's already-separated amount/unit/name/
+// notes spans rather than its exported (and sometimes malformed) JSON.
+function extractWprmIngredients($: cheerio.CheerioAPI): ParsedIngredientLine[] | null {
+  const groups = $('.wprm-recipe-ingredient-group');
+  if (groups.length === 0) return null;
+
+  const lines: Array<{ text: string; section: string | null }> = [];
+  groups.each((_, groupEl) => {
+    const $group = $(groupEl);
+    const headerText = $group.find('.wprm-recipe-ingredient-group-name').first().text().trim();
+    const section = headerText ? decodeHtmlEntities(headerText) : null;
+    $group.find('.wprm-recipe-ingredient').each((_, li) => {
+      const $li = $(li);
+      const amount = $li.find('.wprm-recipe-ingredient-amount').first().text().trim();
+      const unit = $li.find('.wprm-recipe-ingredient-unit').first().text().trim();
+      const name = $li.find('.wprm-recipe-ingredient-name').first().text().trim();
+      const notes = $li.find('.wprm-recipe-ingredient-notes').first().text().trim();
+      const text = decodeHtmlEntities(
+        [amount, unit, name].filter(Boolean).join(' ') + (notes ? ` ${notes}` : '')
+      ).replace(/\s+,/g, ',');
+      if (text.trim()) lines.push({ text: text.trim(), section });
+    });
+  });
+
+  return lines.length > 0 ? lines.map(({ text, section }) => parseIngredientLine(text, section)) : null;
 }
 
 function extractYield(raw: unknown): string | null {
@@ -161,9 +226,26 @@ export async function fetchRecipeFromUrl(url: string): Promise<WebsiteFetchResul
 
   if (recipeNode) {
     const node: Record<string, unknown> = recipeNode;
-    const title = typeof node.name === 'string' && node.name.trim() ? node.name.trim() : 'Untitled recipe';
-    const ingredientLines = extractStringList(node.recipeIngredient ?? node.ingredients);
-    const instructions = extractInstructions(node.recipeInstructions);
+    const title =
+      typeof node.name === 'string' && node.name.trim() ? decodeHtmlEntities(node.name.trim()) : 'Untitled recipe';
+    let ingredientLines = extractStringList(node.recipeIngredient ?? node.ingredients);
+    let instructions = extractInstructions(node.recipeInstructions);
+    if (ingredientLines.length === 0) {
+      ingredientLines = extractListItemsBySelector($, [
+        '[class*="recipe-ingredient"]',
+        '[class*="ingredient-list"]',
+        '[class*="ingredients"]'
+      ]);
+    }
+    if (instructions.length === 0) {
+      instructions = extractListItemsBySelector($, [
+        '[class*="recipe-process"]',
+        '[class*="recipe-instruction"]',
+        '[class*="recipe-direction"]',
+        '[class*="instructions"]',
+        '[class*="directions"]'
+      ]);
+    }
     const servings = extractYield(node.recipeYield ?? node.yield);
     // Prefer the site's own totalTime when present; otherwise sum prep+cook
     // as a reasonable fallback (only if at least one of them is present).
@@ -179,8 +261,10 @@ export async function fetchRecipeFromUrl(url: string): Promise<WebsiteFetchResul
     // sites that display sectioned ingredients ("For the chicken") often
     // just embed the header as a plain string within the flat
     // recipeIngredient array — the same section-detection heuristic used
-    // for manual pastes picks these up here too.
-    const ingredients = groupIngredientLinesBySections(ingredientLines);
+    // for manual pastes picks these up here too. WP Recipe Maker sites keep
+    // section headers out of the JSON-LD entirely, so try the DOM-based
+    // extraction first and only fall back to the JSON-LD-derived lines.
+    const ingredients = extractWprmIngredients($) ?? groupIngredientLinesBySections(ingredientLines);
 
     return {
       title,

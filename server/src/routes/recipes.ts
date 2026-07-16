@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   createRecipe,
   deleteRecipe,
+  findPotentialDuplicates,
   getRecipeById,
   searchRecipes,
   setFavorite,
@@ -59,6 +60,14 @@ function parseIdList(raw: unknown): number[] | undefined {
     .map((value) => Number(value))
     .filter((value) => Number.isInteger(value));
 }
+
+// Must be registered before /:id — otherwise Express would try to parse
+// "duplicates" as a recipe id.
+recipesRouter.get('/duplicates', (req, res) => {
+  const sourceRef = typeof req.query.sourceRef === 'string' ? req.query.sourceRef : null;
+  const title = typeof req.query.title === 'string' ? req.query.title : '';
+  res.json(findPotentialDuplicates(sourceRef, title));
+});
 
 recipesRouter.get('/:id', (req, res) => {
   const id = parseIdParam(req.params.id);

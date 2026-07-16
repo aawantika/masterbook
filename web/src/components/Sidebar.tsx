@@ -86,7 +86,11 @@ function RecipeLinkList({
             className={`sidebar-recipe-link${recipe.id === selectedRecipeId ? ' active' : ''}`}
             onClick={() => onSelectRecipe(recipe.id)}
           >
-            {recipe.favoritedAt ? '❤ ' : ''}
+            {recipe.favoritedAt && (
+              <>
+                <span className="heart-icon">♥</span>{' '}
+              </>
+            )}
             {recipe.wantToTryAt ? '★ ' : ''}
             {recipe.title}
           </button>
@@ -157,7 +161,7 @@ export function Sidebar({ selectedRecipeId, onSelectRecipe, reloadSignal }: Side
 
       <details className="sidebar-quick-section">
         <summary>
-          ❤ Favorites <span className="sidebar-count">({favoriteRecipes.length})</span>
+          <span className="heart-icon">♥</span> Favorites <span className="sidebar-count">({favoriteRecipes.length})</span>
         </summary>
         {favoriteRecipes.length === 0 ? (
           <div className="sidebar-empty muted">No favorites yet.</div>

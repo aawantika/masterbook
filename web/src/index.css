@@ -340,6 +340,28 @@ html, body, #root {
   color: #d97706;
 }
 
+/* Rendering the same ♥ character for both states (rather than pairing it
+   with the outline ♡ glyph) and toggling fill vs. outline purely via color —
+   different heart Unicode characters have different natural glyph
+   dimensions in most fonts, so swapping characters made the two states
+   visibly different sizes. */
+.heart-glyph {
+  color: transparent;
+  -webkit-text-stroke: 1.5px #9ca3af;
+}
+
+.heart-toggle.active .heart-glyph {
+  color: #dc2626;
+  -webkit-text-stroke: 1.5px #dc2626;
+}
+
+/* Static (non-toggle) heart indicators — sidebar favorites list/heading,
+   filter bar label — use the same bare ♥ character, just solid-colored,
+   so they match the toggle buttons' glyph exactly. */
+.heart-icon {
+  color: #dc2626;
+}
+
 .recipe-card-meta {
   display: flex;
   flex-wrap: wrap;

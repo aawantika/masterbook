@@ -86,7 +86,7 @@ export function FilterBar({
           className={`chip-checkbox to-try-toggle${favoritesOnly ? ' active' : ''}`}
           onClick={onToggleFavoritesOnly}
         >
-          ❤ Favorites
+          <span className="heart-icon">♥</span> Favorites
         </button>
         <FilterGroup label="Meal type" items={mealTypes} selected={selectedMealTypeIds} onToggle={onToggleMealType} />
         <FilterGroup label="Cuisine" items={cuisines} selected={selectedCuisineIds} onToggle={onToggleCuisine} />

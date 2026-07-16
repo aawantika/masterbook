@@ -29,7 +29,7 @@ export function RecipeCard({ recipe, onToggleWantToTry, onToggleFavorite, onSele
             onClick={() => onToggleFavorite(recipe.id, !isFavorite)}
             title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
           >
-            {isFavorite ? '❤' : '♡'}
+            <span className="heart-glyph">♥</span>
           </button>
           <button
             type="button"
@@ -48,12 +48,16 @@ export function RecipeCard({ recipe, onToggleWantToTry, onToggleFavorite, onSele
             {mt}
           </span>
         ))}
-        {recipe.cuisines.map((c) => (
-          <span className="badge badge-cuisine" key={c}>
-            {c}
-          </span>
-        ))}
       </div>
+      {recipe.cuisines.length > 0 && (
+        <div className="recipe-card-meta">
+          {recipe.cuisines.map((c) => (
+            <span className="badge badge-cuisine" key={c}>
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="recipe-card-footer">
         {recipe.avgRating != null ? (
           <span>★ {recipe.avgRating.toFixed(1)} avg</span>

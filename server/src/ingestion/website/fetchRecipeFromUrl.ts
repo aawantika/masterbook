@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 import { groupIngredientLinesBySections, parseIngredientLine } from '../shared/parseIngredientLine.js';
 import { parseManualPaste } from '../shared/parseManualPaste.js';
-import { ParsedIngredientLine, RecipeDraft } from '../../types/recipe.js';
+import { ParsedIngredientLine, ParsedInstructionStep, RecipeDraft } from '../../types/recipe.js';
 
 // A generic modern-browser UA. Many sites (this project's motivating case:
 // Serious Eats) block whatever user-agent Claude's own WebFetch tool
@@ -32,29 +32,47 @@ function parseIsoDurationToMinutes(value: unknown): number | null {
   return hours * 60 + minutes;
 }
 
-function instructionEntryToText(entry: unknown): string | null {
-  if (typeof entry === 'string') return decodeHtmlEntities(entry.trim()) || null;
+// schema.org HowToSection entries ("To Make the Tartar Sauce") nest their
+// own sub-steps under itemListElement — flattening those into one joined
+// string (the previous behavior) collapsed a whole section into a single
+// unreadable blob. This flattens recursively instead, tagging every
+// resulting step with whichever section (if any) it came from, mirroring
+// how ingredient sections are tracked.
+function instructionEntryToSteps(entry: unknown, section: string | null): ParsedInstructionStep[] {
+  if (typeof entry === 'string') {
+    const text = decodeHtmlEntities(entry.trim());
+    return text ? [{ text, section }] : [];
+  }
   if (entry && typeof entry === 'object') {
     const obj = entry as Record<string, unknown>;
-    if (typeof obj.text === 'string' && obj.text.trim()) return decodeHtmlEntities(obj.text.trim());
+    const type = obj['@type'];
+    const isSection = type === 'HowToSection' || (Array.isArray(type) && type.includes('HowToSection'));
     if (Array.isArray(obj.itemListElement)) {
-      return obj.itemListElement.map(instructionEntryToText).filter(Boolean).join(' ');
+      const sectionName =
+        isSection && typeof obj.name === 'string' && obj.name.trim() ? decodeHtmlEntities(obj.name.trim()) : section;
+      return obj.itemListElement.flatMap((sub) => instructionEntryToSteps(sub, sectionName));
     }
-    if (typeof obj.name === 'string' && obj.name.trim()) return decodeHtmlEntities(obj.name.trim());
+    if (typeof obj.text === 'string' && obj.text.trim()) {
+      return [{ text: decodeHtmlEntities(obj.text.trim()), section }];
+    }
+    if (typeof obj.name === 'string' && obj.name.trim()) {
+      return [{ text: decodeHtmlEntities(obj.name.trim()), section }];
+    }
   }
-  return null;
+  return [];
 }
 
-function extractInstructions(raw: unknown): string[] {
+function extractInstructions(raw: unknown): ParsedInstructionStep[] {
   if (!raw) return [];
   if (typeof raw === 'string') {
     return raw
       .split(/\n+/)
       .map((s) => decodeHtmlEntities(s.trim()))
-      .filter(Boolean);
+      .filter(Boolean)
+      .map((text) => ({ text, section: null }));
   }
   if (Array.isArray(raw)) {
-    return raw.map(instructionEntryToText).filter((s): s is string => Boolean(s));
+    return raw.flatMap((entry) => instructionEntryToSteps(entry, null));
   }
   return [];
 }
@@ -189,14 +207,14 @@ function buildReadableRawText(input: {
   servings: string | null;
   totalTimeMinutes: number | null;
   ingredientLines: string[];
-  instructions: string[];
+  instructions: ParsedInstructionStep[];
   sourceUrl: string;
 }): string {
   const parts: string[] = [input.title, ''];
   if (input.servings) parts.push(`Servings: ${input.servings}`);
   if (input.totalTimeMinutes != null) parts.push(`Total time: ${input.totalTimeMinutes} min`);
   parts.push('', 'Ingredients:', ...input.ingredientLines, '', 'Instructions:');
-  input.instructions.forEach((step, i) => parts.push(`${i + 1}. ${step}`));
+  input.instructions.forEach((step, i) => parts.push(`${i + 1}. ${step.text}`));
   parts.push('', `Source: ${input.sourceUrl}`);
   return parts.join('\n');
 }
@@ -244,7 +262,7 @@ export async function fetchRecipeFromUrl(url: string): Promise<WebsiteFetchResul
         '[class*="recipe-direction"]',
         '[class*="instructions"]',
         '[class*="directions"]'
-      ]);
+      ]).map((text) => ({ text, section: null }));
     }
     const servings = extractYield(node.recipeYield ?? node.yield);
     // Prefer the site's own totalTime when present; otherwise sum prep+cook

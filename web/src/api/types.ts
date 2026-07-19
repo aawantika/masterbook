@@ -8,10 +8,15 @@ export type ParsedIngredientLine = {
   section: string | null;
 };
 
+export type ParsedInstructionStep = {
+  text: string;
+  section: string | null;
+};
+
 export type RecipeDraft = {
   title: string;
   ingredients: ParsedIngredientLine[];
-  instructions: string[];
+  instructions: ParsedInstructionStep[];
   rawText: string;
   servings?: string | null;
   totalTimeMinutes?: number | null;
@@ -24,7 +29,7 @@ export type RecipeInput = {
   title: string;
   servings?: string | null;
   totalTimeMinutes?: number | null;
-  instructions: string[];
+  instructions: ParsedInstructionStep[];
   ingredients: ParsedIngredientLine[];
   rawText: string;
   sourceType: SourceType;
@@ -63,7 +68,7 @@ export type RecipeDetail = {
   title: string;
   servings: string | null;
   totalTimeMinutes: number | null;
-  instructions: string[];
+  instructions: ParsedInstructionStep[];
   ingredients: ParsedIngredientLine[];
   rawText: string;
   sourceType: string;

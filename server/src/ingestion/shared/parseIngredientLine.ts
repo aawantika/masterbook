@@ -28,7 +28,13 @@ export const UNIT_ALIASES: Array<{ canonical: string; pattern: string }> = [
   { canonical: 'package', pattern: 'packages?|pkgs?' },
   { canonical: 'quart', pattern: 'quarts?|qts?' },
   { canonical: 'pint', pattern: 'pints?|pts?' },
-  { canonical: 'gallon', pattern: 'gallons?|gals?' }
+  { canonical: 'gallon', pattern: 'gallons?|gals?' },
+  { canonical: 'inch', pattern: 'inch(?:es)?' },
+  // "NOS."/"NO." — Indian-English shorthand for a bare count ("2 NOS.
+  // green chilli"). The trailing period is stripped before parsing (see
+  // parseBilingualPipeLine), not matched here — a literal "." right before
+  // a word boundary check never satisfies \b since both sides are non-word.
+  { canonical: 'nos', pattern: 'nos?' }
 ];
 
 export const CANONICAL_UNITS = UNIT_ALIASES.map((u) => u.canonical);
@@ -57,7 +63,7 @@ const QUANTITY_CHAR_CLASS = '\\d.\\/\\s\\u00BC-\\u00BE\\u2150-\\u215E';
 // always falls back to preserving the raw line as `name` if nothing
 // matches, since losing the original text is worse than an imperfect guess.
 const INGREDIENT_LINE_PATTERN = new RegExp(
-  `^([${QUANTITY_CHAR_CLASS}]*(?:(?:-|to)\\s*[${QUANTITY_CHAR_CLASS}]+)?)\\s*(?:${UNIT_PATTERN}\\b)?\\s*(.*)$`,
+  `^([${QUANTITY_CHAR_CLASS}]*(?:(?:-|\\u2013|\\u2014|to)\\s*[${QUANTITY_CHAR_CLASS}]+)?)\\s*(?:${UNIT_PATTERN}\\b)?\\s*(.*)$`,
   'i'
 );
 
@@ -76,7 +82,40 @@ function stripLeadingCommaInParens(value: string): string {
   return value.replace(/\(\s*,\s*/g, '(');
 }
 
+// Bilingual "NAME | translation quantity unit" lines — a format common on
+// Instagram recipe cards from Hindi-speaking creators, e.g.
+// "GARLIC | लहसुन 8-10 CLOVES". Unlike every other format this parser
+// handles, the quantity/unit sits at the *end* of the line, not the start —
+// so it's pulled from the tail via its own pattern, and the "NAME |
+// translation" prefix is kept intact as the name rather than discarded, so
+// the original-language text stays visible instead of being thrown away.
+const TRAILING_QUANTITY_UNIT_PATTERN = new RegExp(
+  `([${QUANTITY_CHAR_CLASS}]+(?:(?:-|\\u2013|\\u2014|to)\\s*[${QUANTITY_CHAR_CLASS}]+)?)\\s*(?:${UNIT_PATTERN}\\b)?\\s*(\\([^)]*\\))?\\s*\\.?\\s*$`,
+  'i'
+);
+
+function parseBilingualPipeLine(rawLine: string, section: string | null): ParsedIngredientLine | null {
+  if (!rawLine.includes('|')) return null;
+
+  const match = TRAILING_QUANTITY_UNIT_PATTERN.exec(rawLine);
+  const quantity = match?.[1]?.trim();
+  // Require an actual digit/fraction, not just trailing whitespace matched
+  // by the quantity character class — otherwise every piped line with no
+  // trailing number at all would "match" with an empty/blank quantity.
+  if (!match || !quantity || !/[\d¼-¾⅐-⅞]/.test(quantity)) return null;
+
+  const unit = match[2]?.trim() ? canonicalizeUnit(match[2]) : null;
+  const notes = match[3] ? ` ${match[3]}` : '';
+  const name = (rawLine.slice(0, match.index).trim() + notes).trim();
+  if (!name) return null;
+
+  return { rawText: rawLine.trim(), quantity, unit, name, section };
+}
+
 export function parseIngredientLine(rawLine: string, section: string | null = null): ParsedIngredientLine {
+  const bilingual = parseBilingualPipeLine(rawLine.trim(), section);
+  if (bilingual) return bilingual;
+
   const rawText = stripLeadingCommaInParens(collapseDoubledParens(rawLine.trim()));
   const stripped = rawText.replace(/^[-*••]\s*/, '');
 

@@ -9,10 +9,16 @@ export type ParsedIngredientLine = {
   section: string | null;
 };
 
+export type ParsedInstructionStep = {
+  text: string;
+  // e.g. "To Make the Tartar Sauce" — null for steps with no section grouping.
+  section: string | null;
+};
+
 export type RecipeDraft = {
   title: string;
   ingredients: ParsedIngredientLine[];
-  instructions: string[];
+  instructions: ParsedInstructionStep[];
   rawText: string;
   // Only populated when the draft came from structured data (e.g. a site's
   // schema.org Recipe JSON-LD) — the plain-text paste splitter has no way to

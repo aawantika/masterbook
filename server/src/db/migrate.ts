@@ -36,10 +36,37 @@ function migrateNewColumns(): void {
   }
 }
 
+// instructions_json used to store a flat string[]; it's now
+// { text, section }[] so sub-steps under a source's section headers (e.g.
+// "To Make the Tartar Sauce") can be tracked instead of collapsed into one
+// blob. Existing rows still hold the old shape until rewritten here —
+// runs once per row, converting only rows whose first element is a bare
+// string (the old shape's telltale sign).
+function migrateInstructionsShape(): void {
+  const rows = db.prepare('SELECT id, instructions_json FROM recipes').all() as Array<{
+    id: number;
+    instructions_json: string;
+  }>;
+  const update = db.prepare('UPDATE recipes SET instructions_json = ? WHERE id = ?');
+  for (const row of rows) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(row.instructions_json || '[]');
+    } catch {
+      continue;
+    }
+    if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
+      const migrated = (parsed as string[]).map((text) => ({ text, section: null }));
+      update.run(JSON.stringify(migrated), row.id);
+    }
+  }
+}
+
 export function migrate(): void {
   db.exec(getSchemaSql());
   migrateRecipeTimeColumns();
   migrateNewColumns();
+  migrateInstructionsShape();
 
   const fts5Check = db.prepare(
     "SELECT count(*) as count FROM pragma_compile_options WHERE compile_options LIKE '%FTS5%'"

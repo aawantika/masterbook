@@ -482,8 +482,15 @@ html, body, #root {
 }
 
 .ingredient-row:hover .insert-section-btn,
+.instruction-row:hover .insert-section-btn,
 .insert-section-btn:focus-visible {
   opacity: 1;
+}
+
+.instruction-group {
+  margin-bottom: 12px;
+  padding-left: 10px;
+  border-left: 2px solid #f0e6d6;
 }
 
 .instruction-row {
@@ -666,6 +673,19 @@ html, body, #root {
 }
 
 .ingredient-section-heading {
+  font-size: 12px;
+  font-weight: 600;
+  color: #92400e;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 0 0 4px;
+}
+
+.instruction-display-group {
+  margin-bottom: 14px;
+}
+
+.instruction-section-heading {
   font-size: 12px;
   font-weight: 600;
   color: #92400e;

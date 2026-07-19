@@ -1,11 +1,11 @@
 import { db } from './client.js';
-import { ParsedIngredientLine } from '../types/recipe.js';
+import { ParsedIngredientLine, ParsedInstructionStep } from '../types/recipe.js';
 
 export type RecipeInput = {
   title: string;
   servings?: string | null;
   totalTimeMinutes?: number | null;
-  instructions: string[];
+  instructions: ParsedInstructionStep[];
   ingredients: ParsedIngredientLine[];
   rawText: string;
   sourceType: 'epub' | 'instagram' | 'website' | 'manual';
@@ -293,7 +293,7 @@ export type RecipeDetail = {
   title: string;
   servings: string | null;
   totalTimeMinutes: number | null;
-  instructions: string[];
+  instructions: ParsedInstructionStep[];
   ingredients: Array<{
     rawText: string;
     quantity: string | null;

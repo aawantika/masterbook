@@ -39,7 +39,7 @@ export function parseManualPaste(input: string): RecipeDraft {
   return {
     title,
     ingredients: groupIngredientLinesBySections(ingredientLines.map(stripLeadingMarker)),
-    instructions: instructionLines.map(stripLeadingMarker),
+    instructions: instructionLines.map((line) => ({ text: stripLeadingMarker(line), section: null })),
     rawText
   };
 }

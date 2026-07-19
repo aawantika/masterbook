@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { MetaItem, ParsedIngredientLine, RecipeInput, SourceType } from '../api/types';
+import { MetaItem, ParsedIngredientLine, ParsedInstructionStep, RecipeInput, SourceType } from '../api/types';
 import { CANONICAL_UNITS } from '../constants';
 import { AutoGrowTextarea } from './AutoGrowTextarea';
 
@@ -35,6 +35,27 @@ function groupIngredientsBySection(ingredients: ParsedIngredientLine[]): Ingredi
   return groups;
 }
 
+function emptyInstruction(section: string | null = null): ParsedInstructionStep {
+  return { text: '', section };
+}
+
+type InstructionGroup = { section: string | null; indices: number[] };
+
+// Same grouping/editing pattern as ingredient sections — see
+// groupIngredientsBySection above for the rationale.
+function groupInstructionsBySection(instructions: ParsedInstructionStep[]): InstructionGroup[] {
+  const groups: InstructionGroup[] = [];
+  instructions.forEach((step, index) => {
+    const last = groups[groups.length - 1];
+    if (last && last.section === step.section) {
+      last.indices.push(index);
+    } else {
+      groups.push({ section: step.section, indices: [index] });
+    }
+  });
+  return groups;
+}
+
 export function RecipeDraftEditor({
   initial,
   mealTypes,
@@ -51,8 +72,8 @@ export function RecipeDraftEditor({
   const [ingredients, setIngredients] = useState<ParsedIngredientLine[]>(
     initial?.ingredients && initial.ingredients.length > 0 ? initial.ingredients : [emptyIngredient()]
   );
-  const [instructions, setInstructions] = useState<string[]>(
-    initial?.instructions && initial.instructions.length > 0 ? initial.instructions : ['']
+  const [instructions, setInstructions] = useState<ParsedInstructionStep[]>(
+    initial?.instructions && initial.instructions.length > 0 ? initial.instructions : [emptyInstruction()]
   );
   const [mealTypeIds, setMealTypeIds] = useState<Set<number>>(new Set(initial?.mealTypeIds ?? []));
   const [cuisineNames, setCuisineNames] = useState<Set<string>>(new Set(initial?.cuisineNames ?? []));
@@ -110,11 +131,38 @@ export function RecipeDraftEditor({
   };
 
   const updateInstruction = (index: number, value: string) => {
-    setInstructions((prev) => prev.map((step, i) => (i === index ? value : step)));
+    setInstructions((prev) => prev.map((step, i) => (i === index ? { ...step, text: value } : step)));
   };
 
   const removeInstruction = (index: number) => {
     setInstructions((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const instructionGroups = useMemo(() => groupInstructionsBySection(instructions), [instructions]);
+
+  const updateInstructionGroupSection = (indices: number[], newLabel: string) => {
+    setInstructions((prev) => prev.map((step, i) => (indices.includes(i) ? { ...step, section: newLabel } : step)));
+  };
+
+  const addInstructionToGroup = (afterIndex: number, section: string | null) => {
+    setInstructions((prev) => {
+      const next = [...prev];
+      next.splice(afterIndex + 1, 0, emptyInstruction(section));
+      return next;
+    });
+  };
+
+  const insertInstructionSectionBreak = (index: number) => {
+    setInstructions((prev) => {
+      const runSection = prev[index].section;
+      let end = index;
+      while (end < prev.length && prev[end].section === runSection) end++;
+      return prev.map((step, i) => (i >= index && i < end ? { ...step, section: '' } : step));
+    });
+  };
+
+  const addInstructionSection = () => {
+    setInstructions((prev) => [...prev, emptyInstruction('')]);
   };
 
   const toggleMealType = (id: number) => {
@@ -150,7 +198,9 @@ export function RecipeDraftEditor({
           rawText: ing.rawText || [ing.quantity, ing.unit, ing.name].filter(Boolean).join(' '),
           section: ing.section?.trim() || null
         }));
-      const cleanedInstructions = instructions.map((step) => step.trim()).filter(Boolean);
+      const cleanedInstructions = instructions
+        .map((step) => ({ text: step.text.trim(), section: step.section?.trim() || null }))
+        .filter((step) => step.text);
 
       const input: RecipeInput = {
         title: title.trim(),
@@ -328,21 +378,53 @@ export function RecipeDraftEditor({
 
       <div className="field">
         <span>Instructions</span>
-        {instructions.map((step, index) => (
-          <div className="instruction-row" key={index}>
-            <span className="instruction-index">{index + 1}.</span>
-            <AutoGrowTextarea
-              value={step}
-              onChange={(value) => updateInstruction(index, value)}
-              placeholder={`Step ${index + 1}`}
-            />
-            <button type="button" onClick={() => removeInstruction(index)} title="Remove step">
-              ×
+        {instructions.length === 0 && (
+          <button type="button" onClick={() => setInstructions([emptyInstruction()])}>
+            + Add step
+          </button>
+        )}
+        {instructionGroups.map((group, groupIndex) => (
+          <div className="instruction-group" key={groupIndex}>
+            {group.section !== null && (
+              <input
+                className="ingredient-section-label"
+                value={group.section}
+                onChange={(e) => updateInstructionGroupSection(group.indices, e.target.value)}
+                placeholder="Section name (e.g. To Make the Tartar Sauce)"
+              />
+            )}
+            {group.indices.map((index, i) => (
+              <div className="instruction-row" key={index}>
+                <button
+                  type="button"
+                  className="insert-section-btn"
+                  title="Insert a section header here"
+                  onClick={() => insertInstructionSectionBreak(index)}
+                >
+                  + section
+                </button>
+                <span className="instruction-index">{i + 1}.</span>
+                <AutoGrowTextarea
+                  value={instructions[index].text}
+                  onChange={(value) => updateInstruction(index, value)}
+                  placeholder={`Step ${i + 1}`}
+                />
+                <button type="button" onClick={() => removeInstruction(index)} title="Remove step">
+                  ×
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              className="ingredient-group-add"
+              onClick={() => addInstructionToGroup(group.indices[group.indices.length - 1], group.section)}
+            >
+              + Add step
             </button>
           </div>
         ))}
-        <button type="button" onClick={() => setInstructions((prev) => [...prev, ''])}>
-          + Add step
+        <button type="button" className="secondary" onClick={addInstructionSection}>
+          + Add section
         </button>
       </div>
 

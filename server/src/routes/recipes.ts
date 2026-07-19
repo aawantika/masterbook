@@ -21,11 +21,16 @@ const ingredientSchema = z.object({
   section: z.string().nullable().default(null)
 });
 
+const instructionStepSchema = z.object({
+  text: z.string(),
+  section: z.string().nullable().default(null)
+});
+
 const recipeInputSchema = z.object({
   title: z.string().min(1),
   servings: z.string().nullable().optional(),
   totalTimeMinutes: z.number().int().nonnegative().nullable().optional(),
-  instructions: z.array(z.string()),
+  instructions: z.array(instructionStepSchema),
   ingredients: z.array(ingredientSchema),
   rawText: z.string(),
   sourceType: z.enum(['epub', 'instagram', 'website', 'manual']),

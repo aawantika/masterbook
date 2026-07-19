@@ -8,6 +8,32 @@ type ImportPanelProps = {
   onCancel: () => void;
 };
 
+// YouTube (including Shorts) exposes thumbnails at a predictable URL keyed
+// by video ID — no page fetch needed. Video pages don't carry Recipe
+// JSON-LD anyway, so this is the one useful thing to auto-fill; the recipe
+// text itself still has to be pasted in below, same as Instagram.
+function extractYouTubeVideoId(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.replace(/^(www|m)\./i, '').toLowerCase();
+    if (hostname === 'youtu.be') {
+      return parsed.pathname.slice(1).split('/')[0] || null;
+    }
+    if (hostname === 'youtube.com') {
+      const shortsMatch = parsed.pathname.match(/^\/shorts\/([^/?]+)/);
+      if (shortsMatch) return shortsMatch[1];
+      return parsed.searchParams.get('v');
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function youtubeThumbnailUrl(videoId: string): string {
+  return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+}
+
 export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
   const [pasteText, setPasteText] = useState('');
   const [fetchUrl, setFetchUrl] = useState('');
@@ -19,6 +45,7 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [fetchNotice, setFetchNotice] = useState<string | null>(null);
+  const [prefilledImageUrl, setPrefilledImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([getMealTypes(), getCuisines()]).then(([mt, c]) => {
@@ -38,6 +65,7 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
     if (!url) return;
     setFetchError(null);
     setFetchNotice(null);
+    setPrefilledImageUrl(null);
 
     let hostname = '';
     try {
@@ -54,6 +82,20 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
       setSourceType('instagram');
       setSourceRef(url);
       setFetchNotice("Instagram can't be auto-fetched — paste the recipe text below and I'll structure it.");
+      return;
+    }
+
+    // YouTube/Shorts pages don't carry Recipe JSON-LD either, so there's
+    // nothing structured to fetch — but the thumbnail is grabbable without
+    // fetching the page at all, so pre-fill that while asking for the text.
+    const youtubeVideoId = extractYouTubeVideoId(url);
+    if (youtubeVideoId) {
+      setSourceType('website');
+      setSourceRef(url);
+      setPrefilledImageUrl(youtubeThumbnailUrl(youtubeVideoId));
+      setFetchNotice(
+        "YouTube can't be auto-fetched — paste the recipe text below and I'll structure it. Grabbed the video thumbnail for you."
+      );
       return;
     }
 
@@ -100,7 +142,7 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
       {!draft ? (
         <div className="import-paste-box">
           <label className="field">
-            <span>Paste a website or Instagram link</span>
+            <span>Paste a website, Instagram, or YouTube link</span>
             <input
               value={fetchUrl}
               onChange={(e) => setFetchUrl(e.target.value)}
@@ -147,7 +189,8 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
               sourceType,
               sourceRef,
               mealTypeIds: [],
-              cuisineNames: draft.cuisineNames ?? []
+              cuisineNames: draft.cuisineNames ?? [],
+              imageUrl: draft.imageUrl ?? prefilledImageUrl
             }}
             mealTypes={mealTypes}
             cuisineSuggestions={cuisines}

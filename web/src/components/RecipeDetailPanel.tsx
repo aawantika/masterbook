@@ -11,6 +11,7 @@ import {
 } from '../api/client';
 import { MetaItem, RecipeDetail, RecipeDraft, SourceType } from '../api/types';
 import { parseBaseServings, scaleQuantityString } from '../scaleQuantity';
+import { isUnfetchableRecipeUrl } from '../sourceUrl';
 import { RecipeDraftEditor } from './RecipeDraftEditor';
 
 type RecipeDetailPanelProps = {
@@ -126,7 +127,10 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
   };
 
   const canRefreshFromSource =
-    recipe.sourceType === 'website' && !!recipe.sourceRef && /^https?:\/\//i.test(recipe.sourceRef);
+    recipe.sourceType === 'website' &&
+    !!recipe.sourceRef &&
+    /^https?:\/\//i.test(recipe.sourceRef) &&
+    !isUnfetchableRecipeUrl(recipe.sourceRef);
 
   if (editing) {
     const editorInitial = refreshedDraft

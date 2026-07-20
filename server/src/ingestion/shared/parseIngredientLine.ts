@@ -104,12 +104,22 @@ function parseBilingualPipeLine(rawLine: string, section: string | null): Parsed
   // trailing number at all would "match" with an empty/blank quantity.
   if (!match || !quantity || !/[\d¼-¾⅐-⅞]/.test(quantity)) return null;
 
-  const unit = match[2]?.trim() ? canonicalizeUnit(match[2]) : null;
+  const rawUnitText = match[2]?.trim() ?? '';
+  const unit = rawUnitText ? canonicalizeUnit(rawUnitText) : null;
   const notes = match[3] ? ` ${match[3]}` : '';
   const name = (rawLine.slice(0, match.index).trim() + notes).trim();
   if (!name) return null;
 
-  return { rawText: rawLine.trim(), quantity, unit, name, section };
+  // The display views show rawText verbatim rather than reconstructing from
+  // quantity/unit/name, so it needs to read naturally — this reorders the
+  // quantity/unit (originally at the end of the line) to the front, instead
+  // of showing the line exactly as typed, which would read "backwards"
+  // compared to every other ingredient format ("GARLIC | ... 8-10 CLOVES"
+  // instead of "8-10 CLOVES GARLIC | ..."). Keeps the original unit text
+  // (not canonicalized) so plurals like "CLOVES" aren't flattened to "clove".
+  const rawText = `${quantity}${rawUnitText ? ` ${rawUnitText}` : ''} ${name}`.trim();
+
+  return { rawText, quantity, unit, name, section };
 }
 
 export function parseIngredientLine(rawLine: string, section: string | null = null): ParsedIngredientLine {

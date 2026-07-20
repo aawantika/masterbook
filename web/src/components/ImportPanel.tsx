@@ -1,38 +1,13 @@
 import { useEffect, useState } from 'react';
 import { checkDuplicates, createRecipe, fetchRecipeFromUrl, getCuisines, getMealTypes, parseManualPaste } from '../api/client';
 import { MetaItem, RecipeDraft, RecipeInput, SourceType } from '../api/types';
+import { extractYouTubeVideoId, isInstagramUrl, youtubeThumbnailUrl } from '../sourceUrl';
 import { RecipeDraftEditor } from './RecipeDraftEditor';
 
 type ImportPanelProps = {
   onCreated: (recipeId: number) => void;
   onCancel: () => void;
 };
-
-// YouTube (including Shorts) exposes thumbnails at a predictable URL keyed
-// by video ID — no page fetch needed. Video pages don't carry Recipe
-// JSON-LD anyway, so this is the one useful thing to auto-fill; the recipe
-// text itself still has to be pasted in below, same as Instagram.
-function extractYouTubeVideoId(url: string): string | null {
-  try {
-    const parsed = new URL(url);
-    const hostname = parsed.hostname.replace(/^(www|m)\./i, '').toLowerCase();
-    if (hostname === 'youtu.be') {
-      return parsed.pathname.slice(1).split('/')[0] || null;
-    }
-    if (hostname === 'youtube.com') {
-      const shortsMatch = parsed.pathname.match(/^\/shorts\/([^/?]+)/);
-      if (shortsMatch) return shortsMatch[1];
-      return parsed.searchParams.get('v');
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function youtubeThumbnailUrl(videoId: string): string {
-  return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-}
 
 export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
   const [pasteText, setPasteText] = useState('');
@@ -67,9 +42,8 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
     setFetchNotice(null);
     setPrefilledImageUrl(null);
 
-    let hostname = '';
     try {
-      hostname = new URL(url).hostname.toLowerCase();
+      new URL(url);
     } catch {
       setFetchError('That doesn\'t look like a valid link. Try pasting the recipe text instead.');
       return;
@@ -78,7 +52,7 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
     // Instagram is login-gated and JS-rendered — there's no page to fetch and
     // extract from, so skip straight to "paste the text" rather than trying
     // and failing.
-    if (hostname.includes('instagram.com')) {
+    if (isInstagramUrl(url)) {
       setSourceType('instagram');
       setSourceRef(url);
       setFetchNotice("Instagram can't be auto-fetched — paste the recipe text below and I'll structure it.");

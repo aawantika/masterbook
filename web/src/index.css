@@ -685,6 +685,16 @@ html, body, #root {
   display: block;
 }
 
+.editor-image-url-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.editor-image-url-row input {
+  flex: 1;
+}
+
 .editor-image-preview {
   margin-top: 8px;
   max-width: 240px;

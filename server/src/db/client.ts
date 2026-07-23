@@ -7,8 +7,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../../../');
 const dataDir = path.join(projectRoot, 'data');
 const dbPath = path.join(dataDir, 'cookbook.db');
+export const imagesDir = path.join(dataDir, 'images');
 
 fs.mkdirSync(dataDir, { recursive: true });
+fs.mkdirSync(imagesDir, { recursive: true });
 
 export const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');

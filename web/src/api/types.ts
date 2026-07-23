@@ -35,6 +35,7 @@ export type RecipeInput = {
   sourceType: SourceType;
   sourceRef?: string | null;
   sourceName?: string | null;
+  videoRef?: string | null;
   imageUrl?: string | null;
   notes?: string | null;
   mealTypeIds: number[];
@@ -63,6 +64,15 @@ export type RecipeAttempt = {
   notes: string | null;
 };
 
+export type ActivityEntry = {
+  id: number;
+  recipeId: number;
+  recipeTitle: string;
+  attemptedAt: string;
+  rating: number | null;
+  notes: string | null;
+};
+
 export type RecipeDetail = {
   id: number;
   title: string;
@@ -74,6 +84,7 @@ export type RecipeDetail = {
   sourceType: string;
   sourceRef: string | null;
   sourceName: string | null;
+  videoRef: string | null;
   imageUrl: string | null;
   notes: string | null;
   wantToTryAt: string | null;

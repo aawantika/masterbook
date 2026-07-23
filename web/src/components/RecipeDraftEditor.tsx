@@ -197,6 +197,7 @@ export function RecipeDraftEditor({
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const [sourceType] = useState<SourceType>(initial?.sourceType ?? 'manual');
   const [sourceRef, setSourceRef] = useState(initial?.sourceRef ?? '');
+  const [videoRef, setVideoRef] = useState(initial?.videoRef ?? '');
   const [sourceName, setSourceName] = useState(initial?.sourceName ?? '');
   const [imageUrl, setImageUrl] = useState(initial?.imageUrl ?? '');
   const [savingImage, setSavingImage] = useState(false);
@@ -412,6 +413,7 @@ export function RecipeDraftEditor({
         sourceType,
         sourceRef: sourceRef.trim() || null,
         sourceName: sourceName.trim() || null,
+        videoRef: videoRef.trim() || null,
         imageUrl: imageUrl.trim() || null,
         notes: notes.trim() || null,
         mealTypeIds: Array.from(mealTypeIds),
@@ -462,6 +464,14 @@ export function RecipeDraftEditor({
         <label className="field">
           <span>Source link</span>
           <input value={sourceRef ?? ''} onChange={(e) => setSourceRef(e.target.value)} placeholder="Optional" />
+        </label>
+        <label className="field">
+          <span>Video link</span>
+          <input
+            value={videoRef ?? ''}
+            onChange={(e) => setVideoRef(e.target.value)}
+            placeholder="Optional — YouTube/Instagram, if there's a companion video"
+          />
         </label>
       </div>
 

@@ -36,6 +36,7 @@ const recipeInputSchema = z.object({
   sourceType: z.enum(['epub', 'instagram', 'website', 'manual']),
   sourceRef: z.string().nullable().optional(),
   sourceName: z.string().nullable().optional(),
+  videoRef: z.string().nullable().optional(),
   imageUrl: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   mealTypeIds: z.array(z.number().int()),

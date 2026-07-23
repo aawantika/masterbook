@@ -11,6 +11,7 @@ export type RecipeInput = {
   sourceType: 'epub' | 'instagram' | 'website' | 'manual';
   sourceRef?: string | null;
   sourceName?: string | null;
+  videoRef?: string | null;
   imageUrl?: string | null;
   notes?: string | null;
   mealTypeIds: number[];
@@ -79,8 +80,8 @@ export function createRecipe(input: RecipeInput): number {
     const result = db
       .prepare(
         `INSERT INTO recipes
-          (title, servings, total_time_minutes, instructions_json, ingredients_text, raw_text, source_type, source_ref, source_name, image_url, notes, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          (title, servings, total_time_minutes, instructions_json, ingredients_text, raw_text, source_type, source_ref, source_name, video_ref, image_url, notes, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         input.title,
@@ -92,6 +93,7 @@ export function createRecipe(input: RecipeInput): number {
         input.sourceType,
         input.sourceRef ?? null,
         input.sourceName ?? null,
+        input.videoRef ?? null,
         input.imageUrl ?? null,
         input.notes ?? null,
         now,
@@ -113,7 +115,7 @@ export function updateRecipe(recipeId: number, input: RecipeInput): void {
     db.prepare(
       `UPDATE recipes SET
         title = ?, servings = ?, total_time_minutes = ?,
-        instructions_json = ?, raw_text = ?, source_type = ?, source_ref = ?, source_name = ?, image_url = ?, notes = ?, updated_at = ?
+        instructions_json = ?, raw_text = ?, source_type = ?, source_ref = ?, source_name = ?, video_ref = ?, image_url = ?, notes = ?, updated_at = ?
        WHERE id = ?`
     ).run(
       input.title,
@@ -124,6 +126,7 @@ export function updateRecipe(recipeId: number, input: RecipeInput): void {
       input.sourceType,
       input.sourceRef ?? null,
       input.sourceName ?? null,
+      input.videoRef ?? null,
       input.imageUrl ?? null,
       input.notes ?? null,
       now,
@@ -314,6 +317,7 @@ export type RecipeDetail = {
   sourceType: string;
   sourceRef: string | null;
   sourceName: string | null;
+  videoRef: string | null;
   imageUrl: string | null;
   notes: string | null;
   wantToTryAt: string | null;
@@ -335,6 +339,7 @@ export function getRecipeById(recipeId: number): RecipeDetail | null {
         source_type: string;
         source_ref: string | null;
         source_name: string | null;
+        video_ref: string | null;
         image_url: string | null;
         notes: string | null;
         want_to_try_at: string | null;
@@ -393,6 +398,7 @@ export function getRecipeById(recipeId: number): RecipeDetail | null {
     sourceType: row.source_type,
     sourceRef: row.source_ref,
     sourceName: row.source_name,
+    videoRef: row.video_ref,
     imageUrl: row.image_url,
     notes: row.notes,
     wantToTryAt: row.want_to_try_at,
@@ -408,6 +414,45 @@ export function addAttempt(recipeId: number, attemptedAt: string, rating: number
     .prepare('INSERT INTO recipe_attempts (recipe_id, attempted_at, rating, notes) VALUES (?, ?, ?, ?)')
     .run(recipeId, attemptedAt, rating, notes);
   return Number(result.lastInsertRowid);
+}
+
+export type ActivityEntry = {
+  id: number;
+  recipeId: number;
+  recipeTitle: string;
+  attemptedAt: string;
+  rating: number | null;
+  notes: string | null;
+};
+
+// Every logged cooking attempt across all recipes, newest first — the raw
+// feed behind the "activity log" page, as opposed to the per-recipe
+// timeline already shown on each recipe's detail page.
+export function listAllAttempts(): ActivityEntry[] {
+  const rows = db
+    .prepare(
+      `SELECT ra.id, ra.recipe_id, r.title, ra.attempted_at, ra.rating, ra.notes
+       FROM recipe_attempts ra
+       JOIN recipes r ON r.id = ra.recipe_id
+       ORDER BY ra.attempted_at DESC, ra.id DESC`
+    )
+    .all() as Array<{
+    id: number;
+    recipe_id: number;
+    title: string;
+    attempted_at: string;
+    rating: number | null;
+    notes: string | null;
+  }>;
+
+  return rows.map((r) => ({
+    id: r.id,
+    recipeId: r.recipe_id,
+    recipeTitle: r.title,
+    attemptedAt: r.attempted_at,
+    rating: r.rating,
+    notes: r.notes
+  }));
 }
 
 export function deleteAttempt(attemptId: number): void {

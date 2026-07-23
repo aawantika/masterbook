@@ -40,6 +40,11 @@ export const UNIT_ALIASES: Array<{ canonical: string; pattern: string }> = [
 export const CANONICAL_UNITS = UNIT_ALIASES.map((u) => u.canonical);
 
 const UNIT_PATTERN = `(${UNIT_ALIASES.map((u) => u.pattern).join('|')})`;
+// Non-capturing twin of UNIT_PATTERN, for use inside a lookahead — a
+// lookahead that embeds a *capturing* group still counts toward overall
+// group numbering even though it never consumes input, which would shift
+// every match[n] index downstream that assumes the original numbering.
+const UNIT_PATTERN_NONCAPTURING = `(?:${UNIT_ALIASES.map((u) => u.pattern).join('|')})`;
 
 function canonicalizeUnit(rawUnit: string): string {
   const normalized = rawUnit.trim().toLowerCase();
@@ -54,16 +59,27 @@ function canonicalizeUnit(rawUnit: string): string {
 // (U+00BC–00BE, U+2150–215E).
 const QUANTITY_CHAR_CLASS = '\\d.\\/\\s\\u00BC-\\u00BE\\u2150-\\u215E';
 
-// Matches a leading quantity (digits, fractions like "1/2" or "½", or ranges
-// like "1-2" / "3 to 4"), an optional unit, then the rest of the line as the
-// ingredient name. The unit match requires a trailing word boundary (`\b`)
-// so a single-letter abbreviation like "l" (liter) or "g" (gram) can't eat
-// the first letter of an unrelated word — "large eggs" was matching "l" as
-// a unit and leaving "arge eggs" as the name before this. Best-effort —
+// "a pinch", "a dash", "a can" — an implicit quantity of one, spelled as an
+// article rather than a digit. Only matches when immediately followed by a
+// recognized unit (the lookahead), so "a large onion" doesn't misfire —
+// "large" isn't a unit, so the article there is just a normal article.
+const ARTICLE_QUANTITY_GROUP = `(?:a|an)(?=\\s+${UNIT_PATTERN_NONCAPTURING}\\b)`;
+
+function isArticleQuantity(value: string): boolean {
+  return /^(a|an)$/i.test(value);
+}
+
+// Matches a leading quantity (digits, fractions like "1/2" or "½", ranges
+// like "1-2" / "3 to 4", or an article like "a"/"an" immediately before a
+// unit), an optional unit, then the rest of the line as the ingredient
+// name. The unit match requires a trailing word boundary (`\b`) so a
+// single-letter abbreviation like "l" (liter) or "g" (gram) can't eat the
+// first letter of an unrelated word — "large eggs" was matching "l" as a
+// unit and leaving "arge eggs" as the name before this. Best-effort —
 // always falls back to preserving the raw line as `name` if nothing
 // matches, since losing the original text is worse than an imperfect guess.
 const INGREDIENT_LINE_PATTERN = new RegExp(
-  `^([${QUANTITY_CHAR_CLASS}]*(?:(?:-|\\u2013|\\u2014|to)\\s*[${QUANTITY_CHAR_CLASS}]+)?)\\s*(?:${UNIT_PATTERN}\\b)?\\s*(.*)$`,
+  `^(${ARTICLE_QUANTITY_GROUP}|[${QUANTITY_CHAR_CLASS}]*(?:(?:-|\\u2013|\\u2014|to)\\s*[${QUANTITY_CHAR_CLASS}]+)?)\\s*(?:${UNIT_PATTERN}\\b)?\\s*(.*)$`,
   'i'
 );
 
@@ -82,42 +98,71 @@ function stripLeadingCommaInParens(value: string): string {
   return value.replace(/\(\s*,\s*/g, '(');
 }
 
+// "medium", "medium sized", "medium-sized" — a size descriptor, not a real
+// measurement unit. Recognized separately from UNIT_PATTERN so "1 medium
+// sized onion" (no unit word at all, just a size) still extracts a
+// quantity instead of failing to match anything and falling back to the
+// whole line untouched.
+const SIZE_DESCRIPTOR_PATTERN = `(?:small|medium|large)(?:[\\s-]?siz(?:e|ed))?`;
+
+function normalizeSizeDescriptor(raw: string): string {
+  return raw.replace(/[\s-]?siz(?:e|ed)$/i, '').trim().toLowerCase();
+}
+
 // Bilingual "NAME | translation quantity unit" lines — a format common on
 // Instagram recipe cards from Hindi-speaking creators, e.g.
 // "GARLIC | लहसुन 8-10 CLOVES". Unlike every other format this parser
-// handles, the quantity/unit sits at the *end* of the line, not the start —
-// so it's pulled from the tail via its own pattern, and the "NAME |
-// translation" prefix is kept intact as the name rather than discarded, so
-// the original-language text stays visible instead of being thrown away.
+// handles, the quantity/unit sits at the *end* of the line, not the start.
+// The translation itself is dropped — only the English name before the "|"
+// is kept — so this just needs to find where the pipe is, then pull
+// quantity/unit/size out of whatever comes after it.
 const TRAILING_QUANTITY_UNIT_PATTERN = new RegExp(
-  `([${QUANTITY_CHAR_CLASS}]+(?:(?:-|\\u2013|\\u2014|to)\\s*[${QUANTITY_CHAR_CLASS}]+)?)\\s*(?:${UNIT_PATTERN}\\b)?\\s*(\\([^)]*\\))?\\s*\\.?\\s*$`,
+  `(${ARTICLE_QUANTITY_GROUP}|[${QUANTITY_CHAR_CLASS}]+(?:(?:-|\\u2013|\\u2014|to)\\s*[${QUANTITY_CHAR_CLASS}]+)?)\\s*(?:${UNIT_PATTERN}\\b)?\\s*(${SIZE_DESCRIPTOR_PATTERN})?\\s*(\\([^)]*\\))?\\s*\\.?\\s*$`,
   'i'
 );
 
 function parseBilingualPipeLine(rawLine: string, section: string | null): ParsedIngredientLine | null {
-  if (!rawLine.includes('|')) return null;
+  const pipeIndex = rawLine.indexOf('|');
+  if (pipeIndex === -1) return null;
 
-  const match = TRAILING_QUANTITY_UNIT_PATTERN.exec(rawLine);
-  const quantity = match?.[1]?.trim();
-  // Require an actual digit/fraction, not just trailing whitespace matched
-  // by the quantity character class — otherwise every piped line with no
-  // trailing number at all would "match" with an empty/blank quantity.
-  if (!match || !quantity || !/[\d¼-¾⅐-⅞]/.test(quantity)) return null;
+  const englishName = rawLine.slice(0, pipeIndex).trim().toLowerCase();
+  if (!englishName) return null;
+  const afterPipe = rawLine.slice(pipeIndex + 1).trim();
+
+  const match = TRAILING_QUANTITY_UNIT_PATTERN.exec(afterPipe);
+  const quantityRaw = match?.[1]?.trim();
+  const isArticle = quantityRaw ? isArticleQuantity(quantityRaw) : false;
+  // Require an actual digit/fraction (or the "a"/"an" article form) — not
+  // just trailing whitespace matched by the quantity character class,
+  // otherwise every piped line with no trailing number at all would
+  // "match" with an empty/blank quantity.
+  const hasQuantity = !!quantityRaw && (isArticle || /[\d¼-¾⅐-⅞]/.test(quantityRaw));
+
+  if (!match || !hasQuantity) {
+    // No quantity/unit extractable at all ("SALT | नमक TO TASTE") — the
+    // Devanagari translation still gets dropped, but any real leftover
+    // instruction ("to taste", "as required") is kept, just appended
+    // naturally onto the English name instead of discarded outright.
+    const leftover = afterPipe
+      .replace(/[ऀ-ॿ]+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+    const fallbackText = leftover ? `${englishName}, ${leftover}` : englishName;
+    return { rawText: fallbackText, quantity: null, unit: null, name: fallbackText, section };
+  }
+  const quantity = isArticle ? '1' : quantityRaw!;
 
   const rawUnitText = match[2]?.trim() ?? '';
   const unit = rawUnitText ? canonicalizeUnit(rawUnitText) : null;
-  const notes = match[3] ? ` ${match[3]}` : '';
-  const name = (rawLine.slice(0, match.index).trim() + notes).trim();
-  if (!name) return null;
-
-  // The display views show rawText verbatim rather than reconstructing from
-  // quantity/unit/name, so it needs to read naturally — this reorders the
-  // quantity/unit (originally at the end of the line) to the front, instead
-  // of showing the line exactly as typed, which would read "backwards"
-  // compared to every other ingredient format ("GARLIC | ... 8-10 CLOVES"
-  // instead of "8-10 CLOVES GARLIC | ..."). Keeps the original unit text
-  // (not canonicalized) so plurals like "CLOVES" aren't flattened to "clove".
-  const rawText = `${quantity}${rawUnitText ? ` ${rawUnitText}` : ''} ${name}`.trim();
+  const sizeWord = match[3] ? normalizeSizeDescriptor(match[3]) : null;
+  const notes = match[4] ? ` ${match[4]}` : '';
+  // "nos"/"no" is a bare count, not a real unit word ("2 nos green chilli"
+  // isn't how anyone'd say that in English) — kept as the stored unit for
+  // consistency, but left out of the display text.
+  const showUnitInText = unit !== 'nos' && rawUnitText;
+  const name = `${sizeWord ? `${sizeWord} ` : ''}${englishName}${notes}`.trim();
+  const rawText = `${quantity}${showUnitInText ? ` ${rawUnitText.toLowerCase()}` : ''} ${name}`.trim();
 
   return { rawText, quantity, unit, name, section };
 }
@@ -134,7 +179,8 @@ export function parseIngredientLine(rawLine: string, section: string | null = nu
     return { rawText, quantity: null, unit: null, name: stripped, section };
   }
 
-  const quantity = match[1]?.trim() || null;
+  const quantityRaw = match[1]?.trim() || null;
+  const quantity = quantityRaw && isArticleQuantity(quantityRaw) ? '1' : quantityRaw;
   const unit = match[2]?.trim() ? canonicalizeUnit(match[2]) : null;
   const name = match[3]?.trim() || stripped;
 

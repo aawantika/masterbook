@@ -21,5 +21,5 @@ const PORT = 3001;
 const HOST = '127.0.0.1';
 
 app.listen(PORT, HOST, () => {
-  console.log(`local-cookbook server listening on http://${HOST}:${PORT}`);
+  console.log(`masterbook server listening on http://${HOST}:${PORT}`);
 });

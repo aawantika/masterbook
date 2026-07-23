@@ -1,4 +1,4 @@
-# Local Cookbook
+# Masterbook
 
 A personal, local-only recipe database — unifies recipes pulled from EPUB cookbooks, Instagram saves, and website pastes into one searchable app. Search/filter by meal type, ingredient, and cuisine; track a "want to try" queue; keep a running cooking log (date, rating, notes/adjustments) per recipe across multiple attempts.
 

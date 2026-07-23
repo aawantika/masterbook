@@ -42,3 +42,33 @@ export function youtubeThumbnailUrl(videoId: string): string {
 export function isUnfetchableRecipeUrl(url: string): boolean {
   return isInstagramUrl(url) || extractYouTubeVideoId(url) !== null;
 }
+
+// Instagram's own embed endpoint for a public post/reel/IGTV video —
+// "/{type}/{shortcode}/embed" — the same URL their own "Embed" share option
+// generates. Works without any API key for public posts; private or
+// age-gated ones will show a login prompt inside the iframe instead of the
+// video, which is an Instagram-side restriction, not something to work around.
+function extractInstagramEmbedPath(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname.toLowerCase().includes('instagram.com')) return null;
+    const match = parsed.pathname.match(/^\/(p|reel|tv)\/([^/]+)/);
+    return match ? `/${match[1]}/${match[2]}/embed` : null;
+  } catch {
+    return null;
+  }
+}
+
+export type VideoEmbed = { url: string; aspectRatio: '16 / 9' | '9 / 16' };
+
+// YouTube embeds are landscape (16:9); Instagram Reels/posts are portrait
+// (9:16) — the player needs a different aspect ratio per platform rather
+// than a one-size-fits-all box.
+export function getVideoEmbed(sourceRef: string | null): VideoEmbed | null {
+  if (!sourceRef) return null;
+  const youtubeId = extractYouTubeVideoId(sourceRef);
+  if (youtubeId) return { url: `https://www.youtube.com/embed/${youtubeId}`, aspectRatio: '16 / 9' };
+  const instagramEmbedPath = extractInstagramEmbedPath(sourceRef);
+  if (instagramEmbedPath) return { url: `https://www.instagram.com${instagramEmbedPath}`, aspectRatio: '9 / 16' };
+  return null;
+}

@@ -24,6 +24,15 @@ function getOrCreateIngredient(name: string): number | null {
   const row = db.prepare('SELECT id FROM ingredient_catalog WHERE canonical_name = ? COLLATE NOCASE').get(trimmed) as
     | { id: number }
     | undefined;
+  if (row) {
+    // A case-insensitive match against an older row (e.g. "GARLIC" saved
+    // before ingredient names were lowercased) would otherwise keep
+    // serving that stale casing forever, even though every fresh parse
+    // now produces "garlic" — keep the catalog's casing in sync with
+    // whatever was just parsed instead of silently freezing on the first
+    // casing it ever saw.
+    db.prepare('UPDATE ingredient_catalog SET canonical_name = ? WHERE id = ?').run(trimmed, row.id);
+  }
   return row?.id ?? null;
 }
 

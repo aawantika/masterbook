@@ -11,7 +11,7 @@ import {
 } from '../api/client';
 import { MetaItem, RecipeDetail, RecipeDraft, SourceType } from '../api/types';
 import { parseBaseServings, scaleQuantityString } from '../scaleQuantity';
-import { isUnfetchableRecipeUrl } from '../sourceUrl';
+import { getVideoEmbed, isUnfetchableRecipeUrl } from '../sourceUrl';
 import { RecipeDraftEditor } from './RecipeDraftEditor';
 
 type RecipeDetailPanelProps = {
@@ -82,6 +82,7 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
 
   if (!recipe) return <div className="muted">Loading...</div>;
 
+  const videoEmbed = getVideoEmbed(recipe.sourceRef);
   const baseServings = parseBaseServings(recipe.servings);
   const scaleFactor = baseServings && targetServings ? targetServings / baseServings : 1;
 
@@ -214,10 +215,23 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
         </div>
       </div>
 
-      {recipe.imageUrl && (
-        <div className="recipe-detail-image-wrap">
-          <img className="recipe-detail-image" src={recipe.imageUrl} alt={recipe.title} />
+      {videoEmbed ? (
+        <div className="recipe-detail-video-wrap" style={{ aspectRatio: videoEmbed.aspectRatio }}>
+          <iframe
+            className="recipe-detail-video"
+            src={videoEmbed.url}
+            title={recipe.title}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            loading="lazy"
+          />
         </div>
+      ) : (
+        recipe.imageUrl && (
+          <div className="recipe-detail-image-wrap">
+            <img className="recipe-detail-image" src={recipe.imageUrl} alt={recipe.title} />
+          </div>
+        )
       )}
 
       <div className="recipe-detail-meta">
@@ -270,10 +284,15 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
               {group.section && <h4 className="ingredient-section-heading">{group.section}</h4>}
               <ul>
                 {group.items.map((ing, i) => {
+                  // "nos"/"no" is a bare count, not a real unit word — kept
+                  // as the stored value, but left out of the display text.
+                  const displayUnit = ing.unit === 'nos' ? null : ing.unit;
                   const text =
                     scaleFactor !== 1
-                      ? [scaleQuantityString(ing.quantity, scaleFactor), ing.unit, ing.name].filter(Boolean).join(' ')
-                      : ing.rawText || [ing.quantity, ing.unit, ing.name].filter(Boolean).join(' ');
+                      ? [scaleQuantityString(ing.quantity, scaleFactor), displayUnit, ing.name]
+                          .filter(Boolean)
+                          .join(' ')
+                      : ing.rawText || [ing.quantity, displayUnit, ing.name].filter(Boolean).join(' ');
                   return <li key={i}>{text}</li>;
                 })}
               </ul>

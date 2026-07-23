@@ -202,6 +202,26 @@ html, body, #root {
   text-decoration: none;
 }
 
+.middle-topbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.button-link.secondary-link {
+  background: #e5e7eb;
+  color: #1f2937;
+}
+
+.activity-recipe-link {
+  color: #b45309;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.activity-recipe-link:hover {
+  text-decoration: underline;
+}
+
 .filter-bar {
   display: grid;
   gap: 10px;
@@ -599,6 +619,10 @@ html, body, #root {
 .editor-actions .secondary {
   background: #e5e7eb;
   color: #1f2937;
+}
+
+.editor-actions .fetch-by-source {
+  background: #15803d;
 }
 
 .editor-error {

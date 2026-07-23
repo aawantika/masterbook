@@ -152,9 +152,14 @@ export function CookbookShell() {
           <Link to="/" className="shell-title-link">
             <h1 className="shell-title">Local Cookbook</h1>
           </Link>
-          <Link to="/add" className="button-link">
-            + Add recipe
-          </Link>
+          <div className="middle-topbar-actions">
+            <Link to="/activity" className="button-link secondary-link">
+              Activity log
+            </Link>
+            <Link to="/add" className="button-link">
+              + Add recipe
+            </Link>
+          </div>
         </div>
 
         <div className="middle-content">

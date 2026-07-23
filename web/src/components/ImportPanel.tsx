@@ -95,6 +95,25 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
     }
   };
 
+  // For sites that refuse to be fetched at all (bot-protected, not just
+  // JS-rendered) and aren't worth hand-transcribing — just open the editor
+  // with the link(s) pre-filled and let the title/ingredients/etc. be
+  // filled in (or left blank) manually.
+  const handleSkipToManual = () => {
+    const url = fetchUrl.trim();
+    setFetchError(null);
+    setFetchNotice(null);
+    if (isInstagramUrl(url)) {
+      setSourceType('instagram');
+    } else if (extractYouTubeVideoId(url)) {
+      setSourceType('website');
+    } else if (url) {
+      setSourceType('website');
+    }
+    setSourceRef(url);
+    setDraft({ title: '', ingredients: [], instructions: [], rawText: '' });
+  };
+
   const handleSave = async (input: RecipeInput) => {
     const finalSourceRef = sourceRef.trim() || null;
     const matches = await checkDuplicates(finalSourceRef, input.title);
@@ -126,8 +145,11 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
           {fetchError && <div className="editor-error">{fetchError}</div>}
           {fetchNotice && <div className="editor-notice">{fetchNotice}</div>}
           <div className="editor-actions">
-            <button type="button" onClick={handleFetch} disabled={fetching}>
+            <button type="button" className="fetch-by-source" onClick={handleFetch} disabled={fetching}>
               {fetching ? 'Fetching...' : 'Fetch recipe'}
+            </button>
+            <button type="button" className="secondary" onClick={handleSkipToManual}>
+              Skip — just save the link(s)
             </button>
             <button type="button" className="secondary" disabled title="EPUB import isn't built yet">
               + Add from EPUB (coming soon)

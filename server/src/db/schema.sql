@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS recipes (
   source_type TEXT NOT NULL CHECK (source_type IN ('epub','instagram','website','manual')),
   source_ref TEXT,
   source_name TEXT,
+  video_ref TEXT,
   epub_source_id INTEGER REFERENCES epub_sources(id),
   image_url TEXT,
   notes TEXT,

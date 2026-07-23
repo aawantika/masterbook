@@ -1,8 +1,12 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { addAttempt, deleteAttempt, getRecipeById } from '../db/recipes.js';
+import { addAttempt, deleteAttempt, getRecipeById, listAllAttempts } from '../db/recipes.js';
 
 export const attemptsRouter = Router();
+
+attemptsRouter.get('/attempts', (_req, res) => {
+  res.json(listAllAttempts());
+});
 
 const attemptInputSchema = z.object({
   attemptedAt: z.string().min(1),

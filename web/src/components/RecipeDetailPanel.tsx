@@ -82,7 +82,11 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
 
   if (!recipe) return <div className="muted">Loading...</div>;
 
-  const videoEmbed = getVideoEmbed(recipe.sourceRef);
+  // A recipe can have a written source (sourceRef) and a separate video
+  // (videoRef) at once — e.g. a blog post plus its companion YouTube demo.
+  // Fall back to sourceRef itself for older/simpler recipes where the video
+  // IS the source (a plain Instagram/YouTube link with no separate write-up).
+  const videoEmbed = getVideoEmbed(recipe.videoRef) ?? getVideoEmbed(recipe.sourceRef);
   const baseServings = parseBaseServings(recipe.servings);
   const scaleFactor = baseServings && targetServings ? targetServings / baseServings : 1;
 
@@ -145,6 +149,7 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
           sourceType: recipe.sourceType as SourceType,
           sourceRef: recipe.sourceRef,
           sourceName: refreshedDraft.sourceName ?? recipe.sourceName,
+          videoRef: recipe.videoRef,
           imageUrl: refreshedDraft.imageUrl ?? recipe.imageUrl,
           notes: recipe.notes,
           mealTypeIds: recipe.mealTypeIds,
@@ -160,6 +165,7 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
           sourceType: recipe.sourceType as SourceType,
           sourceRef: recipe.sourceRef,
           sourceName: recipe.sourceName,
+          videoRef: recipe.videoRef,
           imageUrl: recipe.imageUrl,
           notes: recipe.notes,
           mealTypeIds: recipe.mealTypeIds,
@@ -274,6 +280,11 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
           ) : (
             <span className="muted">{recipe.sourceRef}</span>
           ))}
+        {recipe.videoRef && (
+          <a href={recipe.videoRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
+            ▶ Video
+          </a>
+        )}
       </div>
 
       <div className="recipe-detail-body">

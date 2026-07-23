@@ -1,4 +1,5 @@
 import {
+  ActivityEntry,
   DuplicateMatch,
   MetaItem,
   RecipeDetail,
@@ -116,6 +117,10 @@ export function addAttempt(
 
 export function deleteAttempt(id: number): Promise<void> {
   return request<void>(`/attempts/${id}`, { method: 'DELETE' });
+}
+
+export function getActivityLog(): Promise<ActivityEntry[]> {
+  return request<ActivityEntry[]>('/attempts');
 }
 
 export function parseManualPaste(text: string): Promise<RecipeDraft> {

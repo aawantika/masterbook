@@ -128,6 +128,10 @@ export function fetchRecipeFromUrl(url: string): Promise<WebsiteFetchResult> {
   return request<WebsiteFetchResult>('/ingest/website/fetch', { method: 'POST', body: JSON.stringify({ url }) });
 }
 
+export function fetchRemoteImage(url: string): Promise<{ imageUrl: string }> {
+  return request<{ imageUrl: string }>('/images/fetch-remote', { method: 'POST', body: JSON.stringify({ url }) });
+}
+
 export function getMealTypes(): Promise<MetaItem[]> {
   return request<MetaItem[]>('/meta/meal-types');
 }

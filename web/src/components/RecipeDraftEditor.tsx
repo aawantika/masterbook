@@ -10,6 +10,7 @@ import {
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { MetaItem, ParsedIngredientLine, ParsedInstructionStep, RecipeInput, SourceType } from '../api/types';
+import { fetchRemoteImage } from '../api/client';
 import { CANONICAL_UNITS } from '../constants';
 import { AutoGrowTextarea } from './AutoGrowTextarea';
 
@@ -198,6 +199,7 @@ export function RecipeDraftEditor({
   const [sourceRef, setSourceRef] = useState(initial?.sourceRef ?? '');
   const [sourceName, setSourceName] = useState(initial?.sourceName ?? '');
   const [imageUrl, setImageUrl] = useState(initial?.imageUrl ?? '');
+  const [savingImage, setSavingImage] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -348,6 +350,21 @@ export function RecipeDraftEditor({
     setInstructions((prev) => [...prev, emptyInstruction(makeBlankSectionValue())]);
   };
 
+  const saveImageLocally = async () => {
+    const trimmed = imageUrl.trim();
+    if (!trimmed) return;
+    setSavingImage(true);
+    setError(null);
+    try {
+      const result = await fetchRemoteImage(trimmed);
+      setImageUrl(result.imageUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save image locally.');
+    } finally {
+      setSavingImage(false);
+    }
+  };
+
   const toggleMealType = (id: number) => {
     setMealTypeIds((prev) => {
       const next = new Set(prev);
@@ -450,11 +467,21 @@ export function RecipeDraftEditor({
 
       <label className="field">
         <span>Image URL</span>
-        <input
-          value={imageUrl}
-          onChange={(e) => setImageUrl(e.target.value)}
-          placeholder="https://... (optional — never downloaded, just linked)"
-        />
+        <div className="editor-image-url-row">
+          <input
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            placeholder="https://... (paste an image link, e.g. from Instagram)"
+          />
+          {imageUrl.trim() && !imageUrl.trim().startsWith('/api/images/') && (
+            <button type="button" onClick={saveImageLocally} disabled={savingImage}>
+              {savingImage ? 'Saving…' : 'Save locally'}
+            </button>
+          )}
+        </div>
+        {imageUrl.trim().startsWith('/api/images/') && (
+          <span className="muted">Saved locally — this copy won't expire.</span>
+        )}
         {imageUrl.trim() && <img className="editor-image-preview" src={imageUrl.trim()} alt="" />}
       </label>
 

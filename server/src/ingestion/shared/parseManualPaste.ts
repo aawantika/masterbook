@@ -13,8 +13,13 @@ function isHeadingLike(line: string, pattern: RegExp): boolean {
   return line.length <= 50 && pattern.test(line);
 }
 
+// Recipe-plugin checkbox glyphs (WP Recipe Maker's ▢ being the most common)
+// alongside the usual bullet/dash/numbered-list markers — all of these sit
+// glued to the front of a copy-pasted ingredient line with no space, which
+// otherwise defeats the quantity/unit regex entirely (it expects the line
+// to start with the quantity itself).
 function stripLeadingMarker(line: string): string {
-  return line.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '').trim();
+  return line.replace(/^\s*(?:[-*•▢□☐◦▪▫]|\d+[.)])\s*/, '').trim();
 }
 
 // Groups consecutive non-blank lines, splitting on one or more blank

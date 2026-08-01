@@ -1,13 +1,18 @@
 import { groupIngredientLinesBySections } from './parseIngredientLine.js';
 import { RecipeDraft } from '../../types/recipe.js';
 
-// Loose word-start match rather than "the whole line is exactly this word"
-// — real recipe captions write "Ingredients (4 servings):" or "How:" as
-// often as a bare "Ingredients:". The length check keeps this from
-// matching a sentence that merely happens to start with one of these words
-// ("How to fix a broken roux: whisk harder" isn't a section heading).
-const INGREDIENTS_HEADING = /^ingredients?\b/i;
-const INSTRUCTIONS_HEADING = /^(instructions?|directions?|method|steps?|how(?:\s+to)?)\b/i;
+// Whole-line match with room for a trailing parenthetical and/or colon —
+// real recipe captions write "Ingredients (4 servings):" or "How:" as often
+// as a bare "Ingredients:", so the heading word alone isn't enough to
+// require. But anchoring both ends (rather than just word-start) matters:
+// an earlier word-start-only version matched "How to fix a broken roux:
+// whisk harder" as an instructions heading, since it starts with "how to"
+// and the length guard (<=50 chars) doesn't reliably rule out a short
+// sentence like that one. Requiring nothing but an optional "(...)" and ":"
+// after the keyword rejects real sentence content while still accepting
+// "Ingredients (4 servings):".
+const INGREDIENTS_HEADING = /^ingredients?\s*(\([^)]*\))?\s*:?\s*$/i;
+const INSTRUCTIONS_HEADING = /^(instructions?|directions?|method|steps?|how(?:\s+to)?)\s*(\([^)]*\))?\s*:?\s*$/i;
 
 function isHeadingLike(line: string, pattern: RegExp): boolean {
   return line.length <= 50 && pattern.test(line);

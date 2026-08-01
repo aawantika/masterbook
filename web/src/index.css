@@ -126,9 +126,9 @@ html, body, #root {
 }
 
 .sidebar-group-toggle button.active {
-  background: #b45309;
+  background: #15803d;
   color: white;
-  border-color: #b45309;
+  border-color: #15803d;
 }
 
 .sidebar-tree details {
@@ -195,7 +195,7 @@ html, body, #root {
   padding: 8px 14px;
   border-radius: 8px;
   border: none;
-  background: #b45309;
+  background: #15803d;
   color: white;
   font-size: 14px;
   cursor: pointer;
@@ -610,7 +610,7 @@ html, body, #root {
   padding: 10px 16px;
   border-radius: 8px;
   border: none;
-  background: #b45309;
+  background: #15803d;
   color: white;
   cursor: pointer;
   font-size: 14px;
@@ -659,7 +659,7 @@ html, body, #root {
   padding: 10px 16px;
   border-radius: 8px;
   border: none;
-  background: #b45309;
+  background: #15803d;
   color: white;
   cursor: pointer;
   font-size: 14px;
@@ -853,7 +853,7 @@ html, body, #root {
   padding: 8px 14px;
   border-radius: 8px;
   border: none;
-  background: #b45309;
+  background: #15803d;
   color: white;
   cursor: pointer;
 }

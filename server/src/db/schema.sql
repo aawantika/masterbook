@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS recipes (
   notes TEXT,
   want_to_try_at TEXT,
   favorited_at TEXT,
+  needs_fixing_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

@@ -184,6 +184,13 @@ export function setFavorite(recipeId: number, favorite: boolean): void {
   );
 }
 
+export function setNeedsFixing(recipeId: number, needsFixing: boolean): void {
+  db.prepare('UPDATE recipes SET needs_fixing_at = ? WHERE id = ?').run(
+    needsFixing ? new Date().toISOString() : null,
+    recipeId
+  );
+}
+
 export type RecipeSummary = {
   id: number;
   title: string;
@@ -193,6 +200,7 @@ export type RecipeSummary = {
   imageUrl: string | null;
   wantToTryAt: string | null;
   favoritedAt: string | null;
+  needsFixingAt: string | null;
   avgRating: number | null;
   lastCookedAt: string | null;
   mealTypes: string[];
@@ -206,6 +214,7 @@ export type SearchFilters = {
   ingredientIds?: number[];
   toTryOnly?: boolean;
   favoritesOnly?: boolean;
+  needsFixingOnly?: boolean;
 };
 
 function sanitizeFtsQuery(query: string): string {
@@ -248,13 +257,16 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
   if (filters.favoritesOnly) {
     clauses.push('r.favorited_at IS NOT NULL');
   }
+  if (filters.needsFixingOnly) {
+    clauses.push('r.needs_fixing_at IS NOT NULL');
+  }
 
   const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
   const orderBy = 'ORDER BY r.title COLLATE NOCASE ASC';
 
   const rows = db
     .prepare(
-      `SELECT r.id, r.title, r.source_type, r.source_ref, r.source_name, r.image_url, r.want_to_try_at, r.favorited_at FROM recipes r ${where} ${orderBy}`
+      `SELECT r.id, r.title, r.source_type, r.source_ref, r.source_name, r.image_url, r.want_to_try_at, r.favorited_at, r.needs_fixing_at FROM recipes r ${where} ${orderBy}`
     )
     .all(...params) as Array<{
     id: number;
@@ -265,6 +277,7 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
     image_url: string | null;
     want_to_try_at: string | null;
     favorited_at: string | null;
+    needs_fixing_at: string | null;
   }>;
 
   const avgRatingStmt = db.prepare(
@@ -288,6 +301,7 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
       imageUrl: row.image_url,
       wantToTryAt: row.want_to_try_at,
       favoritedAt: row.favorited_at,
+      needsFixingAt: row.needs_fixing_at,
       avgRating: ratingRow.avg,
       lastCookedAt: ratingRow.last,
       mealTypes: (mealTypesStmt.all(row.id) as Array<{ name: string }>).map((r) => r.name),
@@ -318,6 +332,7 @@ export type RecipeDetail = {
   notes: string | null;
   wantToTryAt: string | null;
   favoritedAt: string | null;
+  needsFixingAt: string | null;
   mealTypeIds: number[];
   cuisineNames: string[];
   attempts: Array<{ id: number; attemptedAt: string; rating: number | null; notes: string | null }>;
@@ -340,6 +355,7 @@ export function getRecipeById(recipeId: number): RecipeDetail | null {
         notes: string | null;
         want_to_try_at: string | null;
         favorited_at: string | null;
+        needs_fixing_at: string | null;
       }
     | undefined;
   if (!row) return null;
@@ -399,6 +415,7 @@ export function getRecipeById(recipeId: number): RecipeDetail | null {
     notes: row.notes,
     wantToTryAt: row.want_to_try_at,
     favoritedAt: row.favorited_at,
+    needsFixingAt: row.needs_fixing_at,
     mealTypeIds,
     cuisineNames,
     attempts: attempts.map((a) => ({ id: a.id, attemptedAt: a.attempted_at, rating: a.rating, notes: a.notes }))

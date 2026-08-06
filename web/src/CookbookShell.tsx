@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, Outlet, useNavigate, useParams } from 'react-router-dom';
-import { getCuisines, getMealTypes, searchRecipes, setFavorite, setWantToTry } from './api/client';
+import { getCuisines, getMealTypes, searchRecipes, setFavorite, setNeedsFixing, setWantToTry } from './api/client';
 import { MetaItem, RecipeSummary } from './api/types';
 import { Sidebar } from './components/Sidebar';
 
@@ -27,10 +27,13 @@ export type ShellContext = {
   toggleToTryOnly: () => void;
   favoritesOnly: boolean;
   toggleFavoritesOnly: () => void;
+  needsFixingOnly: boolean;
+  toggleNeedsFixingOnly: () => void;
   results: RecipeSummary[];
   loading: boolean;
   handleToggleWantToTry: (id: number, want: boolean) => void;
   handleToggleFavorite: (id: number, favorite: boolean) => void;
+  handleToggleNeedsFixing: (id: number, needsFixing: boolean) => void;
 };
 
 export function CookbookShell() {
@@ -49,6 +52,7 @@ export function CookbookShell() {
   const [selectedCuisineIds, setSelectedCuisineIds] = useState<Set<number>>(new Set());
   const [toTryOnly, setToTryOnly] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [needsFixingOnly, setNeedsFixingOnly] = useState(false);
   const [results, setResults] = useState<RecipeSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -67,7 +71,8 @@ export function CookbookShell() {
         mealTypeIds: Array.from(selectedMealTypeIds),
         cuisineIds: Array.from(selectedCuisineIds),
         toTry: toTryOnly,
-        favorites: favoritesOnly
+        favorites: favoritesOnly,
+        needsFixing: needsFixingOnly
       });
       setResults(data);
     } finally {
@@ -78,7 +83,15 @@ export function CookbookShell() {
   useEffect(() => {
     runSearch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQuery, selectedMealTypeIds, selectedCuisineIds, toTryOnly, favoritesOnly, reloadSignal]);
+  }, [
+    debouncedQuery,
+    selectedMealTypeIds,
+    selectedCuisineIds,
+    toTryOnly,
+    favoritesOnly,
+    needsFixingOnly,
+    reloadSignal
+  ]);
 
   const toggleInSet = (setter: React.Dispatch<React.SetStateAction<Set<number>>>, id: number) => {
     setter((prev) => {
@@ -99,6 +112,11 @@ export function CookbookShell() {
     bumpReload();
   };
 
+  const handleToggleNeedsFixing = async (recipeId: number, needsFixing: boolean) => {
+    await setNeedsFixing(recipeId, needsFixing);
+    bumpReload();
+  };
+
   const context: ShellContext = {
     bumpReload,
     query,
@@ -113,10 +131,13 @@ export function CookbookShell() {
     toggleToTryOnly: () => setToTryOnly((prev) => !prev),
     favoritesOnly,
     toggleFavoritesOnly: () => setFavoritesOnly((prev) => !prev),
+    needsFixingOnly,
+    toggleNeedsFixingOnly: () => setNeedsFixingOnly((prev) => !prev),
     results,
     loading,
     handleToggleWantToTry,
-    handleToggleFavorite
+    handleToggleFavorite,
+    handleToggleNeedsFixing
   };
 
   return (

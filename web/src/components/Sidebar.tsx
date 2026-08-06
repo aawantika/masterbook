@@ -73,17 +73,20 @@ function RecipeLinkList({
   selectedRecipeId,
   onSelectRecipe,
   showQueueStar = true,
-  showFavoriteHeart = true
+  showFavoriteHeart = true,
+  showFixIcon = true
 }: {
   recipes: RecipeSummary[];
   selectedRecipeId: number | null;
   onSelectRecipe: (id: number) => void;
-  // Both flags exist for the same reason: the queue star/favorite heart are
-  // redundant inside their own list (every row is there *because* it's
-  // queued/favorited) but still useful as a flag elsewhere, e.g. the
-  // by-source/by-cuisine tree, so these only suppress them where asked.
+  // All three flags exist for the same reason: the queue star/favorite
+  // heart/needs-fixing wrench are redundant inside their own list (every
+  // row is there *because* it's queued/favorited/flagged) but still useful
+  // as a flag elsewhere, e.g. the by-source/by-cuisine tree, so these only
+  // suppress them where asked.
   showQueueStar?: boolean;
   showFavoriteHeart?: boolean;
+  showFixIcon?: boolean;
 }) {
   return (
     <ul>
@@ -100,6 +103,7 @@ function RecipeLinkList({
               </>
             )}
             {showQueueStar && recipe.wantToTryAt ? '★ ' : ''}
+            {showFixIcon && recipe.needsFixingAt ? '🔧 ' : ''}
             {recipe.title}
           </button>
         </li>
@@ -128,6 +132,11 @@ export function Sidebar({ selectedRecipeId, onSelectRecipe, reloadSignal }: Side
 
   const favoriteRecipes = useMemo(
     () => recipes.filter((r) => r.favoritedAt).sort((a, b) => a.title.localeCompare(b.title)),
+    [recipes]
+  );
+
+  const needsFixingRecipes = useMemo(
+    () => recipes.filter((r) => r.needsFixingAt).sort((a, b) => a.title.localeCompare(b.title)),
     [recipes]
   );
 
@@ -178,6 +187,22 @@ export function Sidebar({ selectedRecipeId, onSelectRecipe, reloadSignal }: Side
             selectedRecipeId={selectedRecipeId}
             onSelectRecipe={onSelectRecipe}
             showFavoriteHeart={false}
+          />
+        )}
+      </details>
+
+      <details className="sidebar-quick-section">
+        <summary>
+          🔧 Needs fixing <span className="sidebar-count">({needsFixingRecipes.length})</span>
+        </summary>
+        {needsFixingRecipes.length === 0 ? (
+          <div className="sidebar-empty muted">Nothing flagged.</div>
+        ) : (
+          <RecipeLinkList
+            recipes={needsFixingRecipes}
+            selectedRecipeId={selectedRecipeId}
+            onSelectRecipe={onSelectRecipe}
+            showFixIcon={false}
           />
         )}
       </details>

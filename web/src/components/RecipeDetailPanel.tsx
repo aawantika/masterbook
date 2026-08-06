@@ -6,6 +6,7 @@ import {
   getMealTypes,
   getRecipe,
   setFavorite,
+  setNeedsFixing,
   setWantToTry,
   updateRecipe
 } from '../api/client';
@@ -104,6 +105,12 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
 
   const handleToggleFavorite = async () => {
     await setFavorite(recipe.id, !recipe.favoritedAt);
+    load();
+    onChanged();
+  };
+
+  const handleToggleNeedsFixing = async () => {
+    await setNeedsFixing(recipe.id, !recipe.needsFixingAt);
     load();
     onChanged();
   };
@@ -217,6 +224,13 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
             onClick={handleToggleWantToTry}
           >
             {recipe.wantToTryAt ? '★ In queue' : '☆ Add to queue'}
+          </button>
+          <button
+            type="button"
+            className={`fix-toggle${recipe.needsFixingAt ? ' active' : ''}`}
+            onClick={handleToggleNeedsFixing}
+          >
+            🔧 {recipe.needsFixingAt ? 'Needs fixing' : 'Mark as needs fixing'}
           </button>
         </div>
       </div>

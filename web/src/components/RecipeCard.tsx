@@ -4,12 +4,20 @@ type RecipeCardProps = {
   recipe: RecipeSummary;
   onToggleWantToTry: (id: number, want: boolean) => void;
   onToggleFavorite: (id: number, favorite: boolean) => void;
+  onToggleNeedsFixing: (id: number, needsFixing: boolean) => void;
   onSelect: (id: number) => void;
 };
 
-export function RecipeCard({ recipe, onToggleWantToTry, onToggleFavorite, onSelect }: RecipeCardProps) {
+export function RecipeCard({
+  recipe,
+  onToggleWantToTry,
+  onToggleFavorite,
+  onToggleNeedsFixing,
+  onSelect
+}: RecipeCardProps) {
   const inQueue = Boolean(recipe.wantToTryAt);
   const isFavorite = Boolean(recipe.favoritedAt);
+  const needsFixing = Boolean(recipe.needsFixingAt);
 
   return (
     <div className="recipe-card">
@@ -38,6 +46,14 @@ export function RecipeCard({ recipe, onToggleWantToTry, onToggleFavorite, onSele
             title={inQueue ? 'Remove from queue' : 'Add to queue'}
           >
             {inQueue ? '★' : '☆'}
+          </button>
+          <button
+            type="button"
+            className={`fix-toggle${needsFixing ? ' active' : ''}`}
+            onClick={() => onToggleNeedsFixing(recipe.id, !needsFixing)}
+            title={needsFixing ? 'Marked as needs fixing' : 'Mark as needs fixing'}
+          >
+            🔧
           </button>
         </div>
       </div>

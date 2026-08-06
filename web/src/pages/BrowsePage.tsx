@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { ShellContext } from '../CookbookShell';
-import { FilterBar } from '../components/FilterBar';
+import { FilterBar, ViewMode } from '../components/FilterBar';
 import { RecipeCard } from '../components/RecipeCard';
+import { RecipeListRow } from '../components/RecipeListRow';
 
 export function BrowsePage() {
   const navigate = useNavigate();
@@ -14,9 +16,6 @@ export function BrowsePage() {
     cuisines,
     selectedCuisineIds,
     toggleCuisine,
-    ingredients,
-    selectedIngredientIds,
-    toggleIngredient,
     toTryOnly,
     toggleToTryOnly,
     favoritesOnly,
@@ -26,6 +25,8 @@ export function BrowsePage() {
     handleToggleWantToTry,
     handleToggleFavorite
   } = useOutletContext<ShellContext>();
+
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   return (
     <>
@@ -38,23 +39,34 @@ export function BrowsePage() {
         cuisines={cuisines}
         selectedCuisineIds={selectedCuisineIds}
         onToggleCuisine={toggleCuisine}
-        ingredients={ingredients}
-        selectedIngredientIds={selectedIngredientIds}
-        onToggleIngredient={toggleIngredient}
         toTryOnly={toTryOnly}
         onToggleToTryOnly={toggleToTryOnly}
         favoritesOnly={favoritesOnly}
         onToggleFavoritesOnly={toggleFavoritesOnly}
+        viewMode={viewMode}
+        onChangeViewMode={setViewMode}
       />
 
       {loading ? (
         <div className="muted">Loading...</div>
       ) : results.length === 0 ? (
         <div className="muted">No recipes match. Try adjusting filters, or add a new recipe.</div>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className="recipe-grid">
           {results.map((recipe) => (
             <RecipeCard
+              key={recipe.id}
+              recipe={recipe}
+              onToggleWantToTry={handleToggleWantToTry}
+              onToggleFavorite={handleToggleFavorite}
+              onSelect={(id) => navigate(`/recipes/${id}`)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="recipe-list">
+          {results.map((recipe) => (
+            <RecipeListRow
               key={recipe.id}
               recipe={recipe}
               onToggleWantToTry={handleToggleWantToTry}

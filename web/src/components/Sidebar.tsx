@@ -127,10 +127,7 @@ export function Sidebar({ selectedRecipeId, onSelectRecipe, reloadSignal }: Side
   );
 
   const favoriteRecipes = useMemo(
-    () =>
-      recipes
-        .filter((r) => r.favoritedAt)
-        .sort((a, b) => (b.favoritedAt ?? '').localeCompare(a.favoritedAt ?? '')),
+    () => recipes.filter((r) => r.favoritedAt).sort((a, b) => a.title.localeCompare(b.title)),
     [recipes]
   );
 

@@ -250,11 +250,7 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
   }
 
   const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
-  const orderBy = filters.toTryOnly
-    ? 'ORDER BY r.want_to_try_at ASC'
-    : filters.favoritesOnly
-      ? 'ORDER BY r.favorited_at DESC'
-      : 'ORDER BY r.updated_at DESC';
+  const orderBy = 'ORDER BY r.title COLLATE NOCASE ASC';
 
   const rows = db
     .prepare(

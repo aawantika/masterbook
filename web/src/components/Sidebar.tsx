@@ -71,11 +71,19 @@ function groupByCuisine(recipes: RecipeSummary[]): Group[] {
 function RecipeLinkList({
   recipes,
   selectedRecipeId,
-  onSelectRecipe
+  onSelectRecipe,
+  showQueueStar = true,
+  showFavoriteHeart = true
 }: {
   recipes: RecipeSummary[];
   selectedRecipeId: number | null;
   onSelectRecipe: (id: number) => void;
+  // Both flags exist for the same reason: the queue star/favorite heart are
+  // redundant inside their own list (every row is there *because* it's
+  // queued/favorited) but still useful as a flag elsewhere, e.g. the
+  // by-source/by-cuisine tree, so these only suppress them where asked.
+  showQueueStar?: boolean;
+  showFavoriteHeart?: boolean;
 }) {
   return (
     <ul>
@@ -86,12 +94,12 @@ function RecipeLinkList({
             className={`sidebar-recipe-link${recipe.id === selectedRecipeId ? ' active' : ''}`}
             onClick={() => onSelectRecipe(recipe.id)}
           >
-            {recipe.favoritedAt && (
+            {showFavoriteHeart && recipe.favoritedAt && (
               <>
                 <span className="heart-icon">♥</span>{' '}
               </>
             )}
-            {recipe.wantToTryAt ? '★ ' : ''}
+            {showQueueStar && recipe.wantToTryAt ? '★ ' : ''}
             {recipe.title}
           </button>
         </li>
@@ -114,10 +122,7 @@ export function Sidebar({ selectedRecipeId, onSelectRecipe, reloadSignal }: Side
   );
 
   const queueRecipes = useMemo(
-    () =>
-      recipes
-        .filter((r) => r.wantToTryAt)
-        .sort((a, b) => (a.wantToTryAt ?? '').localeCompare(b.wantToTryAt ?? '')),
+    () => recipes.filter((r) => r.wantToTryAt).sort((a, b) => a.title.localeCompare(b.title)),
     [recipes]
   );
 
@@ -155,7 +160,12 @@ export function Sidebar({ selectedRecipeId, onSelectRecipe, reloadSignal }: Side
         {queueRecipes.length === 0 ? (
           <div className="sidebar-empty muted">Nothing queued yet.</div>
         ) : (
-          <RecipeLinkList recipes={queueRecipes} selectedRecipeId={selectedRecipeId} onSelectRecipe={onSelectRecipe} />
+          <RecipeLinkList
+            recipes={queueRecipes}
+            selectedRecipeId={selectedRecipeId}
+            onSelectRecipe={onSelectRecipe}
+            showQueueStar={false}
+          />
         )}
       </details>
 
@@ -170,6 +180,7 @@ export function Sidebar({ selectedRecipeId, onSelectRecipe, reloadSignal }: Side
             recipes={favoriteRecipes}
             selectedRecipeId={selectedRecipeId}
             onSelectRecipe={onSelectRecipe}
+            showFavoriteHeart={false}
           />
         )}
       </details>

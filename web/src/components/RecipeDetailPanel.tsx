@@ -222,9 +222,10 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
       </div>
 
       {videoEmbed ? (
-        <div className="recipe-detail-video-wrap" style={{ aspectRatio: videoEmbed.aspectRatio }}>
+        <div className="recipe-detail-video-wrap">
           <iframe
             className="recipe-detail-video"
+            style={{ aspectRatio: videoEmbed.aspectRatio }}
             src={videoEmbed.url}
             title={recipe.title}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -286,6 +287,23 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
           </a>
         )}
       </div>
+
+      {(recipe.mealTypeIds.length > 0 || recipe.cuisineNames.length > 0) && (
+        <div className="recipe-detail-meta">
+          {mealTypes
+            .filter((mt) => recipe.mealTypeIds.includes(mt.id))
+            .map((mt) => (
+              <span className="badge" key={mt.id}>
+                {mt.name}
+              </span>
+            ))}
+          {recipe.cuisineNames.map((c) => (
+            <span className="badge badge-cuisine" key={c}>
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="recipe-detail-body">
         <div className="recipe-ingredients">

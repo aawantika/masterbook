@@ -221,92 +221,95 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
         </div>
       </div>
 
-      {(recipe.imageUrl || videoEmbed) && (
-        <div className="recipe-detail-media-row">
-          {recipe.imageUrl && (
-            <div className="recipe-detail-image-wrap">
-              <img className="recipe-detail-image" src={recipe.imageUrl} alt={recipe.title} />
+      <div className="recipe-detail-top-row">
+        <div className="recipe-detail-info-column">
+          {recipe.servings && <div>Serves {recipe.servings}</div>}
+          {baseServings != null && (
+            <div className="servings-scaler">
+              Scale to
+              <button
+                type="button"
+                onClick={() => setTargetServings(Math.max(1, (targetServings ?? baseServings) - 1))}
+              >
+                −
+              </button>
+              <input
+                type="number"
+                min={1}
+                value={targetServings ?? baseServings}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  setTargetServings(Number.isFinite(n) && n > 0 ? n : baseServings);
+                }}
+              />
+              <button type="button" onClick={() => setTargetServings((targetServings ?? baseServings) + 1)}>
+                +
+              </button>
+              {targetServings != null && targetServings !== baseServings && (
+                <button type="button" className="link-button" onClick={() => setTargetServings(null)}>
+                  Reset
+                </button>
+              )}
             </div>
           )}
-          {videoEmbed && (
-            <div className="recipe-detail-video-wrap">
-              <iframe
-                className="recipe-detail-video"
-                style={{ aspectRatio: videoEmbed.aspectRatio }}
-                src={videoEmbed.url}
-                title={recipe.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                loading="lazy"
-              />
+          {recipe.totalTimeMinutes != null && <div>Total time {recipe.totalTimeMinutes} min</div>}
+          <div>
+            <span className="badge">{recipe.sourceName || recipe.sourceType}</span>
+          </div>
+          {recipe.sourceRef &&
+            (/^https?:\/\//i.test(recipe.sourceRef) ? (
+              <a href={recipe.sourceRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
+                {recipe.sourceRef}
+              </a>
+            ) : (
+              <span className="muted">{recipe.sourceRef}</span>
+            ))}
+          {recipe.videoRef && (
+            <a href={recipe.videoRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
+              ▶ Video
+            </a>
+          )}
+          {recipe.mealTypeIds.length > 0 && (
+            <div className="badge-row">
+              {mealTypes
+                .filter((mt) => recipe.mealTypeIds.includes(mt.id))
+                .map((mt) => (
+                  <span className="badge" key={mt.id}>
+                    {mt.name}
+                  </span>
+                ))}
+            </div>
+          )}
+          {recipe.cuisineNames.length > 0 && (
+            <div className="badge-row">
+              {recipe.cuisineNames.map((c) => (
+                <span className="badge badge-cuisine" key={c}>
+                  {c}
+                </span>
+              ))}
             </div>
           )}
         </div>
-      )}
 
-      <div className="recipe-detail-meta">
-        {recipe.servings && <span>Serves {recipe.servings}</span>}
-        {baseServings != null && (
-          <span className="servings-scaler">
-            Scale to
-            <button
-              type="button"
-              onClick={() => setTargetServings(Math.max(1, (targetServings ?? baseServings) - 1))}
-            >
-              −
-            </button>
-            <input
-              type="number"
-              min={1}
-              value={targetServings ?? baseServings}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                setTargetServings(Number.isFinite(n) && n > 0 ? n : baseServings);
-              }}
-            />
-            <button type="button" onClick={() => setTargetServings((targetServings ?? baseServings) + 1)}>
-              +
-            </button>
-            {targetServings != null && targetServings !== baseServings && (
-              <button type="button" className="link-button" onClick={() => setTargetServings(null)}>
-                Reset
-              </button>
-            )}
-          </span>
+        {recipe.imageUrl && (
+          <div className="recipe-detail-image-wrap">
+            <img className="recipe-detail-image" src={recipe.imageUrl} alt={recipe.title} />
+          </div>
         )}
-        {recipe.totalTimeMinutes != null && <span>Total time {recipe.totalTimeMinutes} min</span>}
-        <span className="badge">{recipe.sourceName || recipe.sourceType}</span>
-        {recipe.sourceRef &&
-          (/^https?:\/\//i.test(recipe.sourceRef) ? (
-            <a href={recipe.sourceRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
-              {recipe.sourceRef}
-            </a>
-          ) : (
-            <span className="muted">{recipe.sourceRef}</span>
-          ))}
-        {recipe.videoRef && (
-          <a href={recipe.videoRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
-            ▶ Video
-          </a>
+        {videoEmbed && (
+          <div className="recipe-detail-video-wrap">
+            <iframe
+              className="recipe-detail-video"
+              style={{ aspectRatio: videoEmbed.aspectRatio }}
+              src={videoEmbed.url}
+              title={recipe.title}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              loading="lazy"
+            />
+          </div>
         )}
       </div>
-
-      {(recipe.mealTypeIds.length > 0 || recipe.cuisineNames.length > 0) && (
-        <div className="recipe-detail-meta">
-          {mealTypes
-            .filter((mt) => recipe.mealTypeIds.includes(mt.id))
-            .map((mt) => (
-              <span className="badge" key={mt.id}>
-                {mt.name}
-              </span>
-            ))}
-          {recipe.cuisineNames.map((c) => (
-            <span className="badge badge-cuisine" key={c}>
-              {c}
-            </span>
-          ))}
-        </div>
-      )}
 
       <div className="recipe-detail-body">
         <div className="recipe-ingredients">

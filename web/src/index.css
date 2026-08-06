@@ -749,11 +749,30 @@ html, body, #root {
    height, rather than either stacking (doubling the vertical footprint) or
    hiding one when the other's present. flex-wrap lets them stack on a
    narrow window instead of squeezing. */
-.recipe-detail-media-row {
+/* Info column (servings/time/author/source/meal-type/cuisine), photo, and
+   video all sit in one row under the title -- flex-wrap lets the column
+   drop below the media on a narrow window instead of squeezing. */
+.recipe-detail-top-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin: 12px 0;
+  gap: 16px;
+  margin: 16px 0;
+  align-items: flex-start;
+}
+
+.recipe-detail-info-column {
+  flex: 0 0 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .recipe-detail-image-wrap {
@@ -817,16 +836,6 @@ html, body, #root {
   object-fit: cover;
   border-radius: 8px;
   display: block;
-}
-
-.recipe-detail-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  font-size: 13px;
-  color: #6b7280;
-  margin: 10px 0 20px;
 }
 
 .servings-scaler {

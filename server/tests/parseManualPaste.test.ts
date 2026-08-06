@@ -104,4 +104,22 @@ describe('parseManualPaste: leading marker stripping', () => {
     assert.equal(result.instructions[0].text, 'Crack egg');
     assert.equal(result.instructions[1].text, 'Cook egg');
   });
+
+  // Regression: a real ingredient quantity written as a decimal ("3.5
+  // tbsp") starts with digits-then-period, which the numbered-list-marker
+  // pattern (`\d+[.)]`) also matches -- without a negative lookahead for a
+  // following digit, "3.5 tbsp tapioca starch" got misread as list marker
+  // "3." + remainder "5 tbsp tapioca starch", silently turning 3.5 into 5.
+  test('a decimal ingredient quantity is not mistaken for a numbered-list marker', () => {
+    const result = parseManualPaste('Title\n\nIngredients:\n3.5 tbsp tapioca starch\n2.5 tbsp mochiko');
+    assert.equal(result.ingredients[0].quantity, '3.5');
+    assert.equal(result.ingredients[0].name, 'tapioca starch');
+    assert.equal(result.ingredients[1].quantity, '2.5');
+  });
+
+  test('a real numbered-list marker followed by a decimal-looking step still strips correctly', () => {
+    const result = parseManualPaste('Title\n\nIngredients:\n1 egg\n\nInstructions:\n1. Preheat oven\n2. Bake 3.5 hours');
+    assert.equal(result.instructions[0].text, 'Preheat oven');
+    assert.equal(result.instructions[1].text, 'Bake 3.5 hours');
+  });
 });

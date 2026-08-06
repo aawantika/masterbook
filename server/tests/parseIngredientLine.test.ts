@@ -94,6 +94,93 @@ describe('parseIngredientLine: article quantities ("a pinch", "a dash")', () => 
   });
 });
 
+describe('parseIngredientLine: decimal quantity vs. numbered-list-marker collision', () => {
+  // Regression: parseManualPaste's stripLeadingMarker used to treat a
+  // decimal quantity like "3.5" as a numbered-list marker "3." + leftover
+  // "5", silently corrupting the actual number. parseIngredientLine itself
+  // has no marker-stripping step, so this exercises the plain regex path.
+  test('a decimal quantity is not mistaken for anything else', () => {
+    const result = parseIngredientLine('3.5 tbsp sugar');
+    assert.equal(result.quantity, '3.5');
+    assert.equal(result.unit, 'tbsp');
+    assert.equal(result.name, 'sugar');
+  });
+});
+
+describe('parseIngredientLine: metric weight preferred over compound imperial measurements', () => {
+  // Real-world case from okonomikitchen.com: a "+"-joined compound imperial
+  // measurement alongside a precise parenthetical metric weight. The metric
+  // value is preferred outright since summing "+"-joined mixed units isn't
+  // attempted -- a partial match leaving "+ 1 tsp (45 g) white sugar" as the
+  // name was the original bug.
+  test('parenthetical metric weight wins over a "+"-compound imperial measurement', () => {
+    const result = parseIngredientLine('3 1/2 tbsp + 1 tsp (45 g) white sugar');
+    assert.equal(result.quantity, '45');
+    assert.equal(result.unit, 'g');
+    assert.equal(result.name, 'white sugar');
+  });
+
+  test('a leading size word before the metric weight is folded into the name ("1 large (52 g) egg")', () => {
+    const result = parseIngredientLine('1 large (52 g) egg, room temperature');
+    assert.equal(result.quantity, '52');
+    assert.equal(result.unit, 'g');
+    assert.equal(result.name, 'large egg, room temperature');
+  });
+
+  test('a simple (non-compound) imperial measurement also defers to the metric weight', () => {
+    const result = parseIngredientLine('3 tbsp (42 g) salted butter, melted');
+    assert.equal(result.quantity, '42');
+    assert.equal(result.unit, 'g');
+    assert.equal(result.name, 'salted butter, melted');
+  });
+
+  test('ml is recognized too, not just g/kg', () => {
+    const result = parseIngredientLine('1/3 cup + 2 tbsp + 1 tsp (115 ml) whole milk');
+    assert.equal(result.quantity, '115');
+    assert.equal(result.unit, 'ml');
+    assert.equal(result.name, 'whole milk');
+  });
+
+  // Real-world case from a second site: same idea, but slash-separated with
+  // the number and unit glued together ("113g") instead of parenthetical.
+  test('slash-separated metric weight ("1/2 cup / 113g salted butter")', () => {
+    const result = parseIngredientLine('1/2 cup / 113g salted butter');
+    assert.equal(result.quantity, '113');
+    assert.equal(result.unit, 'g');
+    assert.equal(result.name, 'salted butter');
+  });
+
+  test('slash-separated metric weight also rescues a "+"-compound imperial portion', () => {
+    const result = parseIngredientLine('1/3 cup + 2 tsp / 75g granulated sugar');
+    assert.equal(result.quantity, '75');
+    assert.equal(result.unit, 'g');
+    assert.equal(result.name, 'granulated sugar');
+  });
+
+  test('a bare glued quantity+unit with no separator still works via normal parsing ("175g chocolate chips")', () => {
+    const result = parseIngredientLine('175g chocolate chips or chopped chocolate');
+    assert.equal(result.quantity, '175');
+    assert.equal(result.unit, 'g');
+    assert.equal(result.name, 'chocolate chips or chopped chocolate');
+  });
+
+  // No rescuing metric weight anywhere -- falls back to the whole line
+  // rather than showing a broken partial match ("+ 2 tbsp flour" as name).
+  test('a "+"-compound measurement with no metric rescue falls back to the whole line', () => {
+    const result = parseIngredientLine('1/3 cup + 2 tbsp flour');
+    assert.equal(result.quantity, null);
+    assert.equal(result.unit, null);
+    assert.equal(result.name, '1/3 cup + 2 tbsp flour');
+  });
+
+  test('"+pinch" with no numeric rescue also falls back cleanly', () => {
+    const result = parseIngredientLine('1/2 tsp + pinch kosher salt');
+    assert.equal(result.quantity, null);
+    assert.equal(result.unit, null);
+    assert.equal(result.name, '1/2 tsp + pinch kosher salt');
+  });
+});
+
 describe('groupIngredientLinesBySections: "For the X:" section headers', () => {
   test('tags each ingredient with the most recently seen section header', () => {
     const result = groupIngredientLinesBySections([

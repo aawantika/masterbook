@@ -58,6 +58,7 @@ export type SearchParams = {
   ingredientIds?: number[];
   toTry?: boolean;
   favorites?: boolean;
+  needsFixing?: boolean;
 };
 
 export function searchRecipes(params: SearchParams): Promise<RecipeSummary[]> {
@@ -68,6 +69,7 @@ export function searchRecipes(params: SearchParams): Promise<RecipeSummary[]> {
   if (params.ingredientIds?.length) query.set('ingredientIds', params.ingredientIds.join(','));
   if (params.toTry) query.set('toTry', 'true');
   if (params.favorites) query.set('favorites', 'true');
+  if (params.needsFixing) query.set('needsFixing', 'true');
   const qs = query.toString();
   return request<RecipeSummary[]>(`/recipes${qs ? `?${qs}` : ''}`);
 }
@@ -101,6 +103,13 @@ export function setWantToTry(id: number, want: boolean): Promise<RecipeDetail> {
 
 export function setFavorite(id: number, favorite: boolean): Promise<RecipeDetail> {
   return request<RecipeDetail>(`/recipes/${id}/favorite`, { method: 'POST', body: JSON.stringify({ favorite }) });
+}
+
+export function setNeedsFixing(id: number, needsFixing: boolean): Promise<RecipeDetail> {
+  return request<RecipeDetail>(`/recipes/${id}/needs-fixing`, {
+    method: 'POST',
+    body: JSON.stringify({ needsFixing })
+  });
 }
 
 export function addAttempt(

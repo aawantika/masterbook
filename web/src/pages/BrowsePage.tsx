@@ -20,10 +20,13 @@ export function BrowsePage() {
     toggleToTryOnly,
     favoritesOnly,
     toggleFavoritesOnly,
+    needsFixingOnly,
+    toggleNeedsFixingOnly,
     results,
     loading,
     handleToggleWantToTry,
-    handleToggleFavorite
+    handleToggleFavorite,
+    handleToggleNeedsFixing
   } = useOutletContext<ShellContext>();
 
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -43,6 +46,8 @@ export function BrowsePage() {
         onToggleToTryOnly={toggleToTryOnly}
         favoritesOnly={favoritesOnly}
         onToggleFavoritesOnly={toggleFavoritesOnly}
+        needsFixingOnly={needsFixingOnly}
+        onToggleNeedsFixingOnly={toggleNeedsFixingOnly}
         viewMode={viewMode}
         onChangeViewMode={setViewMode}
       />
@@ -59,6 +64,7 @@ export function BrowsePage() {
               recipe={recipe}
               onToggleWantToTry={handleToggleWantToTry}
               onToggleFavorite={handleToggleFavorite}
+              onToggleNeedsFixing={handleToggleNeedsFixing}
               onSelect={(id) => navigate(`/recipes/${id}`)}
             />
           ))}
@@ -71,6 +77,7 @@ export function BrowsePage() {
               recipe={recipe}
               onToggleWantToTry={handleToggleWantToTry}
               onToggleFavorite={handleToggleFavorite}
+              onToggleNeedsFixing={handleToggleNeedsFixing}
               onSelect={(id) => navigate(`/recipes/${id}`)}
             />
           ))}

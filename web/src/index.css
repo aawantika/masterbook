@@ -407,7 +407,8 @@ html, body, #root {
 }
 
 .star-toggle,
-.heart-toggle {
+.heart-toggle,
+.fix-toggle {
   border: none;
   background: none;
   font-size: 18px;
@@ -422,6 +423,17 @@ html, body, #root {
 
 .star-toggle.active {
   color: #d97706;
+}
+
+/* The wrench emoji renders in full color regardless of the surrounding
+   text color, so "active" is shown via opacity (dimmed until flagged)
+   rather than a color change like the heart/star toggles use. */
+.fix-toggle {
+  opacity: 0.35;
+}
+
+.fix-toggle.active {
+  opacity: 1;
 }
 
 /* Rendering the same ♥ character for both states (rather than pairing it
@@ -739,7 +751,8 @@ html, body, #root {
 }
 
 .recipe-detail-header .star-toggle,
-.recipe-detail-header .heart-toggle {
+.recipe-detail-header .heart-toggle,
+.recipe-detail-header .fix-toggle {
   font-size: 13px;
   padding: 6px 10px;
   border: 1px solid #d1d5db;

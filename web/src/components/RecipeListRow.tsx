@@ -4,14 +4,22 @@ type RecipeListRowProps = {
   recipe: RecipeSummary;
   onToggleWantToTry: (id: number, want: boolean) => void;
   onToggleFavorite: (id: number, favorite: boolean) => void;
+  onToggleNeedsFixing: (id: number, needsFixing: boolean) => void;
   onSelect: (id: number) => void;
 };
 
 // A denser alternative to RecipeCard for scanning many recipes at once --
 // same data/actions, no image, one row per recipe instead of a card grid.
-export function RecipeListRow({ recipe, onToggleWantToTry, onToggleFavorite, onSelect }: RecipeListRowProps) {
+export function RecipeListRow({
+  recipe,
+  onToggleWantToTry,
+  onToggleFavorite,
+  onToggleNeedsFixing,
+  onSelect
+}: RecipeListRowProps) {
   const inQueue = Boolean(recipe.wantToTryAt);
   const isFavorite = Boolean(recipe.favoritedAt);
+  const needsFixing = Boolean(recipe.needsFixingAt);
 
   return (
     <div className="recipe-list-row">
@@ -31,6 +39,14 @@ export function RecipeListRow({ recipe, onToggleWantToTry, onToggleFavorite, onS
           title={inQueue ? 'Remove from queue' : 'Add to queue'}
         >
           {inQueue ? '★' : '☆'}
+        </button>
+        <button
+          type="button"
+          className={`fix-toggle${needsFixing ? ' active' : ''}`}
+          onClick={() => onToggleNeedsFixing(recipe.id, !needsFixing)}
+          title={needsFixing ? 'Marked as needs fixing' : 'Mark as needs fixing'}
+        >
+          🔧
         </button>
       </div>
       <button type="button" className="recipe-list-title" onClick={() => onSelect(recipe.id)}>

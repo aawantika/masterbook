@@ -15,6 +15,8 @@ type FilterBarProps = {
   onToggleToTryOnly: () => void;
   favoritesOnly: boolean;
   onToggleFavoritesOnly: () => void;
+  needsFixingOnly: boolean;
+  onToggleNeedsFixingOnly: () => void;
   viewMode: ViewMode;
   onChangeViewMode: (mode: ViewMode) => void;
 };
@@ -68,6 +70,8 @@ export function FilterBar({
   onToggleToTryOnly,
   favoritesOnly,
   onToggleFavoritesOnly,
+  needsFixingOnly,
+  onToggleNeedsFixingOnly,
   viewMode,
   onChangeViewMode
 }: FilterBarProps) {
@@ -89,6 +93,13 @@ export function FilterBar({
           onClick={onToggleFavoritesOnly}
         >
           <span className="heart-icon">♥</span> Favorites
+        </button>
+        <button
+          type="button"
+          className={`filter-chip${needsFixingOnly ? ' active' : ''}`}
+          onClick={onToggleNeedsFixingOnly}
+        >
+          🔧 Needs fixing
         </button>
         <FilterGroup label="Meal type" items={mealTypes} selected={selectedMealTypeIds} onToggle={onToggleMealType} />
         <FilterGroup label="Cuisine" items={cuisines} selected={selectedCuisineIds} onToggle={onToggleCuisine} />

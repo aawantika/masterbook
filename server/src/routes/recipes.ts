@@ -7,6 +7,7 @@ import {
   getRecipeById,
   searchRecipes,
   setFavorite,
+  setNeedsFixing,
   setWantToTry,
   updateRecipe
 } from '../db/recipes.js';
@@ -55,8 +56,9 @@ recipesRouter.get('/', (req, res) => {
   const ingredientIds = parseIdList(req.query.ingredientIds);
   const toTryOnly = req.query.toTry === 'true';
   const favoritesOnly = req.query.favorites === 'true';
+  const needsFixingOnly = req.query.needsFixing === 'true';
 
-  res.json(searchRecipes({ query, mealTypeIds, cuisineIds, ingredientIds, toTryOnly, favoritesOnly }));
+  res.json(searchRecipes({ query, mealTypeIds, cuisineIds, ingredientIds, toTryOnly, favoritesOnly, needsFixingOnly }));
 });
 
 function parseIdList(raw: unknown): number[] | undefined {
@@ -136,5 +138,18 @@ recipesRouter.post('/:id/favorite', (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
   setFavorite(id, parsed.data.favorite);
+  res.json(getRecipeById(id));
+});
+
+const needsFixingSchema = z.object({ needsFixing: z.boolean() });
+
+recipesRouter.post('/:id/needs-fixing', (req, res) => {
+  const id = parseIdParam(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid recipe id' });
+
+  const parsed = needsFixingSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  setNeedsFixing(id, parsed.data.needsFixing);
   res.json(getRecipeById(id));
 });

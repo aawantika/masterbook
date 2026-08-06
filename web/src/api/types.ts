@@ -51,6 +51,7 @@ export type RecipeSummary = {
   imageUrl: string | null;
   wantToTryAt: string | null;
   favoritedAt: string | null;
+  needsFixingAt: string | null;
   avgRating: number | null;
   lastCookedAt: string | null;
   mealTypes: string[];
@@ -89,6 +90,7 @@ export type RecipeDetail = {
   notes: string | null;
   wantToTryAt: string | null;
   favoritedAt: string | null;
+  needsFixingAt: string | null;
   mealTypeIds: number[];
   cuisineNames: string[];
   attempts: RecipeAttempt[];

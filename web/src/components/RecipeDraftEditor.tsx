@@ -82,15 +82,20 @@ function groupIngredientsBySection(ingredients: EditableIngredient[]): Ingredien
   return groups;
 }
 
-function emptyInstruction(section: string | null = null): ParsedInstructionStep {
-  return { text: '', section };
+// Same dndId pattern as EditableIngredient above — see its comment for why
+// this is needed (dnd-kit requires a stable per-row id that survives
+// reordering, which array index doesn't provide).
+type EditableInstruction = ParsedInstructionStep & { dndId: string };
+
+function emptyEditableInstruction(section: string | null = null): EditableInstruction {
+  return { text: '', section, dndId: makeDndId() };
 }
 
 type InstructionGroup = { section: string | null; indices: number[] };
 
 // Same grouping/editing pattern as ingredient sections — see
 // groupIngredientsBySection above for the rationale.
-function groupInstructionsBySection(instructions: ParsedInstructionStep[]): InstructionGroup[] {
+function groupInstructionsBySection(instructions: EditableInstruction[]): InstructionGroup[] {
   const groups: InstructionGroup[] = [];
   instructions.forEach((step, index) => {
     const last = groups[groups.length - 1];
@@ -171,6 +176,50 @@ function SortableIngredientRow({
   );
 }
 
+// Mirrors SortableIngredientRow — separate component for the same reason
+// (useSortable is a hook, can't call it inside a .map() callback).
+function SortableInstructionRow({
+  step,
+  index,
+  onUpdate,
+  onRemove,
+  onInsertSectionBreak
+}: {
+  step: EditableInstruction;
+  index: number;
+  onUpdate: (value: string) => void;
+  onRemove: () => void;
+  onInsertSectionBreak: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: step.dndId });
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="instruction-row">
+      <button type="button" className="drag-handle" title="Drag to reorder" {...attributes} {...listeners}>
+        ⠿
+      </button>
+      <button
+        type="button"
+        className="insert-section-btn"
+        title="Insert a section header here"
+        onClick={onInsertSectionBreak}
+      >
+        + section
+      </button>
+      <span className="instruction-index">{index + 1}.</span>
+      <AutoGrowTextarea value={step.text} onChange={onUpdate} placeholder={`Step ${index + 1}`} />
+      <button type="button" onClick={onRemove} title="Remove step">
+        ×
+      </button>
+    </div>
+  );
+}
+
 export function RecipeDraftEditor({
   initial,
   mealTypes,
@@ -189,8 +238,10 @@ export function RecipeDraftEditor({
       ? initial.ingredients.map((ing) => ({ ...ing, dndId: makeDndId() }))
       : [emptyEditableIngredient()]
   );
-  const [instructions, setInstructions] = useState<ParsedInstructionStep[]>(
-    initial?.instructions && initial.instructions.length > 0 ? initial.instructions : [emptyInstruction()]
+  const [instructions, setInstructions] = useState<EditableInstruction[]>(() =>
+    initial?.instructions && initial.instructions.length > 0
+      ? initial.instructions.map((step) => ({ ...step, dndId: makeDndId() }))
+      : [emptyEditableInstruction()]
   );
   const [mealTypeIds, setMealTypeIds] = useState<Set<number>>(new Set(initial?.mealTypeIds ?? []));
   const [cuisineNames, setCuisineNames] = useState<Set<string>>(new Set(initial?.cuisineNames ?? []));
@@ -318,8 +369,27 @@ export function RecipeDraftEditor({
   const addInstructionToGroup = (afterIndex: number, section: string | null) => {
     setInstructions((prev) => {
       const next = [...prev];
-      next.splice(afterIndex + 1, 0, emptyInstruction(section));
+      next.splice(afterIndex + 1, 0, emptyEditableInstruction(section));
       return next;
+    });
+  };
+
+  // Mirrors handleIngredientDragEnd — see its comment for why the target
+  // section is captured before the reorder rather than inferred after.
+  const handleInstructionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    setInstructions((prev) => {
+      const oldIndex = prev.findIndex((step) => step.dndId === active.id);
+      const overIndex = prev.findIndex((step) => step.dndId === over.id);
+      if (oldIndex === -1 || overIndex === -1) return prev;
+
+      const targetSection = prev[overIndex].section;
+      const reordered = arrayMove(prev, oldIndex, overIndex);
+      const newIndex = reordered.findIndex((step) => step.dndId === active.id);
+      reordered[newIndex] = { ...reordered[newIndex], section: targetSection };
+      return reordered;
     });
   };
 
@@ -348,7 +418,7 @@ export function RecipeDraftEditor({
   };
 
   const addInstructionSection = () => {
-    setInstructions((prev) => [...prev, emptyInstruction(makeBlankSectionValue())]);
+    setInstructions((prev) => [...prev, emptyEditableInstruction(makeBlankSectionValue())]);
   };
 
   const saveImageLocally = async () => {
@@ -601,77 +671,70 @@ export function RecipeDraftEditor({
       <div className="field">
         <span>Instructions</span>
         {instructions.length === 0 && (
-          <button type="button" onClick={() => setInstructions([emptyInstruction()])}>
+          <button type="button" onClick={() => setInstructions([emptyEditableInstruction()])}>
             + Add step
           </button>
         )}
-        {instructionGroups.map((group, groupIndex) => (
-          <div className="instruction-group" key={groupIndex}>
-            {group.section !== null && (
-              <div className="ingredient-group-header">
-                <input
-                  className="ingredient-section-label"
-                  value={sectionInputValue(group.section)}
-                  onChange={(e) => updateInstructionGroupSection(group.indices, e.target.value)}
-                  placeholder="Section name (e.g. To Make the Tartar Sauce)"
-                />
+        <DndContext sensors={dragSensors} collisionDetection={closestCenter} onDragEnd={handleInstructionDragEnd}>
+          <SortableContext items={instructions.map((step) => step.dndId)} strategy={verticalListSortingStrategy}>
+            {instructionGroups.map((group, groupIndex) => (
+              <div className="instruction-group" key={groupIndex}>
+                {group.section !== null && (
+                  <div className="ingredient-group-header">
+                    <input
+                      className="ingredient-section-label"
+                      value={sectionInputValue(group.section)}
+                      onChange={(e) => updateInstructionGroupSection(group.indices, e.target.value)}
+                      placeholder="Section name (e.g. To Make the Tartar Sauce)"
+                    />
+                    <button
+                      type="button"
+                      className="section-move-btn"
+                      title="Move section up"
+                      disabled={groupIndex === 0}
+                      onClick={() => moveInstructionGroup(groupIndex, -1)}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="section-move-btn"
+                      title="Move section down"
+                      disabled={groupIndex === instructionGroups.length - 1}
+                      onClick={() => moveInstructionGroup(groupIndex, 1)}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() => removeInstructionGroupSection(group.indices)}
+                    >
+                      Remove section
+                    </button>
+                  </div>
+                )}
+                {group.indices.map((index, i) => (
+                  <SortableInstructionRow
+                    key={instructions[index].dndId}
+                    step={instructions[index]}
+                    index={i}
+                    onUpdate={(value) => updateInstruction(index, value)}
+                    onRemove={() => removeInstruction(index)}
+                    onInsertSectionBreak={() => insertInstructionSectionBreak(index)}
+                  />
+                ))}
                 <button
                   type="button"
-                  className="section-move-btn"
-                  title="Move section up"
-                  disabled={groupIndex === 0}
-                  onClick={() => moveInstructionGroup(groupIndex, -1)}
+                  className="ingredient-group-add"
+                  onClick={() => addInstructionToGroup(group.indices[group.indices.length - 1], group.section)}
                 >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  className="section-move-btn"
-                  title="Move section down"
-                  disabled={groupIndex === instructionGroups.length - 1}
-                  onClick={() => moveInstructionGroup(groupIndex, 1)}
-                >
-                  ↓
-                </button>
-                <button
-                  type="button"
-                  className="link-button"
-                  onClick={() => removeInstructionGroupSection(group.indices)}
-                >
-                  Remove section
-                </button>
-              </div>
-            )}
-            {group.indices.map((index, i) => (
-              <div className="instruction-row" key={index}>
-                <button
-                  type="button"
-                  className="insert-section-btn"
-                  title="Insert a section header here"
-                  onClick={() => insertInstructionSectionBreak(index)}
-                >
-                  + section
-                </button>
-                <span className="instruction-index">{i + 1}.</span>
-                <AutoGrowTextarea
-                  value={instructions[index].text}
-                  onChange={(value) => updateInstruction(index, value)}
-                  placeholder={`Step ${i + 1}`}
-                />
-                <button type="button" onClick={() => removeInstruction(index)} title="Remove step">
-                  ×
+                  + Add step
                 </button>
               </div>
             ))}
-            <button
-              type="button"
-              className="ingredient-group-add"
-              onClick={() => addInstructionToGroup(group.indices[group.indices.length - 1], group.section)}
-            >
-              + Add step
-            </button>
-          </div>
-        ))}
+          </SortableContext>
+        </DndContext>
         <button type="button" className="secondary" onClick={addInstructionSection}>
           + Add section
         </button>

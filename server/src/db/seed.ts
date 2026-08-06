@@ -20,6 +20,7 @@ export const MEAL_TYPES = [
 // the catch-all rather than trying to anticipate every cuisine up front.
 export const CUISINE_SUGGESTIONS = [
   'American',
+  'Asian',
   'Chinese',
   'Korean',
   'Japanese',

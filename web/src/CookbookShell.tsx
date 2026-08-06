@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, Outlet, useNavigate, useParams } from 'react-router-dom';
-import { getCuisines, getIngredientNames, getMealTypes, searchRecipes, setFavorite, setWantToTry } from './api/client';
+import { getCuisines, getMealTypes, searchRecipes, setFavorite, setWantToTry } from './api/client';
 import { MetaItem, RecipeSummary } from './api/types';
 import { Sidebar } from './components/Sidebar';
 
@@ -19,13 +19,10 @@ export type ShellContext = {
   setQuery: (value: string) => void;
   mealTypes: MetaItem[];
   cuisines: MetaItem[];
-  ingredients: MetaItem[];
   selectedMealTypeIds: Set<number>;
   toggleMealType: (id: number) => void;
   selectedCuisineIds: Set<number>;
   toggleCuisine: (id: number) => void;
-  selectedIngredientIds: Set<number>;
-  toggleIngredient: (id: number) => void;
   toTryOnly: boolean;
   toggleToTryOnly: () => void;
   favoritesOnly: boolean;
@@ -48,20 +45,17 @@ export function CookbookShell() {
   const debouncedQuery = useDebounced(query, 250);
   const [mealTypes, setMealTypes] = useState<MetaItem[]>([]);
   const [cuisines, setCuisines] = useState<MetaItem[]>([]);
-  const [ingredients, setIngredients] = useState<MetaItem[]>([]);
   const [selectedMealTypeIds, setSelectedMealTypeIds] = useState<Set<number>>(new Set());
   const [selectedCuisineIds, setSelectedCuisineIds] = useState<Set<number>>(new Set());
-  const [selectedIngredientIds, setSelectedIngredientIds] = useState<Set<number>>(new Set());
   const [toTryOnly, setToTryOnly] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [results, setResults] = useState<RecipeSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getMealTypes(), getCuisines(), getIngredientNames()]).then(([mt, c, i]) => {
+    Promise.all([getMealTypes(), getCuisines()]).then(([mt, c]) => {
       setMealTypes(mt);
       setCuisines(c);
-      setIngredients(i);
     });
   }, []);
 
@@ -72,7 +66,6 @@ export function CookbookShell() {
         q: debouncedQuery,
         mealTypeIds: Array.from(selectedMealTypeIds),
         cuisineIds: Array.from(selectedCuisineIds),
-        ingredientIds: Array.from(selectedIngredientIds),
         toTry: toTryOnly,
         favorites: favoritesOnly
       });
@@ -85,15 +78,7 @@ export function CookbookShell() {
   useEffect(() => {
     runSearch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    debouncedQuery,
-    selectedMealTypeIds,
-    selectedCuisineIds,
-    selectedIngredientIds,
-    toTryOnly,
-    favoritesOnly,
-    reloadSignal
-  ]);
+  }, [debouncedQuery, selectedMealTypeIds, selectedCuisineIds, toTryOnly, favoritesOnly, reloadSignal]);
 
   const toggleInSet = (setter: React.Dispatch<React.SetStateAction<Set<number>>>, id: number) => {
     setter((prev) => {
@@ -120,13 +105,10 @@ export function CookbookShell() {
     setQuery,
     mealTypes,
     cuisines,
-    ingredients,
     selectedMealTypeIds,
     toggleMealType: (mealTypeId) => toggleInSet(setSelectedMealTypeIds, mealTypeId),
     selectedCuisineIds,
     toggleCuisine: (cuisineId) => toggleInSet(setSelectedCuisineIds, cuisineId),
-    selectedIngredientIds,
-    toggleIngredient: (ingredientId) => toggleInSet(setSelectedIngredientIds, ingredientId),
     toTryOnly,
     toggleToTryOnly: () => setToTryOnly((prev) => !prev),
     favoritesOnly,

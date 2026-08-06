@@ -1,5 +1,7 @@
 import { MetaItem } from '../api/types';
 
+export type ViewMode = 'grid' | 'list';
+
 type FilterBarProps = {
   query: string;
   onQueryChange: (value: string) => void;
@@ -9,15 +11,20 @@ type FilterBarProps = {
   cuisines: MetaItem[];
   selectedCuisineIds: Set<number>;
   onToggleCuisine: (id: number) => void;
-  ingredients: MetaItem[];
-  selectedIngredientIds: Set<number>;
-  onToggleIngredient: (id: number) => void;
   toTryOnly: boolean;
   onToggleToTryOnly: () => void;
   favoritesOnly: boolean;
   onToggleFavoritesOnly: () => void;
+  viewMode: ViewMode;
+  onChangeViewMode: (mode: ViewMode) => void;
 };
 
+// One shared visual treatment for every control in this row -- plain
+// toggles (Queue/Favorites/Grid/List) and disclosure groups (Meal
+// type/Cuisine) used to each look different (a pill-shaped amber toggle, a
+// bare rounded-rect summary with no active state, etc.) despite being the
+// same kind of control conceptually. All of them are just "filter-chip",
+// active or not.
 function FilterGroup({
   label,
   items,
@@ -32,7 +39,7 @@ function FilterGroup({
   if (items.length === 0) return null;
   return (
     <details className="filter-group">
-      <summary>
+      <summary className={`filter-chip${selected.size > 0 ? ' active' : ''}`}>
         {label}
         {selected.size > 0 ? ` (${selected.size})` : ''}
       </summary>
@@ -57,13 +64,12 @@ export function FilterBar({
   cuisines,
   selectedCuisineIds,
   onToggleCuisine,
-  ingredients,
-  selectedIngredientIds,
-  onToggleIngredient,
   toTryOnly,
   onToggleToTryOnly,
   favoritesOnly,
-  onToggleFavoritesOnly
+  onToggleFavoritesOnly,
+  viewMode,
+  onChangeViewMode
 }: FilterBarProps) {
   return (
     <div className="filter-bar">
@@ -74,28 +80,33 @@ export function FilterBar({
         placeholder="Search recipes..."
       />
       <div className="filter-groups">
-        <button
-          type="button"
-          className={`chip-checkbox to-try-toggle${toTryOnly ? ' active' : ''}`}
-          onClick={onToggleToTryOnly}
-        >
+        <button type="button" className={`filter-chip${toTryOnly ? ' active' : ''}`} onClick={onToggleToTryOnly}>
           ★ Queue
         </button>
         <button
           type="button"
-          className={`chip-checkbox to-try-toggle${favoritesOnly ? ' active' : ''}`}
+          className={`filter-chip${favoritesOnly ? ' active' : ''}`}
           onClick={onToggleFavoritesOnly}
         >
           <span className="heart-icon">♥</span> Favorites
         </button>
         <FilterGroup label="Meal type" items={mealTypes} selected={selectedMealTypeIds} onToggle={onToggleMealType} />
         <FilterGroup label="Cuisine" items={cuisines} selected={selectedCuisineIds} onToggle={onToggleCuisine} />
-        <FilterGroup
-          label="Ingredient"
-          items={ingredients}
-          selected={selectedIngredientIds}
-          onToggle={onToggleIngredient}
-        />
+        <div className="filter-group-divider" />
+        <button
+          type="button"
+          className={`filter-chip${viewMode === 'grid' ? ' active' : ''}`}
+          onClick={() => onChangeViewMode('grid')}
+        >
+          Grid
+        </button>
+        <button
+          type="button"
+          className={`filter-chip${viewMode === 'list' ? ' active' : ''}`}
+          onClick={() => onChangeViewMode('list')}
+        >
+          List
+        </button>
       </div>
     </div>
   );

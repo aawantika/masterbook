@@ -693,18 +693,29 @@ html, body, #root {
   display: block;
 }
 
+/* Bounded by height (not width) so a portrait video (Instagram, 9:16)
+   doesn't blow up to ~850px tall the way a width-driven aspect-ratio box
+   would at max-width. Landscape (YouTube, 16:9) naturally lands well under
+   this height anyway. The iframe's own aspect-ratio (set inline per
+   platform) computes its width from this fixed height, clamped by
+   max-width so a landscape video can't overflow sideways either. */
 .recipe-detail-video-wrap {
   margin: 12px 0;
+  height: 360px;
   width: 100%;
   max-width: 480px;
   border-radius: 10px;
   overflow: hidden;
   background: black;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .recipe-detail-video {
-  width: 100%;
   height: 100%;
+  width: auto;
+  max-width: 100%;
   border: none;
   display: block;
 }

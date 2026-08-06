@@ -14,8 +14,21 @@ import { RecipeDraft } from '../../types/recipe.js';
 const INGREDIENTS_HEADING = /^ingredients?\s*(\([^)]*\))?\s*:?\s*$/i;
 const INSTRUCTIONS_HEADING = /^(instructions?|directions?|method|steps?|how(?:\s+to)?)\s*(\([^)]*\))?\s*:?\s*$/i;
 
+// Strips any leading run of non-letter characters -- bullet glyphs, emoji
+// (including invisible modifiers like the variation selector U+FE0F that
+// rides along with many emoji), whitespace -- so "▪️Ingredients:" is
+// recognized as a heading the same as a plain "Ingredients:" would be.
+// Broader than enumerating specific glyphs (as stripLeadingMarker does for
+// actual line content) since this is only used for the heading *test*, not
+// stored anywhere -- there's no risk in being generous about what counts as
+// "decoration" in front of the real word.
+function stripLeadingDecoration(line: string): string {
+  return line.replace(/^[^a-zA-Z]+/, '');
+}
+
 function isHeadingLike(line: string, pattern: RegExp): boolean {
-  return line.length <= 50 && pattern.test(line);
+  const candidate = stripLeadingDecoration(line);
+  return candidate.length <= 50 && pattern.test(candidate);
 }
 
 // Recipe-plugin checkbox glyphs (WP Recipe Maker's ▢ being the most common)
@@ -68,12 +81,17 @@ export function parseManualPaste(input: string): RecipeDraft {
   const lines = input.split('\n').map((line) => line.trim());
 
   const firstNonBlankIndex = lines.findIndex((line) => line !== '');
-  const title = firstNonBlankIndex === -1 ? 'Untitled recipe' : lines[firstNonBlankIndex];
 
   const ingredientsIndex = lines.findIndex((line) => isHeadingLike(line, INGREDIENTS_HEADING));
   const instructionsIndex = lines.findIndex(
     (line, index) => (ingredientsIndex === -1 || index > ingredientsIndex) && isHeadingLike(line, INSTRUCTIONS_HEADING)
   );
+
+  // If the very first line IS a heading (a paste with no title above
+  // "Ingredients:"), there's no real title text to use -- falling back to
+  // a placeholder beats literally titling the recipe "Ingredients:".
+  const firstLineIsHeading = firstNonBlankIndex === ingredientsIndex || firstNonBlankIndex === instructionsIndex;
+  const title = firstNonBlankIndex === -1 || firstLineIsHeading ? 'Untitled recipe' : lines[firstNonBlankIndex];
 
   let ingredientLines: string[];
   let instructionLines: string[];

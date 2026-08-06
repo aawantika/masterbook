@@ -57,8 +57,11 @@ recipesRouter.get('/', (req, res) => {
   const toTryOnly = req.query.toTry === 'true';
   const favoritesOnly = req.query.favorites === 'true';
   const needsFixingOnly = req.query.needsFixing === 'true';
+  const sortBy = req.query.sort === 'recent' ? 'recent' : 'title';
 
-  res.json(searchRecipes({ query, mealTypeIds, cuisineIds, ingredientIds, toTryOnly, favoritesOnly, needsFixingOnly }));
+  res.json(
+    searchRecipes({ query, mealTypeIds, cuisineIds, ingredientIds, toTryOnly, favoritesOnly, needsFixingOnly, sortBy })
+  );
 });
 
 function parseIdList(raw: unknown): number[] | undefined {

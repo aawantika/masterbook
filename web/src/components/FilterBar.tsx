@@ -1,4 +1,5 @@
 import { MetaItem } from '../api/types';
+import { SortBy } from '../CookbookShell';
 
 export type ViewMode = 'grid' | 'list';
 
@@ -17,6 +18,8 @@ type FilterBarProps = {
   onToggleFavoritesOnly: () => void;
   needsFixingOnly: boolean;
   onToggleNeedsFixingOnly: () => void;
+  sortBy: SortBy;
+  onChangeSortBy: (sort: SortBy) => void;
   viewMode: ViewMode;
   onChangeViewMode: (mode: ViewMode) => void;
 };
@@ -72,6 +75,8 @@ export function FilterBar({
   onToggleFavoritesOnly,
   needsFixingOnly,
   onToggleNeedsFixingOnly,
+  sortBy,
+  onChangeSortBy,
   viewMode,
   onChangeViewMode
 }: FilterBarProps) {
@@ -103,6 +108,21 @@ export function FilterBar({
         </button>
         <FilterGroup label="Meal type" items={mealTypes} selected={selectedMealTypeIds} onToggle={onToggleMealType} />
         <FilterGroup label="Cuisine" items={cuisines} selected={selectedCuisineIds} onToggle={onToggleCuisine} />
+        <div className="filter-group-divider" />
+        <button
+          type="button"
+          className={`filter-chip${sortBy === 'title' ? ' active' : ''}`}
+          onClick={() => onChangeSortBy('title')}
+        >
+          A–Z
+        </button>
+        <button
+          type="button"
+          className={`filter-chip${sortBy === 'recent' ? ' active' : ''}`}
+          onClick={() => onChangeSortBy('recent')}
+        >
+          Recently added
+        </button>
         <div className="filter-group-divider" />
         <button
           type="button"

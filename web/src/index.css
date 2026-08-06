@@ -629,19 +629,19 @@ html, body, #root {
 
 .ingredient-row input,
 .ingredient-row select {
-  padding: 6px 8px;
+  padding: 9px 10px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 15px;
   font-family: inherit;
 }
 
 .ingredient-quantity {
-  width: 60px;
+  width: 72px;
 }
 
 .ingredient-unit {
-  width: 90px;
+  width: 100px;
 }
 
 .ingredient-name,
@@ -650,19 +650,20 @@ html, body, #root {
 }
 
 .instruction-row textarea {
-  padding: 6px 8px;
+  padding: 9px 10px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 15px;
+  line-height: 1.4;
   font-family: inherit;
   resize: none;
   overflow: hidden;
 }
 
 .instruction-index {
-  font-size: 13px;
+  font-size: 15px;
   color: #6b7280;
-  width: 20px;
+  width: 24px;
 }
 
 .editor-actions {
@@ -784,7 +785,6 @@ html, body, #root {
   min-width: 0;
   max-width: 420px;
   height: 320px;
-  background: #f3ede4;
   border-radius: 10px;
   overflow: hidden;
 }

@@ -223,35 +223,6 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
 
       <div className="recipe-detail-top-row">
         <div className="recipe-detail-info-column">
-          {recipe.servings && <div>Serves {recipe.servings}</div>}
-          {baseServings != null && (
-            <div className="servings-scaler">
-              Scale to
-              <button
-                type="button"
-                onClick={() => setTargetServings(Math.max(1, (targetServings ?? baseServings) - 1))}
-              >
-                −
-              </button>
-              <input
-                type="number"
-                min={1}
-                value={targetServings ?? baseServings}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  setTargetServings(Number.isFinite(n) && n > 0 ? n : baseServings);
-                }}
-              />
-              <button type="button" onClick={() => setTargetServings((targetServings ?? baseServings) + 1)}>
-                +
-              </button>
-              {targetServings != null && targetServings !== baseServings && (
-                <button type="button" className="link-button" onClick={() => setTargetServings(null)}>
-                  Reset
-                </button>
-              )}
-            </div>
-          )}
           {recipe.totalTimeMinutes != null && <div>Total time {recipe.totalTimeMinutes} min</div>}
           <div>
             <span className="badge">{recipe.sourceName || recipe.sourceType}</span>
@@ -259,7 +230,7 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
           {recipe.sourceRef &&
             (/^https?:\/\//i.test(recipe.sourceRef) ? (
               <a href={recipe.sourceRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
-                {recipe.sourceRef}
+                🔗 Recipe
               </a>
             ) : (
               <span className="muted">{recipe.sourceRef}</span>
@@ -288,6 +259,40 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
                 </span>
               ))}
             </div>
+          )}
+          {/* A static "Serves X" line alongside the scaler was redundant --
+              the scaler's own input already shows the current count. Only
+              fall back to plain text when servings isn't a parseable number
+              (e.g. "4-6"), since then there's nothing to scale at all. */}
+          {baseServings != null ? (
+            <div className="servings-scaler">
+              Serves
+              <button
+                type="button"
+                onClick={() => setTargetServings(Math.max(1, (targetServings ?? baseServings) - 1))}
+              >
+                −
+              </button>
+              <input
+                type="number"
+                min={1}
+                value={targetServings ?? baseServings}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  setTargetServings(Number.isFinite(n) && n > 0 ? n : baseServings);
+                }}
+              />
+              <button type="button" onClick={() => setTargetServings((targetServings ?? baseServings) + 1)}>
+                +
+              </button>
+              {targetServings != null && targetServings !== baseServings && (
+                <button type="button" className="link-button" onClick={() => setTargetServings(null)}>
+                  Reset
+                </button>
+              )}
+            </div>
+          ) : (
+            recipe.servings && <div>Serves {recipe.servings}</div>
           )}
         </div>
 

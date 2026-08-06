@@ -64,7 +64,13 @@ export function CookbookShell() {
   }, []);
 
   const runSearch = async () => {
-    setLoading(true);
+    // Only show the full-page "Loading..." swap for the very first load.
+    // A toggle button (favorite/queue/needs-fixing) triggers a refresh via
+    // bumpReload, and unconditionally flipping loading here made the whole
+    // grid collapse to a single line and back on every click -- which reset
+    // scroll position to the top. Once there's already a result set on
+    // screen, keep showing it while the fresh one loads in the background.
+    if (results.length === 0) setLoading(true);
     try {
       const data = await searchRecipes({
         q: debouncedQuery,

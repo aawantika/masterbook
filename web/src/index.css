@@ -681,13 +681,25 @@ html, body, #root {
   border-radius: 9999px;
 }
 
-.recipe-detail-image-wrap {
+/* Image and video (when both exist) sit side by side at the same fixed
+   height, rather than either stacking (doubling the vertical footprint) or
+   hiding one when the other's present. flex-wrap lets them stack on a
+   narrow window instead of squeezing. */
+.recipe-detail-media-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
   margin: 12px 0;
+}
+
+.recipe-detail-image-wrap {
+  flex: 1 1 240px;
+  min-width: 0;
 }
 
 .recipe-detail-image {
   width: 100%;
-  max-height: 320px;
+  height: 320px;
   object-fit: cover;
   border-radius: 10px;
   display: block;
@@ -695,14 +707,14 @@ html, body, #root {
 
 /* Bounded by height (not width) so a portrait video (Instagram, 9:16)
    doesn't blow up to ~850px tall the way a width-driven aspect-ratio box
-   would at max-width. Landscape (YouTube, 16:9) naturally lands well under
-   this height anyway. The iframe's own aspect-ratio (set inline per
-   platform) computes its width from this fixed height, clamped by
-   max-width so a landscape video can't overflow sideways either. */
+   would. Landscape (YouTube, 16:9) naturally lands well under this height
+   anyway. The iframe's own aspect-ratio (set inline per platform) computes
+   its width from this fixed height, clamped by max-width so a landscape
+   video can't overflow sideways either. flex-shrink: 0 keeps it from being
+   squashed by the image's flex-grow when both are present. */
 .recipe-detail-video-wrap {
-  margin: 12px 0;
-  height: 360px;
-  width: 100%;
+  flex-shrink: 0;
+  height: 320px;
   max-width: 480px;
   border-radius: 10px;
   overflow: hidden;

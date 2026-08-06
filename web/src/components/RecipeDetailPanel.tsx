@@ -221,24 +221,27 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
         </div>
       </div>
 
-      {videoEmbed ? (
-        <div className="recipe-detail-video-wrap">
-          <iframe
-            className="recipe-detail-video"
-            style={{ aspectRatio: videoEmbed.aspectRatio }}
-            src={videoEmbed.url}
-            title={recipe.title}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            loading="lazy"
-          />
+      {(recipe.imageUrl || videoEmbed) && (
+        <div className="recipe-detail-media-row">
+          {recipe.imageUrl && (
+            <div className="recipe-detail-image-wrap">
+              <img className="recipe-detail-image" src={recipe.imageUrl} alt={recipe.title} />
+            </div>
+          )}
+          {videoEmbed && (
+            <div className="recipe-detail-video-wrap">
+              <iframe
+                className="recipe-detail-video"
+                style={{ aspectRatio: videoEmbed.aspectRatio }}
+                src={videoEmbed.url}
+                title={recipe.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                loading="lazy"
+              />
+            </div>
+          )}
         </div>
-      ) : (
-        recipe.imageUrl && (
-          <div className="recipe-detail-image-wrap">
-            <img className="recipe-detail-image" src={recipe.imageUrl} alt={recipe.title} />
-          </div>
-        )
       )}
 
       <div className="recipe-detail-meta">

@@ -57,6 +57,35 @@ describe('parseManualPaste: forgiving heading detection', () => {
   });
 });
 
+describe('parseManualPaste: bare "Step N" label lines', () => {
+  // Some sites lay out instructions as a standalone "Step 1" line followed
+  // by the real instruction text on the next line, rather than a marker
+  // glued to the front of it -- without dropping the label line entirely,
+  // it became its own bogus content-free "instruction".
+  test('drops "Step N" label lines, keeping only the real instruction text', () => {
+    const result = parseManualPaste(
+      'Title\n\nIngredients:\n1 egg\n\nInstructions:\nStep 1\nDo the first thing.\n\nStep 2\nDo the second thing.'
+    );
+    assert.equal(result.instructions.length, 2);
+    assert.equal(result.instructions[0].text, 'Do the first thing.');
+    assert.equal(result.instructions[1].text, 'Do the second thing.');
+  });
+
+  test('also matches "STEP N:" (uppercase, with colon)', () => {
+    const result = parseManualPaste('Title\n\nIngredients:\n1 egg\n\nInstructions:\nSTEP 1:\nDo the thing.');
+    assert.equal(result.instructions.length, 1);
+    assert.equal(result.instructions[0].text, 'Do the thing.');
+  });
+
+  test('a real instruction that merely starts with "step" is not dropped', () => {
+    const result = parseManualPaste(
+      'Title\n\nIngredients:\n1 egg\n\nInstructions:\nStep away from the stove while the oil heats.'
+    );
+    assert.equal(result.instructions.length, 1);
+    assert.equal(result.instructions[0].text, 'Step away from the stove while the oil heats.');
+  });
+});
+
 describe('parseManualPaste: blank-line-block fallback (no headings at all)', () => {
   test('first block after the title is ingredients, the rest is instructions', () => {
     const result = parseManualPaste('Gochujang Sauce\n\n1/2 cup gochujang\n1/4 cup sesame oil\n\nMix everything\nServe warm');

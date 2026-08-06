@@ -30,6 +30,14 @@ function stripLeadingMarker(line: string): string {
   return line.replace(/^\s*(?:[-*•▢□☐◦▪▫]|\d+[.)](?!\d))\s*/, '').trim();
 }
 
+// Some sites lay out instructions as a bare "Step 1" / "STEP 2:" label on
+// its own line, followed by the actual instruction text on the next
+// line(s) -- unlike a leading marker glued to the front of the real content
+// (which stripLeadingMarker handles), this is a whole separate line with
+// nothing else on it, so it needs to be dropped entirely rather than just
+// trimmed, or it becomes its own bogus "instruction" with no content.
+const STEP_LABEL_LINE = /^step\s*\d+\.?:?\s*$/i;
+
 // Groups consecutive non-blank lines, splitting on one or more blank
 // lines — the fallback signal used when no "Ingredients"/"Instructions"
 // heading is found at all. A lot of pasted captions rely on paragraph
@@ -94,7 +102,10 @@ export function parseManualPaste(input: string): RecipeDraft {
   return {
     title,
     ingredients: groupIngredientLinesBySections(ingredientLines.map(stripLeadingMarker)),
-    instructions: instructionLines.map((line) => ({ text: stripLeadingMarker(line), section: null })),
+    instructions: instructionLines
+      .map(stripLeadingMarker)
+      .filter((line) => !STEP_LABEL_LINE.test(line))
+      .map((text) => ({ text, section: null })),
     rawText
   };
 }

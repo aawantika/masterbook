@@ -22,6 +22,8 @@ export function BrowsePage() {
     toggleFavoritesOnly,
     needsFixingOnly,
     toggleNeedsFixingOnly,
+    sortBy,
+    setSortBy,
     results,
     loading,
     handleToggleWantToTry,
@@ -48,6 +50,8 @@ export function BrowsePage() {
         onToggleFavoritesOnly={toggleFavoritesOnly}
         needsFixingOnly={needsFixingOnly}
         onToggleNeedsFixingOnly={toggleNeedsFixingOnly}
+        sortBy={sortBy}
+        onChangeSortBy={setSortBy}
         viewMode={viewMode}
         onChangeViewMode={setViewMode}
       />

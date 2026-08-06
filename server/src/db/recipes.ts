@@ -215,6 +215,7 @@ export type SearchFilters = {
   toTryOnly?: boolean;
   favoritesOnly?: boolean;
   needsFixingOnly?: boolean;
+  sortBy?: 'title' | 'recent';
 };
 
 function sanitizeFtsQuery(query: string): string {
@@ -262,7 +263,7 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
   }
 
   const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
-  const orderBy = 'ORDER BY r.title COLLATE NOCASE ASC';
+  const orderBy = filters.sortBy === 'recent' ? 'ORDER BY r.created_at DESC' : 'ORDER BY r.title COLLATE NOCASE ASC';
 
   const rows = db
     .prepare(

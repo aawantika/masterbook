@@ -590,7 +590,7 @@ export function RecipeDraftEditor({
       </fieldset>
 
       <div className="field">
-        <span>Ingredients</span>
+        <span className="field-section-heading">Ingredients</span>
         {ingredients.length === 0 && (
           <button type="button" onClick={() => setIngredients([emptyEditableIngredient()])}>
             + Add ingredient
@@ -669,7 +669,7 @@ export function RecipeDraftEditor({
       </div>
 
       <div className="field">
-        <span>Instructions</span>
+        <span className="field-section-heading">Instructions</span>
         {instructions.length === 0 && (
           <button type="button" onClick={() => setInstructions([emptyEditableInstruction()])}>
             + Add step

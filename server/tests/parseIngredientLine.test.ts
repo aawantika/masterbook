@@ -181,6 +181,61 @@ describe('parseIngredientLine: metric weight preferred over compound imperial me
   });
 });
 
+describe('parseIngredientLine: dash-separated trailing quantity ("Name- Qty Unit")', () => {
+  // A third quantity position (besides leading and bilingual-pipe-trailing):
+  // some sites write "Name- Quantity Unit (notes)" with a plain dash, no
+  // pipe. Real-world case that surfaced this: none of a whole pasted list
+  // in this format extracted a quantity at all before the fix.
+  test('plain "Name- Qty Unit"', () => {
+    const result = parseIngredientLine('Puffed rice- 4 cups');
+    assert.equal(result.quantity, '4');
+    assert.equal(result.unit, 'cup');
+    assert.equal(result.name, 'Puffed rice');
+  });
+
+  test('a size descriptor after the dash folds into the name', () => {
+    const result = parseIngredientLine('Onion- 1 large (chopped)');
+    assert.equal(result.quantity, '1');
+    assert.equal(result.name, 'large Onion (chopped)');
+  });
+
+  test('a bare range with no unit ("3 to 4")', () => {
+    const result = parseIngredientLine('Chopped green chillies- 3 to 4');
+    assert.equal(result.quantity, '3 to 4');
+    assert.equal(result.unit, null);
+    assert.equal(result.name, 'Chopped green chillies');
+  });
+
+  // Regression guard: a dash that's part of a genuine leading quantity
+  // range must not be misread as this format's separator.
+  test('a leading-range quantity is not mistaken for a dash-separated name', () => {
+    const result = parseIngredientLine('2-3 tbsp chopped garlic');
+    assert.equal(result.quantity, '2-3');
+    assert.equal(result.unit, 'tbsp');
+    assert.equal(result.name, 'chopped garlic');
+  });
+
+  // Regression guard: an ordinary hyphenated word with no real number after
+  // it must not misfire as this format either.
+  test('a hyphenated word with no number after it is not mistaken for this format', () => {
+    const result = parseIngredientLine('day-old bread, cubed');
+    assert.equal(result.quantity, null);
+    assert.equal(result.name, 'day-old bread, cubed');
+  });
+});
+
+describe('parseIngredientLine: plural abbreviated units ("tbsps", "tsps")', () => {
+  test('"tbsps" canonicalizes the same as "tbsp"', () => {
+    const result = parseIngredientLine('2 tbsps sugar');
+    assert.equal(result.unit, 'tbsp');
+  });
+
+  test('"tsps" canonicalizes the same as "tsp"', () => {
+    const result = parseIngredientLine('2 tsps salt');
+    assert.equal(result.unit, 'tsp');
+  });
+});
+
 describe('groupIngredientLinesBySections: "For the X:" section headers', () => {
   test('tags each ingredient with the most recently seen section header', () => {
     const result = groupIngredientLinesBySections([

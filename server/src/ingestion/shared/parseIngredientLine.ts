@@ -7,8 +7,8 @@ import { ParsedIngredientLine } from '../../types/recipe.js';
 // tries branches in order and a short prefix like "g" would otherwise
 // swallow just the first letter of "grams" and leave "rams" dangling).
 export const UNIT_ALIASES: Array<{ canonical: string; pattern: string }> = [
-  { canonical: 'tbsp', pattern: 'tbsp|tablespoons?' },
-  { canonical: 'tsp', pattern: 'tsp|teaspoons?' },
+  { canonical: 'tbsp', pattern: 'tbsps?|tablespoons?' },
+  { canonical: 'tsp', pattern: 'tsps?|teaspoons?' },
   { canonical: 'cup', pattern: 'cups?' },
   { canonical: 'oz', pattern: 'oz|ounces?' },
   { canonical: 'lb', pattern: 'lbs?|pounds?' },
@@ -159,6 +159,43 @@ const TRAILING_QUANTITY_UNIT_PATTERN = new RegExp(
   'i'
 );
 
+// A third quantity position, seen on some sites: "Name- Quantity Unit
+// (notes)" -- a plain dash (not a "|") separates the name from a trailing
+// quantity, e.g. "Puffed rice- 4 cups" or "Onion- 1 large (chopped)". Reuses
+// TRAILING_QUANTITY_UNIT_PATTERN (the bilingual parser's own trailing-match
+// logic, which has nothing bilingual-specific about the pattern itself) to
+// pull quantity/unit/size/notes from whatever's after the first dash.
+// Requires the match to start right where the dash's text begins (nothing
+// unaccounted-for in between) so this doesn't misfire on a line whose only
+// dash is inside a genuine leading quantity range ("2-3 tbsp garlic") or an
+// ordinary hyphenated word ("day-old bread") with no real number after it.
+function parseTrailingDashQuantity(line: string, section: string | null): ParsedIngredientLine | null {
+  const dashIndex = line.indexOf('-');
+  if (dashIndex === -1) return null;
+
+  const name = line.slice(0, dashIndex).trim();
+  if (!name) return null;
+  const afterDash = line.slice(dashIndex + 1).trim();
+  if (!afterDash) return null;
+
+  const match = TRAILING_QUANTITY_UNIT_PATTERN.exec(afterDash);
+  if (!match || afterDash.slice(0, match.index).trim() !== '') return null;
+
+  const quantityRaw = match[1]?.trim();
+  const isArticle = quantityRaw ? isArticleQuantity(quantityRaw) : false;
+  if (!quantityRaw || (!isArticle && !/[\d¼-¾⅐-⅞]/.test(quantityRaw))) return null;
+
+  const quantity = isArticle ? '1' : quantityRaw;
+  const rawUnitText = match[2]?.trim() ?? '';
+  const unit = rawUnitText ? canonicalizeUnit(rawUnitText) : null;
+  const sizeWord = match[3] ? normalizeSizeDescriptor(match[3]) : null;
+  const notes = match[4] ? ` ${match[4]}` : '';
+  const fullName = `${sizeWord ? `${sizeWord} ` : ''}${name}${notes}`.trim();
+  const rawText = `${quantity}${rawUnitText ? ` ${rawUnitText.toLowerCase()}` : ''} ${fullName}`.trim();
+
+  return { rawText, quantity, unit, name: fullName, section };
+}
+
 function parseBilingualPipeLine(rawLine: string, section: string | null): ParsedIngredientLine | null {
   const pipeIndex = rawLine.indexOf('|');
   if (pipeIndex === -1) return null;
@@ -214,6 +251,9 @@ export function parseIngredientLine(rawLine: string, section: string | null = nu
 
   const metricOverride = extractMetricWeightOverride(stripped, section);
   if (metricOverride) return metricOverride;
+
+  const trailingDash = parseTrailingDashQuantity(stripped, section);
+  if (trailingDash) return trailingDash;
 
   const match = INGREDIENT_LINE_PATTERN.exec(stripped);
   if (!match) {

@@ -4,6 +4,8 @@ import { getCuisines, getMealTypes, searchRecipes, setFavorite, setNeedsFixing, 
 import { MetaItem, RecipeSummary } from './api/types';
 import { Sidebar } from './components/Sidebar';
 
+export type SortBy = 'title' | 'recent';
+
 function useDebounced<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -29,6 +31,8 @@ export type ShellContext = {
   toggleFavoritesOnly: () => void;
   needsFixingOnly: boolean;
   toggleNeedsFixingOnly: () => void;
+  sortBy: SortBy;
+  setSortBy: (sort: SortBy) => void;
   results: RecipeSummary[];
   loading: boolean;
   handleToggleWantToTry: (id: number, want: boolean) => void;
@@ -53,6 +57,7 @@ export function CookbookShell() {
   const [toTryOnly, setToTryOnly] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [needsFixingOnly, setNeedsFixingOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<SortBy>('title');
   const [results, setResults] = useState<RecipeSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -78,7 +83,8 @@ export function CookbookShell() {
         cuisineIds: Array.from(selectedCuisineIds),
         toTry: toTryOnly,
         favorites: favoritesOnly,
-        needsFixing: needsFixingOnly
+        needsFixing: needsFixingOnly,
+        sort: sortBy
       });
       setResults(data);
     } finally {
@@ -96,6 +102,7 @@ export function CookbookShell() {
     toTryOnly,
     favoritesOnly,
     needsFixingOnly,
+    sortBy,
     reloadSignal
   ]);
 
@@ -139,6 +146,8 @@ export function CookbookShell() {
     toggleFavoritesOnly: () => setFavoritesOnly((prev) => !prev),
     needsFixingOnly,
     toggleNeedsFixingOnly: () => setNeedsFixingOnly((prev) => !prev),
+    sortBy,
+    setSortBy,
     results,
     loading,
     handleToggleWantToTry,

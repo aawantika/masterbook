@@ -59,6 +59,7 @@ export type SearchParams = {
   toTry?: boolean;
   favorites?: boolean;
   needsFixing?: boolean;
+  sort?: 'title' | 'recent';
 };
 
 export function searchRecipes(params: SearchParams): Promise<RecipeSummary[]> {
@@ -70,6 +71,7 @@ export function searchRecipes(params: SearchParams): Promise<RecipeSummary[]> {
   if (params.toTry) query.set('toTry', 'true');
   if (params.favorites) query.set('favorites', 'true');
   if (params.needsFixing) query.set('needsFixing', 'true');
+  if (params.sort === 'recent') query.set('sort', 'recent');
   const qs = query.toString();
   return request<RecipeSummary[]>(`/recipes${qs ? `?${qs}` : ''}`);
 }

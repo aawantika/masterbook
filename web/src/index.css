@@ -426,14 +426,18 @@ html, body, #root {
 }
 
 /* The wrench emoji renders in full color regardless of the surrounding
-   text color, so "active" is shown via opacity (dimmed until flagged)
-   rather than a color change like the heart/star toggles use. */
+   text color, so "active" can't be shown by recoloring it like the
+   heart/star toggles do. A background tint instead of dimming the inactive
+   state (an earlier version used opacity: 0.35) -- opacity dimmed the whole
+   button including its text label, which read as disabled rather than
+   just "off". */
 .fix-toggle {
-  opacity: 0.35;
+  border-radius: 6px;
+  padding: 2px 4px;
 }
 
 .fix-toggle.active {
-  opacity: 1;
+  background: #fef3c7;
 }
 
 /* Rendering the same ♥ character for both states (rather than pairing it
@@ -500,6 +504,15 @@ html, body, #root {
   display: grid;
   gap: 4px;
   font-size: 13px;
+}
+
+/* Ingredients/Instructions are section headings, not plain field labels
+   like "Servings" -- they were inheriting the same 13px as every other
+   .field span, reading as no more important than a text input's caption. */
+.field-section-heading {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
 }
 
 .field input,
@@ -757,6 +770,10 @@ html, body, #root {
   padding: 6px 10px;
   border: 1px solid #d1d5db;
   border-radius: 9999px;
+}
+
+.recipe-detail-header .fix-toggle.active {
+  border-color: #d97706;
 }
 
 /* Image and video (when both exist) sit side by side at the same fixed

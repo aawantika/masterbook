@@ -14,6 +14,15 @@ describe('parseManualPaste: title extraction', () => {
     assert.deepEqual(result.ingredients, []);
     assert.deepEqual(result.instructions, []);
   });
+
+  // Regression: when the paste starts directly with a heading (no real
+  // title line above it), the heading text itself was being used as the
+  // title -- literally titling the recipe "Ingredients:".
+  test('falls back to a placeholder title when the first line is itself a heading', () => {
+    const result = parseManualPaste('Ingredients:\n1 egg\n\nInstructions:\n1. Cook it');
+    assert.equal(result.title, 'Untitled recipe');
+    assert.equal(result.ingredients.length, 1);
+  });
 });
 
 describe('parseManualPaste: forgiving heading detection', () => {
@@ -39,6 +48,16 @@ describe('parseManualPaste: forgiving heading detection', () => {
     const result = parseManualPaste('Simple Recipe\n\nIngredients\n1 egg\n\nSteps\n1. Cook it');
     assert.equal(result.ingredients.length, 1);
     assert.equal(result.instructions.length, 1);
+  });
+
+  // Regression: an emoji bullet glued directly to the heading word (e.g.
+  // "▪️Ingredients:", including the invisible U+FE0F variation selector
+  // that rides along with many emoji) defeated the ^ingredients? match
+  // entirely -- the whole line fell through to being used as the title
+  // instead, and nothing after it was recognized as ingredients.
+  test('an emoji-prefixed heading is still recognized', () => {
+    const result = parseManualPaste('▪️Ingredients:\n1 egg\n2 cups flour');
+    assert.equal(result.ingredients.length, 2);
   });
 
   // Regression: an earlier version of the "forgiving" heading regex matched

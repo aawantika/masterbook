@@ -775,9 +775,14 @@ html, body, #root {
   gap: 6px;
 }
 
+/* max-width keeps this from growing to fill all leftover row space when a
+   portrait photo (object-fit: contain) only actually needs a narrow slice
+   of it -- without it, a tall/narrow photo sat centered in a mostly-empty
+   slab the width of whatever space the video wasn't using. */
 .recipe-detail-image-wrap {
   flex: 1 1 240px;
   min-width: 0;
+  max-width: 420px;
   height: 320px;
   background: #f3ede4;
   border-radius: 10px;

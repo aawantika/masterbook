@@ -109,6 +109,44 @@ function normalizeSizeDescriptor(raw: string): string {
   return raw.replace(/[\s-]?siz(?:e|ed)$/i, '').trim().toLowerCase();
 }
 
+// Some sites give BOTH an imperial measurement -- often itself a "+"-joined
+// compound like "3 1/2 tbsp + 1 tsp" -- AND a precise metric equivalent,
+// either in parens ("3 1/2 tbsp + 1 tsp (45 g) white sugar", okonomikitchen)
+// or slash-separated with the number and unit glued together ("1/2 cup /
+// 113g salted butter", a different site's style). The metric value is a
+// single unambiguous number that doesn't need summing multiple units
+// together, so it's preferred outright over attempting to parse (and
+// mis-parse) the compound imperial portion, which the main pattern below
+// doesn't handle. Desserts especially tend to give the precise gram/ml
+// figure specifically because volume measurements (cups, tbsp) are too
+// imprecise for baking -- that precision is worth keeping as the
+// structured quantity rather than discarding it for the vaguer measurement.
+const METRIC_WEIGHT_PATTERN = /\(\s*(\d+(?:\.\d+)?)\s*(g|kg|ml|l)\s*\)|\/\s*(\d+(?:\.\d+)?)\s*(g|kg|ml|l)\b/i;
+
+function extractMetricWeightOverride(line: string, section: string | null): ParsedIngredientLine | null {
+  const match = METRIC_WEIGHT_PATTERN.exec(line);
+  if (!match) return null;
+
+  const after = line.slice(match.index + match[0].length).trim();
+  if (!after) return null; // nothing usable as a name -- let normal parsing try instead
+
+  const quantity = match[1] ?? match[3];
+  const unit = canonicalizeUnit(match[2] ?? match[4]);
+
+  // The text before the metric weight is usually a now-redundant imperial
+  // measurement ("3 1/2 tbsp + 1 tsp", "1/2 cup") worth discarding, but a
+  // leading size word ("1 large (52 g) egg") is real descriptive info about
+  // the ingredient itself, not a measurement -- fold that into the name the
+  // same way the bilingual parser does ("1 medium onion").
+  const before = line.slice(0, match.index).trim().replace(/^[\d.\/\s]+/, '').trim();
+  const sizeWord = new RegExp(`^${SIZE_DESCRIPTOR_PATTERN}$`, 'i').test(before) ? normalizeSizeDescriptor(before) : null;
+
+  const name = `${sizeWord ? `${sizeWord} ` : ''}${after}`.trim();
+  const rawText = `${quantity} ${unit} ${name}`.trim();
+
+  return { rawText, quantity, unit, name, section };
+}
+
 // Bilingual "NAME | translation quantity unit" lines — a format common on
 // Instagram recipe cards from Hindi-speaking creators, e.g.
 // "GARLIC | लहसुन 8-10 CLOVES". Unlike every other format this parser
@@ -174,6 +212,9 @@ export function parseIngredientLine(rawLine: string, section: string | null = nu
   const rawText = stripLeadingCommaInParens(collapseDoubledParens(rawLine.trim()));
   const stripped = rawText.replace(/^[-*••]\s*/, '');
 
+  const metricOverride = extractMetricWeightOverride(stripped, section);
+  if (metricOverride) return metricOverride;
+
   const match = INGREDIENT_LINE_PATTERN.exec(stripped);
   if (!match) {
     return { rawText, quantity: null, unit: null, name: stripped, section };
@@ -183,6 +224,15 @@ export function parseIngredientLine(rawLine: string, section: string | null = nu
   const quantity = quantityRaw && isArticleQuantity(quantityRaw) ? '1' : quantityRaw;
   const unit = match[2]?.trim() ? canonicalizeUnit(match[2]) : null;
   const name = match[3]?.trim() || stripped;
+
+  // A name starting with "+" means the match only captured the FIRST piece
+  // of a "+"-joined compound measurement ("3 1/2 tbsp + 1 tsp flour") that
+  // this parser doesn't attempt to sum -- a partial quantity next to a name
+  // that literally starts with "+ 1 tsp..." is worse than not extracting a
+  // structured quantity at all, so fall back to the whole line as-is.
+  if (name.startsWith('+')) {
+    return { rawText, quantity: null, unit: null, name: stripped, section };
+  }
 
   return { rawText, quantity, unit, name, section };
 }

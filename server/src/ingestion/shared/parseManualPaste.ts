@@ -22,9 +22,12 @@ function isHeadingLike(line: string, pattern: RegExp): boolean {
 // alongside the usual bullet/dash/numbered-list markers — all of these sit
 // glued to the front of a copy-pasted ingredient line with no space, which
 // otherwise defeats the quantity/unit regex entirely (it expects the line
-// to start with the quantity itself).
+// to start with the quantity itself). The `(?!\d)` after the numbered-marker
+// alternative matters: without it, a decimal ingredient quantity like
+// "3.5 tbsp flour" gets misread as list marker "3." + remainder "5 tbsp
+// flour" — silently corrupting the actual number, not just the formatting.
 function stripLeadingMarker(line: string): string {
-  return line.replace(/^\s*(?:[-*•▢□☐◦▪▫]|\d+[.)])\s*/, '').trim();
+  return line.replace(/^\s*(?:[-*•▢□☐◦▪▫]|\d+[.)](?!\d))\s*/, '').trim();
 }
 
 // Groups consecutive non-blank lines, splitting on one or more blank

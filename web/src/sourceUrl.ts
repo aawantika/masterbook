@@ -43,6 +43,20 @@ export function isUnfetchableRecipeUrl(url: string): boolean {
   return isInstagramUrl(url) || extractYouTubeVideoId(url) !== null;
 }
 
+// Bare hostname as a starting-point source name -- the user can rename it
+// to something prettier in the editor. Instagram/YouTube are excluded: a
+// domain name isn't a useful "source" label for those (a creator handle
+// would be, but that can't be inferred from the URL), so those are left
+// for the user to fill in rather than guessed at.
+export function deriveSourceNameFromUrl(url: string): string | null {
+  if (isUnfetchableRecipeUrl(url)) return null;
+  try {
+    return new URL(url).hostname.replace(/^www\./i, '') || null;
+  } catch {
+    return null;
+  }
+}
+
 // Instagram's own embed endpoint for a public post/reel/IGTV video —
 // "/{type}/{shortcode}/embed" — the same URL their own "Embed" share option
 // generates. Works without any API key for public posts; private or

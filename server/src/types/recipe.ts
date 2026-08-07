@@ -28,4 +28,8 @@ export type RecipeDraft = {
   cuisineNames?: string[];
   imageUrl?: string | null;
   sourceName?: string | null;
+  // Only populated when parseManualPaste finds a lone-URL line within the
+  // pasted text itself, rather than the caller having typed a link into a
+  // separate field -- see parseManualPaste.ts's deriveSourceNameFromUrl.
+  sourceRef?: string | null;
 };

@@ -171,3 +171,41 @@ describe('parseManualPaste: leading marker stripping', () => {
     assert.equal(result.instructions[1].text, 'Bake 3.5 hours');
   });
 });
+
+describe('parseManualPaste: source link embedded in the pasted text', () => {
+  // A lone-URL line anywhere in the paste (not just a separate field) is
+  // picked up as the source link automatically, and the source name is
+  // inferred from the domain -- both new asks, not just "don't lose the
+  // line". The URL line itself must not leak into ingredients/instructions.
+  test('extracts a URL line as sourceRef and infers sourceName from the domain', () => {
+    const result = parseManualPaste(
+      'Gochujang Noodles\n\nIngredients:\n2 tbsp gochujang\n\nhttps://www.example-recipes.com/gochujang-noodles\n\nInstructions:\n1. Boil noodles'
+    );
+    assert.equal(result.sourceRef, 'https://www.example-recipes.com/gochujang-noodles');
+    assert.equal(result.sourceName, 'example-recipes.com');
+    assert.equal(result.ingredients.length, 1);
+    assert.equal(result.instructions.length, 1);
+  });
+
+  test('an Instagram URL is extracted as sourceRef but sourceName is left null', () => {
+    const result = parseManualPaste('Some Recipe\n\nhttps://www.instagram.com/p/AbC123/\n\nIngredients:\n1 egg');
+    assert.equal(result.sourceRef, 'https://www.instagram.com/p/AbC123/');
+    assert.equal(result.sourceName, null);
+  });
+
+  test('no URL anywhere in the paste leaves sourceRef/sourceName null', () => {
+    const result = parseManualPaste('Title\n\nIngredients:\n1 egg');
+    assert.equal(result.sourceRef, null);
+    assert.equal(result.sourceName, null);
+  });
+
+  // A URL mentioned mid-sentence (not its own whole line) must not corrupt
+  // the line it's part of -- only a line that IS just a URL is extracted.
+  test('a URL mentioned inside a real instruction line is left alone', () => {
+    const result = parseManualPaste(
+      'Title\n\nIngredients:\n1 egg\n\nInstructions:\n1. Adapted from https://example.com, use fresh eggs'
+    );
+    assert.equal(result.sourceRef, null);
+    assert.equal(result.instructions[0].text, 'Adapted from https://example.com, use fresh eggs');
+  });
+});

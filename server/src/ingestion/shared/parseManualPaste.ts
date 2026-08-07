@@ -51,6 +51,32 @@ function stripLeadingMarker(line: string): string {
 // trimmed, or it becomes its own bogus "instruction" with no content.
 const STEP_LABEL_LINE = /^step\s*\d+\.?:?\s*$/i;
 
+// A line that's nothing BUT a URL -- the common case when someone copies a
+// whole page (or a caption with a link at the bottom) directly into the
+// paste box, rather than typing the link into the separate field above.
+// Only matches when the URL is the entire line, not just present somewhere
+// in it, so a real instruction that happens to mention "see
+// https://example.com for more" doesn't get silently mangled.
+const URL_LINE_PATTERN = /^https?:\/\/\S+$/i;
+
+// Groups the specific publication (site, cookbook, Instagram handle) the
+// same way the sidebar's "by source" tree does -- just the bare hostname,
+// user can rename it to something prettier in the editor. Instagram/YouTube
+// are deliberately excluded: their sourceName is more naturally a creator
+// handle than a domain, and there's no way to infer that from the URL
+// alone, so those are left for the user to fill in.
+export function deriveSourceNameFromUrl(url: string): string | null {
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./i, '').toLowerCase();
+    if (hostname.includes('instagram.com') || hostname.includes('youtube.com') || hostname === 'youtu.be') {
+      return null;
+    }
+    return hostname || null;
+  } catch {
+    return null;
+  }
+}
+
 // Groups consecutive non-blank lines, splitting on one or more blank
 // lines — the fallback signal used when no "Ingredients"/"Instructions"
 // heading is found at all. A lot of pasted captions rely on paragraph
@@ -78,7 +104,15 @@ function splitIntoBlocks(lines: string[]): string[][] {
 // (RecipeDraftEditor) is expected to let the user review/fix before saving.
 export function parseManualPaste(input: string): RecipeDraft {
   const rawText = input;
-  const lines = input.split('\n').map((line) => line.trim());
+  const allLines = input.split('\n').map((line) => line.trim());
+
+  // Pull out a lone-URL line wherever it appears (title area, mixed into
+  // the ingredients/instructions, a trailing citation) before any other
+  // parsing runs, so it never gets treated as a title/heading/ingredient/
+  // instruction line by mistake.
+  const urlLineIndex = allLines.findIndex((line) => URL_LINE_PATTERN.test(line));
+  const sourceRef = urlLineIndex === -1 ? null : allLines[urlLineIndex];
+  const lines = urlLineIndex === -1 ? allLines : allLines.filter((_, i) => i !== urlLineIndex);
 
   const firstNonBlankIndex = lines.findIndex((line) => line !== '');
 
@@ -124,6 +158,8 @@ export function parseManualPaste(input: string): RecipeDraft {
       .map(stripLeadingMarker)
       .filter((line) => !STEP_LABEL_LINE.test(line))
       .map((text) => ({ text, section: null })),
-    rawText
+    rawText,
+    sourceRef,
+    sourceName: sourceRef ? deriveSourceNameFromUrl(sourceRef) : null
   };
 }

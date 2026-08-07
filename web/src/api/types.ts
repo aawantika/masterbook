@@ -23,6 +23,7 @@ export type RecipeDraft = {
   cuisineNames?: string[];
   imageUrl?: string | null;
   sourceName?: string | null;
+  sourceRef?: string | null;
 };
 
 export type RecipeInput = {

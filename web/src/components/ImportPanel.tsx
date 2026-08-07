@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { checkDuplicates, createRecipe, fetchRecipeFromUrl, getCuisines, getMealTypes, parseManualPaste } from '../api/client';
 import { MetaItem, RecipeDraft, RecipeInput, SourceType } from '../api/types';
-import { extractYouTubeVideoId, isInstagramUrl, youtubeThumbnailUrl } from '../sourceUrl';
+import { deriveSourceNameFromUrl, extractYouTubeVideoId, isInstagramUrl, youtubeThumbnailUrl } from '../sourceUrl';
 import { RecipeDraftEditor } from './RecipeDraftEditor';
 
 type ImportPanelProps = {
@@ -32,6 +32,13 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
   const handleParse = async () => {
     if (!pasteText.trim()) return;
     const parsed = await parseManualPaste(pasteText);
+    // A URL pasted as part of the recipe text itself (rather than typed
+    // into the separate field above) becomes the source link automatically
+    // -- but don't clobber a link the user already entered up top.
+    if (parsed.sourceRef && !sourceRef.trim()) {
+      setSourceRef(parsed.sourceRef);
+      setSourceType(isInstagramUrl(parsed.sourceRef) ? 'instagram' : 'website');
+    }
     setDraft(parsed);
   };
 
@@ -111,7 +118,13 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
       setSourceType('website');
     }
     setSourceRef(url);
-    setDraft({ title: '', ingredients: [], instructions: [], rawText: '' });
+    setDraft({
+      title: '',
+      ingredients: [],
+      instructions: [],
+      rawText: '',
+      sourceName: url ? deriveSourceNameFromUrl(url) : null
+    });
   };
 
   const handleSave = async (input: RecipeInput) => {

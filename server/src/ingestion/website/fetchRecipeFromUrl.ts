@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import { groupIngredientLinesBySections, parseIngredientLine } from '../shared/parseIngredientLine.js';
-import { parseManualPaste } from '../shared/parseManualPaste.js';
+import { deriveSourceNameFromUrl, parseManualPaste } from '../shared/parseManualPaste.js';
 import { ParsedIngredientLine, ParsedInstructionStep, RecipeDraft } from '../../types/recipe.js';
 
 // A generic modern-browser UA. Many sites (this project's motivating case:
@@ -9,18 +9,6 @@ import { ParsedIngredientLine, ParsedInstructionStep, RecipeDraft } from '../../
 // own machine/IP with a normal UA, which is a different situation entirely.
 const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
-
-// Groups recipes from the same site under one sidebar entry (e.g. every
-// thewoksoflife.com recipe collapses under "thewoksoflife.com") instead of
-// one group per exact recipe URL. Just the bare hostname — the user can
-// rename it to something prettier ("The Woks of Life") in the editor.
-function deriveSourceNameFromUrl(url: string): string | null {
-  try {
-    return new URL(url).hostname.replace(/^www\./i, '') || null;
-  } catch {
-    return null;
-  }
-}
 
 function parseIsoDurationToMinutes(value: unknown): number | null {
   if (typeof value !== 'string') return null;

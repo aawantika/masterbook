@@ -277,24 +277,59 @@ export function parseIngredientLine(rawLine: string, section: string | null = nu
   return { rawText, quantity, unit, name, section };
 }
 
-// A line is treated as a section header ("For the chicken:", "To serve:")
-// rather than an ingredient when it's colon-terminated, reasonably short,
-// and doesn't start with something that looks like a quantity — real
-// ingredient lines essentially never end with a bare colon, so this is a
-// low-false-positive heuristic rather than a fixed keyword list, which
-// would miss whatever a given site happens to call its sections.
+// Recipe-plugin checkbox glyphs (WP Recipe Maker's ▢ being the most common)
+// alongside the usual bullet/dash/numbered-list markers — all of these sit
+// glued to the front of a copy-pasted ingredient line with no space, which
+// otherwise defeats the quantity/unit regex entirely (it expects the line
+// to start with the quantity itself). The `(?!\d)` after the numbered-marker
+// alternative matters: without it, a decimal ingredient quantity like
+// "3.5 tbsp flour" gets misread as list marker "3." + remainder "5 tbsp
+// flour" — silently corrupting the actual number, not just the formatting.
+// Shared with parseManualPaste.ts (also used on instruction lines there).
+export function stripLeadingMarker(line: string): string {
+  return line.replace(/^\s*(?:[-*•▢□☐◦▪▫]|\d+[.)](?!\d))\s*/, '').trim();
+}
+
+// A line is treated as a section header rather than an ingredient in either
+// of two forms: colon-terminated ("For the chicken:", "To serve:") or a
+// leading dash with no quantity right after it ("- For the chicken" — a
+// bare dash prefix would otherwise look identical to a bulleted ingredient
+// like "- 2 cups rice", so the quantity check is what tells them apart).
+// Both require reasonably short lines and no leading quantity character —
+// real ingredient lines essentially never end with a bare colon or start
+// with a dash followed by prose instead of a measurement.
 function looksLikeSectionHeader(line: string): boolean {
-  if (!line.endsWith(':')) return false;
   if (line.length > 60) return false;
-  const firstChar = line[0];
-  return !new RegExp(`[${QUANTITY_CHAR_CLASS}]`).test(firstChar);
+
+  if (line.endsWith(':')) {
+    const firstChar = line[0];
+    return !new RegExp(`[${QUANTITY_CHAR_CLASS}]`).test(firstChar);
+  }
+
+  const dashMatch = line.match(/^[-–—]\s*(.+)$/);
+  if (dashMatch) {
+    const rest = dashMatch[1].trim();
+    if (!rest) return false;
+    return !new RegExp(`[${QUANTITY_CHAR_CLASS}]`).test(rest[0]);
+  }
+
+  return false;
+}
+
+function sectionHeaderText(line: string): string {
+  if (line.endsWith(':')) return line.slice(0, -1).trim();
+  const dashMatch = line.match(/^[-–—]\s*(.+)$/);
+  return dashMatch ? dashMatch[1].trim() : line;
 }
 
 // Splits a flat list of ingredient-block lines into ParsedIngredientLine
 // entries, tagging each with whichever section header (if any) most
 // recently preceded it. Shared by the manual-paste splitter and the
 // website JSON-LD extractor, since both hand this function a flat list of
-// strings that may or may not contain section headers.
+// strings that may or may not contain section headers. Takes RAW lines
+// (markers not yet stripped) so the dash-based header form above can still
+// see its own leading dash -- stripLeadingMarker only runs on lines that
+// turn out to be real ingredients, not headers.
 export function groupIngredientLinesBySections(lines: string[]): ParsedIngredientLine[] {
   let currentSection: string | null = null;
   const results: ParsedIngredientLine[] = [];
@@ -304,11 +339,11 @@ export function groupIngredientLinesBySections(lines: string[]): ParsedIngredien
     if (!trimmed) continue;
 
     if (looksLikeSectionHeader(trimmed)) {
-      currentSection = trimmed.slice(0, -1).trim();
+      currentSection = sectionHeaderText(trimmed);
       continue;
     }
 
-    results.push(parseIngredientLine(trimmed, currentSection));
+    results.push(parseIngredientLine(stripLeadingMarker(trimmed), currentSection));
   }
 
   return results;

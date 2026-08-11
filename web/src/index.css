@@ -929,6 +929,17 @@ html, body, #root {
   margin: 20px 0;
 }
 
+/* Edit/Refresh/Delete live in the narrow left info column now, not a full-
+   width row at the page bottom -- stack them instead of a horizontal row,
+   since "↻ Refresh from source" alone is wider than the column. */
+.recipe-detail-info-column .recipe-detail-actions {
+  flex-direction: column;
+  align-items: stretch;
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
 .recipe-detail-actions button {
   padding: 8px 14px;
   border-radius: 8px;

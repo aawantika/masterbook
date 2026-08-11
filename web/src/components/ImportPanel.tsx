@@ -177,7 +177,9 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
               rows={12}
-              placeholder={'Title\n\nIngredients:\n1 cup flour\n...\n\nInstructions:\n1. Mix...\n...'}
+              placeholder={
+                'Title:\n\nSource:\n\nIngredients (use - for section names)\n- For the sauce\n2 tbsp gochujang\n...\n\nInstructions\n1. Mix...\n...'
+              }
             />
           </label>
           <div className="editor-actions">

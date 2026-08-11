@@ -308,6 +308,20 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
           ) : (
             recipe.servings && <div>Serves {recipe.servings}</div>
           )}
+
+          <div className="recipe-detail-actions">
+            <button type="button" onClick={() => setEditing(true)}>
+              Edit
+            </button>
+            {canRefreshFromSource && (
+              <button type="button" className="secondary" onClick={handleRefreshFromSource} disabled={refreshing}>
+                {refreshing ? 'Refreshing...' : '↻ Refresh from source'}
+              </button>
+            )}
+            <button type="button" className="danger" onClick={handleDelete}>
+              Delete
+            </button>
+          </div>
         </div>
 
         {recipe.imageUrl && (
@@ -376,20 +390,6 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
       )}
 
       {refreshError && <div className="editor-error">{refreshError}</div>}
-
-      <div className="recipe-detail-actions">
-        <button type="button" onClick={() => setEditing(true)}>
-          Edit
-        </button>
-        {canRefreshFromSource && (
-          <button type="button" className="secondary" onClick={handleRefreshFromSource} disabled={refreshing}>
-            {refreshing ? 'Refreshing...' : '↻ Refresh from source'}
-          </button>
-        )}
-        <button type="button" className="danger" onClick={handleDelete}>
-          Delete
-        </button>
-      </div>
     </div>
   );
 }

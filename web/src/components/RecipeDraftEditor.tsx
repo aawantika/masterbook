@@ -115,13 +115,15 @@ function SortableIngredientRow({
   unitOptions,
   onUpdate,
   onRemove,
-  onInsertSectionBreak
+  onInsertSectionBreak,
+  onInsertAfter
 }: {
   ingredient: EditableIngredient;
   unitOptions: string[];
   onUpdate: (patch: Partial<ParsedIngredientLine>) => void;
   onRemove: () => void;
   onInsertSectionBreak: () => void;
+  onInsertAfter: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: ingredient.dndId
@@ -144,6 +146,14 @@ function SortableIngredientRow({
         onClick={onInsertSectionBreak}
       >
         + section
+      </button>
+      <button
+        type="button"
+        className="insert-section-btn"
+        title="Insert a new ingredient after this one"
+        onClick={onInsertAfter}
+      >
+        + ingredient
       </button>
       <input
         className="ingredient-quantity"
@@ -183,13 +193,15 @@ function SortableInstructionRow({
   index,
   onUpdate,
   onRemove,
-  onInsertSectionBreak
+  onInsertSectionBreak,
+  onInsertAfter
 }: {
   step: EditableInstruction;
   index: number;
   onUpdate: (value: string) => void;
   onRemove: () => void;
   onInsertSectionBreak: () => void;
+  onInsertAfter: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: step.dndId });
   const style: CSSProperties = {
@@ -210,6 +222,9 @@ function SortableInstructionRow({
         onClick={onInsertSectionBreak}
       >
         + section
+      </button>
+      <button type="button" className="insert-section-btn" title="Insert a new step after this one" onClick={onInsertAfter}>
+        + step
       </button>
       <span className="instruction-index">{index + 1}.</span>
       <AutoGrowTextarea value={step.text} onChange={onUpdate} placeholder={`Step ${index + 1}`} />
@@ -649,6 +664,7 @@ export function RecipeDraftEditor({
                       onUpdate={(patch) => updateIngredient(index, patch)}
                       onRemove={() => removeIngredient(index)}
                       onInsertSectionBreak={() => insertSectionBreak(index)}
+                      onInsertAfter={() => addIngredientToGroup(index, ingredient.section)}
                     />
                   );
                 })}
@@ -721,6 +737,7 @@ export function RecipeDraftEditor({
                     index={i}
                     onUpdate={(value) => updateInstruction(index, value)}
                     onRemove={() => removeInstruction(index)}
+                    onInsertAfter={() => addInstructionToGroup(index, instructions[index].section)}
                     onInsertSectionBreak={() => insertInstructionSectionBreak(index)}
                   />
                 ))}

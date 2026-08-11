@@ -1,4 +1,4 @@
-import { groupIngredientLinesBySections } from './parseIngredientLine.js';
+import { groupIngredientLinesBySections, stripLeadingMarker } from './parseIngredientLine.js';
 import { RecipeDraft } from '../../types/recipe.js';
 
 // Whole-line match with room for a trailing parenthetical and/or colon —
@@ -31,18 +31,6 @@ function isHeadingLike(line: string, pattern: RegExp): boolean {
   return candidate.length <= 50 && pattern.test(candidate);
 }
 
-// Recipe-plugin checkbox glyphs (WP Recipe Maker's ▢ being the most common)
-// alongside the usual bullet/dash/numbered-list markers — all of these sit
-// glued to the front of a copy-pasted ingredient line with no space, which
-// otherwise defeats the quantity/unit regex entirely (it expects the line
-// to start with the quantity itself). The `(?!\d)` after the numbered-marker
-// alternative matters: without it, a decimal ingredient quantity like
-// "3.5 tbsp flour" gets misread as list marker "3." + remainder "5 tbsp
-// flour" — silently corrupting the actual number, not just the formatting.
-function stripLeadingMarker(line: string): string {
-  return line.replace(/^\s*(?:[-*•▢□☐◦▪▫]|\d+[.)](?!\d))\s*/, '').trim();
-}
-
 // Some sites lay out instructions as a bare "Step 1" / "STEP 2:" label on
 // its own line, followed by the actual instruction text on the next
 // line(s) -- unlike a leading marker glued to the front of the real content
@@ -58,6 +46,25 @@ const STEP_LABEL_LINE = /^step\s*\d+\.?:?\s*$/i;
 // in it, so a real instruction that happens to mention "see
 // https://example.com for more" doesn't get silently mangled.
 const URL_LINE_PATTERN = /^https?:\/\/\S+$/i;
+
+// Explicit "Title: X" / "Source: X" labels -- more reliable than guessing
+// from position (the "first line is the title" heuristic, or scanning for
+// a lone URL) when the user's willing to just say what something is. Both
+// optional; either can be left blank (just "Title:" with nothing after it)
+// without any effect, since the fallback heuristics below still apply.
+const TITLE_LABEL = /^title\s*:\s*(.*)$/i;
+const SOURCE_LABEL = /^source\s*:\s*(.*)$/i;
+
+function extractLabeledLine(
+  lines: string[],
+  pattern: RegExp
+): { value: string | null; remainingLines: string[] } {
+  const index = lines.findIndex((line) => pattern.test(line));
+  if (index === -1) return { value: null, remainingLines: lines };
+  const match = pattern.exec(lines[index]);
+  const value = match?.[1]?.trim() || null;
+  return { value, remainingLines: [...lines.slice(0, index), ...lines.slice(index + 1)] };
+}
 
 // Groups the specific publication (site, cookbook, Instagram handle) the
 // same way the sidebar's "by source" tree does -- just the bare hostname,
@@ -104,15 +111,38 @@ function splitIntoBlocks(lines: string[]): string[][] {
 // (RecipeDraftEditor) is expected to let the user review/fix before saving.
 export function parseManualPaste(input: string): RecipeDraft {
   const rawText = input;
-  const allLines = input.split('\n').map((line) => line.trim());
+  const withUrl = input.split('\n').map((line) => line.trim());
+
+  // Explicit "Title:"/"Source:" labels win outright over the positional
+  // heuristics below when present -- checked first so a labeled title/
+  // source line is never mistaken for an ingredient/instruction/heading.
+  const { value: labeledTitle, remainingLines: afterTitle } = extractLabeledLine(withUrl, TITLE_LABEL);
+  const { value: labeledSource, remainingLines: allLines } = extractLabeledLine(afterTitle, SOURCE_LABEL);
 
   // Pull out a lone-URL line wherever it appears (title area, mixed into
   // the ingredients/instructions, a trailing citation) before any other
   // parsing runs, so it never gets treated as a title/heading/ingredient/
-  // instruction line by mistake.
-  const urlLineIndex = allLines.findIndex((line) => URL_LINE_PATTERN.test(line));
-  const sourceRef = urlLineIndex === -1 ? null : allLines[urlLineIndex];
+  // instruction line by mistake. Skipped if "Source:" already supplied one.
+  const urlLineIndex = labeledSource ? -1 : allLines.findIndex((line) => URL_LINE_PATTERN.test(line));
+  const foundUrlLine = urlLineIndex === -1 ? null : allLines[urlLineIndex];
   const lines = urlLineIndex === -1 ? allLines : allLines.filter((_, i) => i !== urlLineIndex);
+
+  // "Source:" may hold a URL ("Source: https://...") or a plain
+  // description ("Source: Grandma's recipe box") -- only the former also
+  // becomes sourceRef and feeds the domain-based sourceName inference.
+  let sourceRef: string | null = null;
+  let sourceName: string | null = null;
+  if (labeledSource) {
+    if (URL_LINE_PATTERN.test(labeledSource)) {
+      sourceRef = labeledSource;
+      sourceName = deriveSourceNameFromUrl(labeledSource);
+    } else {
+      sourceName = labeledSource;
+    }
+  } else if (foundUrlLine) {
+    sourceRef = foundUrlLine;
+    sourceName = deriveSourceNameFromUrl(foundUrlLine);
+  }
 
   const firstNonBlankIndex = lines.findIndex((line) => line !== '');
 
@@ -123,9 +153,11 @@ export function parseManualPaste(input: string): RecipeDraft {
 
   // If the very first line IS a heading (a paste with no title above
   // "Ingredients:"), there's no real title text to use -- falling back to
-  // a placeholder beats literally titling the recipe "Ingredients:".
+  // a placeholder beats literally titling the recipe "Ingredients:". Only
+  // applies when there's no explicit "Title:" label to fall back on first.
   const firstLineIsHeading = firstNonBlankIndex === ingredientsIndex || firstNonBlankIndex === instructionsIndex;
-  const title = firstNonBlankIndex === -1 || firstLineIsHeading ? 'Untitled recipe' : lines[firstNonBlankIndex];
+  const title =
+    labeledTitle || (firstNonBlankIndex === -1 || firstLineIsHeading ? 'Untitled recipe' : lines[firstNonBlankIndex]);
 
   let ingredientLines: string[];
   let instructionLines: string[];
@@ -153,13 +185,16 @@ export function parseManualPaste(input: string): RecipeDraft {
 
   return {
     title,
-    ingredients: groupIngredientLinesBySections(ingredientLines.map(stripLeadingMarker)),
+    // Raw (unstripped) lines -- groupIngredientLinesBySections needs to see
+    // a leading dash itself to recognize "- Section name" as a header
+    // before stripLeadingMarker would otherwise erase it.
+    ingredients: groupIngredientLinesBySections(ingredientLines),
     instructions: instructionLines
       .map(stripLeadingMarker)
       .filter((line) => !STEP_LABEL_LINE.test(line))
       .map((text) => ({ text, section: null })),
     rawText,
     sourceRef,
-    sourceName: sourceRef ? deriveSourceNameFromUrl(sourceRef) : null
+    sourceName
   };
 }

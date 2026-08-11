@@ -929,15 +929,23 @@ html, body, #root {
   margin: 20px 0;
 }
 
-/* Edit/Refresh/Delete live in the narrow left info column now, not a full-
-   width row at the page bottom -- stack them instead of a horizontal row,
-   since "↻ Refresh from source" alone is wider than the column. */
-.recipe-detail-info-column .recipe-detail-actions {
+/* A visually distinct cluster within the info column (links, then actions),
+   separated from what's above it by a divider line -- rather than one
+   undifferentiated stack of unrelated items. */
+.info-column-group {
+  display: flex;
   flex-direction: column;
-  align-items: stretch;
+  gap: 4px;
   margin: 12px 0 0;
   padding-top: 12px;
   border-top: 1px solid #e5e7eb;
+}
+
+/* Edit/Refresh/Delete live in the narrow left info column now, not a full-
+   width row at the page bottom -- stack them instead of a horizontal row,
+   since "↻ Refresh from source" alone is wider than the column. */
+.recipe-detail-actions.info-column-group {
+  gap: 10px;
 }
 
 .recipe-detail-actions button {

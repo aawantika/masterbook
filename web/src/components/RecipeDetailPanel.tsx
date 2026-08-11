@@ -238,42 +238,6 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
       <div className="recipe-detail-top-row">
         <div className="recipe-detail-info-column">
           {recipe.totalTimeMinutes != null && <div>Total time {recipe.totalTimeMinutes} min</div>}
-          <div>
-            <span className="badge">{recipe.sourceName || recipe.sourceType}</span>
-          </div>
-          {recipe.sourceRef &&
-            (/^https?:\/\//i.test(recipe.sourceRef) ? (
-              <a href={recipe.sourceRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
-                🔗 Recipe
-              </a>
-            ) : (
-              <span className="muted">{recipe.sourceRef}</span>
-            ))}
-          {recipe.videoRef && (
-            <a href={recipe.videoRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
-              ▶ Video
-            </a>
-          )}
-          {recipe.mealTypeIds.length > 0 && (
-            <div className="badge-row">
-              {mealTypes
-                .filter((mt) => recipe.mealTypeIds.includes(mt.id))
-                .map((mt) => (
-                  <span className="badge" key={mt.id}>
-                    {mt.name}
-                  </span>
-                ))}
-            </div>
-          )}
-          {recipe.cuisineNames.length > 0 && (
-            <div className="badge-row">
-              {recipe.cuisineNames.map((c) => (
-                <span className="badge badge-cuisine" key={c}>
-                  {c}
-                </span>
-              ))}
-            </div>
-          )}
           {/* A static "Serves X" line alongside the scaler was redundant --
               the scaler's own input already shows the current count. Only
               fall back to plain text when servings isn't a parseable number
@@ -309,7 +273,51 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
             recipe.servings && <div>Serves {recipe.servings}</div>
           )}
 
-          <div className="recipe-detail-actions">
+          {/* Descriptive metadata about the recipe -- what it is, categorically. */}
+          <div>
+            <span className="badge">{recipe.sourceName || recipe.sourceType}</span>
+          </div>
+          {recipe.mealTypeIds.length > 0 && (
+            <div className="badge-row">
+              {mealTypes
+                .filter((mt) => recipe.mealTypeIds.includes(mt.id))
+                .map((mt) => (
+                  <span className="badge" key={mt.id}>
+                    {mt.name}
+                  </span>
+                ))}
+            </div>
+          )}
+          {recipe.cuisineNames.length > 0 && (
+            <div className="badge-row">
+              {recipe.cuisineNames.map((c) => (
+                <span className="badge badge-cuisine" key={c}>
+                  {c}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Clickable links -- where to go, not what it is. */}
+          {(recipe.sourceRef || recipe.videoRef) && (
+            <div className="info-column-group">
+              {recipe.sourceRef &&
+                (/^https?:\/\//i.test(recipe.sourceRef) ? (
+                  <a href={recipe.sourceRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
+                    🔗 Recipe
+                  </a>
+                ) : (
+                  <span className="muted">{recipe.sourceRef}</span>
+                ))}
+              {recipe.videoRef && (
+                <a href={recipe.videoRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
+                  ▶ Video
+                </a>
+              )}
+            </div>
+          )}
+
+          <div className="recipe-detail-actions info-column-group">
             <button type="button" onClick={() => setEditing(true)}>
               Edit
             </button>

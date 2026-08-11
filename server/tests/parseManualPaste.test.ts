@@ -209,3 +209,68 @@ describe('parseManualPaste: source link embedded in the pasted text', () => {
     assert.equal(result.instructions[0].text, 'Adapted from https://example.com, use fresh eggs');
   });
 });
+
+describe('parseManualPaste: explicit "Title:"/"Source:" labels', () => {
+  test('"Title:" wins over the first-line heuristic', () => {
+    const result = parseManualPaste('Source: https://example.com/recipe\n\nTitle: Real Title\n\nIngredients:\n1 egg');
+    assert.equal(result.title, 'Real Title');
+  });
+
+  test('"Source:" with a URL sets both sourceRef and an inferred sourceName', () => {
+    const result = parseManualPaste('Title: X\n\nSource: https://www.example-recipes.com/x\n\nIngredients:\n1 egg');
+    assert.equal(result.sourceRef, 'https://www.example-recipes.com/x');
+    assert.equal(result.sourceName, 'example-recipes.com');
+  });
+
+  test('"Source:" with plain text sets sourceName but not sourceRef', () => {
+    const result = parseManualPaste('Title: X\n\nSource: Family recipe box\n\nIngredients:\n1 egg');
+    assert.equal(result.sourceRef, null);
+    assert.equal(result.sourceName, 'Family recipe box');
+  });
+
+  test('an empty "Title:"/"Source:" label (nothing typed after it) is ignored, not stored as blank', () => {
+    const result = parseManualPaste('Title:\n\nSource:\n\nActual Title\n\nIngredients:\n1 egg');
+    assert.equal(result.title, 'Actual Title');
+    assert.equal(result.sourceRef, null);
+    assert.equal(result.sourceName, null);
+  });
+
+  test('a "Source:" label takes priority over a separately-found bare URL line', () => {
+    const result = parseManualPaste(
+      'Title: X\n\nSource: https://www.primary-source.com/x\n\nhttps://www.other-link.com\n\nIngredients:\n1 egg'
+    );
+    assert.equal(result.sourceRef, 'https://www.primary-source.com/x');
+  });
+});
+
+describe('parseManualPaste: dash-prefixed ingredient section headers', () => {
+  // "- Section name" (no trailing colon) is a second way to write a
+  // section header, alongside the existing "Section name:" form -- the
+  // dash must be distinguished from an ordinary bulleted ingredient like
+  // "- 2 cups rice" by checking there's no quantity right after it.
+  test('"- Section name" groups the ingredients that follow it', () => {
+    const result = parseManualPaste(
+      'Title\n\nIngredients:\n- For the rice\n2 cups cooked rice\n1 cup kimchi\n\n- For the sauce\n2 tbsp gochujang'
+    );
+    assert.equal(result.ingredients.length, 3);
+    assert.equal(result.ingredients[0].section, 'For the rice');
+    assert.equal(result.ingredients[1].section, 'For the rice');
+    assert.equal(result.ingredients[2].section, 'For the sauce');
+  });
+
+  test('an ordinary dash-bulleted ingredient is not mistaken for a section header', () => {
+    const result = parseManualPaste('Title\n\nIngredients:\n- 2 cups rice\n- 1 cup kimchi');
+    assert.equal(result.ingredients.length, 2);
+    assert.equal(result.ingredients[0].section, null);
+    assert.equal(result.ingredients[0].quantity, '2');
+    assert.equal(result.ingredients[0].name, 'rice');
+  });
+
+  test('the existing trailing-colon section header form still works alongside the new dash form', () => {
+    const result = parseManualPaste(
+      'Title\n\nIngredients:\nFor the rice:\n2 cups cooked rice\n\n- For the sauce\n2 tbsp gochujang'
+    );
+    assert.equal(result.ingredients[0].section, 'For the rice');
+    assert.equal(result.ingredients[1].section, 'For the sauce');
+  });
+});

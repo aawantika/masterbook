@@ -171,6 +171,9 @@ export function CookbookShell() {
             <h1 className="shell-title">Local Cookbook</h1>
           </Link>
           <div className="middle-topbar-actions">
+            <Link to="/epub" className="button-link secondary-link">
+              EPUB library
+            </Link>
             <Link to="/activity" className="button-link secondary-link">
               Activity log
             </Link>

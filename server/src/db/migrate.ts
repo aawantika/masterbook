@@ -38,6 +38,16 @@ function migrateNewColumns(): void {
   }
 }
 
+// epub_candidates was scaffolded early on for a heuristic "auto-detect every
+// recipe, review a queue later" workflow that the actual EPUB import feature
+// doesn't use (extraction is interactive -- browse, select blocks, extract
+// straight into the normal recipe editor, no pending state to persist).
+// DROP TABLE IF EXISTS is naturally idempotent, unlike the column-existence
+// checks above, since schema.sql no longer CREATEs it either.
+function dropEpubCandidatesTable(): void {
+  db.exec('DROP TABLE IF EXISTS epub_candidates');
+}
+
 // instructions_json used to store a flat string[]; it's now
 // { text, section }[] so sub-steps under a source's section headers (e.g.
 // "To Make the Tartar Sauce") can be tracked instead of collapsed into one
@@ -69,6 +79,7 @@ export function migrate(): void {
   migrateRecipeTimeColumns();
   migrateNewColumns();
   migrateInstructionsShape();
+  dropEpubCandidatesTable();
 
   const fts5Check = db.prepare(
     "SELECT count(*) as count FROM pragma_compile_options WHERE compile_options LIKE '%FTS5%'"

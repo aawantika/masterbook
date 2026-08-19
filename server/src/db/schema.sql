@@ -73,7 +73,11 @@ CREATE TABLE IF NOT EXISTS recipe_attempts (
 );
 CREATE INDEX IF NOT EXISTS idx_recipe_attempts_recipe ON recipe_attempts(recipe_id);
 
--- EPUB pipeline bookkeeping (schema in place from day one; UI wired in a later phase).
+-- EPUB pipeline bookkeeping: one row per uploaded book. Recipes extracted
+-- from a book are tracked via the same source_type/source_name convention
+-- every other ingestion path already uses (see recipes.source_name), not a
+-- foreign key back here -- consistent with how the sidebar already groups
+-- recipes "by source".
 CREATE TABLE IF NOT EXISTS epub_sources (
   id INTEGER PRIMARY KEY,
   title TEXT,
@@ -82,18 +86,26 @@ CREATE TABLE IF NOT EXISTS epub_sources (
   imported_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE TABLE IF NOT EXISTS epub_candidates (
+-- A "tag this recipe, come back to it later" flag while browsing a book --
+-- distinct from the actual recipes table. Reading is meant to be fast
+-- (click where a recipe starts, click where it ends, move on); the real
+-- structuring/review into a saved recipe happens separately later, when
+-- the user opens a bookmark from the per-book list. A bookmark's range is
+-- expressed in terms of the same {flowIndex, blockIndex} coordinates
+-- epubBlocks.ts already produces, and can span more than one chapter (a
+-- recipe straddling a chapter boundary is just a range that crosses it --
+-- no extra modeling needed).
+CREATE TABLE IF NOT EXISTS epub_bookmarks (
   id INTEGER PRIMARY KEY,
   epub_source_id INTEGER NOT NULL REFERENCES epub_sources(id) ON DELETE CASCADE,
-  chapter_index INTEGER,
-  segment_index INTEGER,
-  raw_text TEXT NOT NULL,
-  guessed_title TEXT,
-  heuristic_flags TEXT,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','confirmed','rejected')),
-  resulting_recipe_id INTEGER REFERENCES recipes(id),
+  title TEXT,
+  start_flow_index INTEGER NOT NULL,
+  start_block_index INTEGER NOT NULL,
+  end_flow_index INTEGER NOT NULL,
+  end_block_index INTEGER NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE INDEX IF NOT EXISTS idx_epub_bookmarks_source ON epub_bookmarks(epub_source_id);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS recipes_fts USING fts5(
   title,

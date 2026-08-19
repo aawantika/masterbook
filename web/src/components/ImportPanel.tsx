@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { checkDuplicates, createRecipe, fetchRecipeFromUrl, getCuisines, getMealTypes, parseManualPaste } from '../api/client';
 import { MetaItem, RecipeDraft, RecipeInput, SourceType } from '../api/types';
 import { deriveSourceNameFromUrl, extractYouTubeVideoId, isInstagramUrl, youtubeThumbnailUrl } from '../sourceUrl';
@@ -164,9 +165,9 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
             <button type="button" className="secondary" onClick={handleSkipToManual}>
               Skip — just save the link(s)
             </button>
-            <button type="button" className="secondary" disabled title="EPUB import isn't built yet">
-              + Add from EPUB (coming soon)
-            </button>
+            <Link to="/epub" className="secondary button-link">
+              + Add from EPUB
+            </Link>
           </div>
 
           <div className="import-divider">— or paste the recipe text directly —</div>

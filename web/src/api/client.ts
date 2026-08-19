@@ -1,6 +1,10 @@
 import {
   ActivityEntry,
   DuplicateMatch,
+  EpubBlock,
+  EpubBookmark,
+  EpubSource,
+  EpubSourceDetail,
   MetaItem,
   RecipeDetail,
   RecipeDraft,
@@ -158,4 +162,68 @@ export function getCuisines(): Promise<MetaItem[]> {
 
 export function getIngredientNames(): Promise<MetaItem[]> {
   return request<MetaItem[]>('/meta/ingredients');
+}
+
+// Bespoke fetch, not the shared request() helper -- request() always
+// JSON.stringifies its body and sets a JSON Content-Type, but the upload
+// needs to stream the raw file bytes with an explicit epub Content-Type. A
+// dropped File's own .type is often empty/application-octet-stream for
+// .epub in practice, so that type is set explicitly here rather than
+// relying on file.type -- otherwise express.raw()'s type filter on the
+// server won't match and req.body silently ends up undefined.
+export async function uploadEpub(file: File): Promise<EpubSource> {
+  const response = await fetch(`/api/epub/upload?filename=${encodeURIComponent(file.name)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/epub+zip' },
+    body: file
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    let message = `${response.status} ${response.statusText}: ${body}`;
+    try {
+      const parsed = JSON.parse(body);
+      if (typeof parsed?.error === 'string') message = parsed.error;
+    } catch {
+      // Not JSON -- fall through to the raw message above.
+    }
+    throw new Error(message);
+  }
+  return response.json() as Promise<EpubSource>;
+}
+
+export function listEpubSources(): Promise<EpubSource[]> {
+  return request<EpubSource[]>('/epub/sources');
+}
+
+export function getEpubSource(id: number): Promise<EpubSourceDetail> {
+  return request<EpubSourceDetail>(`/epub/sources/${id}`);
+}
+
+export async function getEpubChapterBlocks(id: number, flowIndex: number): Promise<EpubBlock[]> {
+  const { blocks } = await request<{ blocks: EpubBlock[] }>(`/epub/sources/${id}/chapters/${flowIndex}`);
+  return blocks;
+}
+
+export function listEpubBookmarks(id: number): Promise<EpubBookmark[]> {
+  return request<EpubBookmark[]>(`/epub/sources/${id}/bookmarks`);
+}
+
+export function createEpubBookmark(
+  id: number,
+  bookmark: {
+    title: string | null;
+    startFlowIndex: number;
+    startBlockIndex: number;
+    endFlowIndex: number;
+    endBlockIndex: number;
+  }
+): Promise<EpubBookmark> {
+  return request<EpubBookmark>(`/epub/sources/${id}/bookmarks`, {
+    method: 'POST',
+    body: JSON.stringify(bookmark)
+  });
+}
+
+export function deleteEpubBookmark(id: number): Promise<void> {
+  return request<void>(`/epub/bookmarks/${id}`, { method: 'DELETE' });
 }

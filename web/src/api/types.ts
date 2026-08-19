@@ -100,3 +100,38 @@ export type RecipeDetail = {
 export type MetaItem = { id: number; name: string };
 
 export type DuplicateMatch = { id: number; title: string; sourceName: string | null };
+
+export type EpubSource = {
+  id: number;
+  title: string | null;
+  author: string | null;
+  filename: string | null;
+  importedAt: string;
+  recipeCount: number;
+};
+
+export type EpubChapterSummary = {
+  flowIndex: number;
+  title: string;
+};
+
+export type EpubSourceDetail = EpubSource & {
+  chapters: EpubChapterSummary[];
+};
+
+export type EpubBlock = {
+  index: number;
+  tag: string;
+  text: string;
+};
+
+export type EpubBookmark = {
+  id: number;
+  epubSourceId: number;
+  title: string | null;
+  startFlowIndex: number;
+  startBlockIndex: number;
+  endFlowIndex: number;
+  endBlockIndex: number;
+  createdAt: string;
+};

@@ -57,6 +57,7 @@ export type RecipeSummary = {
   lastCookedAt: string | null;
   mealTypes: string[];
   cuisines: string[];
+  ownerId: number | null;
 };
 
 export type RecipeAttempt = {
@@ -95,9 +96,18 @@ export type RecipeDetail = {
   mealTypeIds: number[];
   cuisineNames: string[];
   attempts: RecipeAttempt[];
+  ownerId: number | null;
 };
 
 export type MetaItem = { id: number; name: string };
+
+export type User = {
+  id: number;
+  firebaseUid: string;
+  email: string;
+  role: 'admin' | 'user';
+  createdAt: string;
+};
 
 export type DuplicateMatch = { id: number; title: string; sourceName: string | null };
 

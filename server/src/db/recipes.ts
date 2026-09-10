@@ -74,14 +74,14 @@ function writeCuisines(recipeId: number, cuisineNames: string[]): void {
   }
 }
 
-export function createRecipe(input: RecipeInput): number {
+export function createRecipe(input: RecipeInput, userId: number): number {
   const now = new Date().toISOString();
   const create = db.transaction(() => {
     const result = db
       .prepare(
         `INSERT INTO recipes
-          (title, servings, total_time_minutes, instructions_json, ingredients_text, raw_text, source_type, source_ref, source_name, video_ref, image_url, notes, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          (title, servings, total_time_minutes, instructions_json, ingredients_text, raw_text, source_type, source_ref, source_name, video_ref, image_url, notes, user_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         input.title,
@@ -96,6 +96,7 @@ export function createRecipe(input: RecipeInput): number {
         input.videoRef ?? null,
         input.imageUrl ?? null,
         input.notes ?? null,
+        userId,
         now,
         now
       );
@@ -205,6 +206,7 @@ export type RecipeSummary = {
   lastCookedAt: string | null;
   mealTypes: string[];
   cuisines: string[];
+  ownerId: number | null;
 };
 
 export type SearchFilters = {
@@ -215,6 +217,9 @@ export type SearchFilters = {
   toTryOnly?: boolean;
   favoritesOnly?: boolean;
   needsFixingOnly?: boolean;
+  madeOnly?: boolean;
+  notMadeOnly?: boolean;
+  ownerId?: number;
   sortBy?: 'title' | 'recent';
 };
 
@@ -261,13 +266,30 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
   if (filters.needsFixingOnly) {
     clauses.push('r.needs_fixing_at IS NOT NULL');
   }
+  // "Made" means at least one logged attempt exists, regardless of whether
+  // it was rated -- deliberately not reusing the rating-filtered subquery
+  // below that computes avgRating/lastCookedAt, since an unrated attempt
+  // still means the recipe was actually cooked.
+  if (filters.madeOnly) {
+    clauses.push('EXISTS (SELECT 1 FROM recipe_attempts WHERE recipe_id = r.id)');
+  }
+  if (filters.notMadeOnly) {
+    clauses.push('NOT EXISTS (SELECT 1 FROM recipe_attempts WHERE recipe_id = r.id)');
+  }
+  // Only applied in "my recipes" mode -- omitted entirely (no clause) for
+  // "all recipes", which keeps that mode byte-for-byte identical to
+  // pre-accounts behavior: every recipe, unfiltered.
+  if (filters.ownerId !== undefined) {
+    clauses.push('r.user_id = ?');
+    params.push(filters.ownerId);
+  }
 
   const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
   const orderBy = filters.sortBy === 'recent' ? 'ORDER BY r.created_at DESC' : 'ORDER BY r.title COLLATE NOCASE ASC';
 
   const rows = db
     .prepare(
-      `SELECT r.id, r.title, r.source_type, r.source_ref, r.source_name, r.image_url, r.want_to_try_at, r.favorited_at, r.needs_fixing_at FROM recipes r ${where} ${orderBy}`
+      `SELECT r.id, r.title, r.source_type, r.source_ref, r.source_name, r.image_url, r.want_to_try_at, r.favorited_at, r.needs_fixing_at, r.user_id FROM recipes r ${where} ${orderBy}`
     )
     .all(...params) as Array<{
     id: number;
@@ -279,6 +301,7 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
     want_to_try_at: string | null;
     favorited_at: string | null;
     needs_fixing_at: string | null;
+    user_id: number | null;
   }>;
 
   const avgRatingStmt = db.prepare(
@@ -306,7 +329,8 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
       avgRating: ratingRow.avg,
       lastCookedAt: ratingRow.last,
       mealTypes: (mealTypesStmt.all(row.id) as Array<{ name: string }>).map((r) => r.name),
-      cuisines: (cuisinesStmt.all(row.id) as Array<{ name: string }>).map((r) => r.name)
+      cuisines: (cuisinesStmt.all(row.id) as Array<{ name: string }>).map((r) => r.name),
+      ownerId: row.user_id
     };
   });
 }
@@ -337,6 +361,7 @@ export type RecipeDetail = {
   mealTypeIds: number[];
   cuisineNames: string[];
   attempts: Array<{ id: number; attemptedAt: string; rating: number | null; notes: string | null }>;
+  ownerId: number | null;
 };
 
 export function getRecipeById(recipeId: number): RecipeDetail | null {
@@ -357,6 +382,7 @@ export function getRecipeById(recipeId: number): RecipeDetail | null {
         want_to_try_at: string | null;
         favorited_at: string | null;
         needs_fixing_at: string | null;
+        user_id: number | null;
       }
     | undefined;
   if (!row) return null;
@@ -419,7 +445,8 @@ export function getRecipeById(recipeId: number): RecipeDetail | null {
     needsFixingAt: row.needs_fixing_at,
     mealTypeIds,
     cuisineNames,
-    attempts: attempts.map((a) => ({ id: a.id, attemptedAt: a.attempted_at, rating: a.rating, notes: a.notes }))
+    attempts: attempts.map((a) => ({ id: a.id, attemptedAt: a.attempted_at, rating: a.rating, notes: a.notes })),
+    ownerId: row.user_id
   };
 }
 

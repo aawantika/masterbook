@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { ShellContext } from '../CookbookShell';
 import {
@@ -8,12 +8,13 @@ import {
   deleteEpubBookmark,
   getCuisines,
   getEpubChapterBlocks,
+  getEpubChapterHtml,
   getEpubSource,
   getMealTypes,
   listEpubBookmarks,
   parseManualPaste
 } from '../api/client';
-import { EpubBlock, EpubBookmark, EpubSourceDetail, MetaItem, RecipeDraft, RecipeInput } from '../api/types';
+import { EpubBlock, EpubBookmark, EpubChapterSummary, EpubSourceDetail, MetaItem, RecipeDraft, RecipeInput } from '../api/types';
 import { RecipeDraftEditor } from '../components/RecipeDraftEditor';
 
 type Coord = { flowIndex: number; blockIndex: number };
@@ -33,9 +34,58 @@ function bookmarkRangeLabel(source: EpubSourceDetail | null, bookmark: EpubBookm
   return `${chapterTitle(source, bookmark.startFlowIndex)} → ${chapterTitle(source, bookmark.endFlowIndex)}`;
 }
 
-// Joins block text across the (possibly multi-chapter) range a bookmark
-// spans, in original document order, fetching whichever chapters aren't
-// already cached in `blocksByChapter`.
+function chapterAnchorId(flowIndex: number): string {
+  return `epub-chapter-${flowIndex}`;
+}
+
+// Fetches every chapter's rendered HTML up front (bounded concurrency,
+// since a page-per-spine-item book can easily have a couple hundred tiny
+// "chapters") so the whole book can render as one continuous scrollable
+// document -- closer to how Preview/Books show an EPUB, images and all --
+// instead of forcing a click-through-one-chapter-at-a-time UI. onEach
+// fires as each chapter resolves so the UI can show incremental progress
+// rather than one long blank wait.
+async function loadAllChapterHtml(
+  sourceId: number,
+  chapters: EpubChapterSummary[],
+  onEach: (flowIndex: number, html: string) => void
+): Promise<void> {
+  const CONCURRENCY = 6;
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < chapters.length) {
+      const chapter = chapters[nextIndex++];
+      try {
+        const html = await getEpubChapterHtml(sourceId, chapter.flowIndex);
+        onEach(chapter.flowIndex, html);
+      } catch {
+        // One bad chapter (malformed markup, etc.) shouldn't block the
+        // rest of the book from loading -- treat it as empty.
+        onEach(chapter.flowIndex, '<p class="muted">Failed to load this page.</p>');
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, chapters.length) }, worker));
+}
+
+// Resolves a DOM click (delegated on the reading pane, since chapter
+// content is raw HTML rather than per-block JSX) back to the same
+// {flowIndex, blockIndex} coordinates the block-based bookmark model uses.
+function coordFromElement(el: Element | null): Coord | null {
+  const blockEl = el?.closest('[data-block-index]');
+  const chapterEl = blockEl?.closest('[data-flow-index]');
+  if (!blockEl || !chapterEl) return null;
+  const blockIndex = Number((blockEl as HTMLElement).dataset.blockIndex);
+  const flowIndex = Number((chapterEl as HTMLElement).dataset.flowIndex);
+  if (!Number.isFinite(blockIndex) || !Number.isFinite(flowIndex)) return null;
+  return { flowIndex, blockIndex };
+}
+
+// Joins block *text* (not the rendered HTML) across the (possibly
+// multi-chapter) range a bookmark spans, in original document order, for
+// feeding into parseManualPaste -- fetched separately and lazily from the
+// bulk-loaded HTML above, since extraction only happens per-bookmark on
+// demand and needs plain text, not markup.
 async function resolveBookmarkText(
   sourceId: number,
   bookmark: EpubBookmark,
@@ -64,10 +114,13 @@ export function EpubReaderPage() {
   const { bumpReload } = useOutletContext<ShellContext>();
 
   const [source, setSource] = useState<EpubSourceDetail | null>(null);
-  const [flowIndex, setFlowIndex] = useState(0);
+  const [htmlByChapter, setHtmlByChapter] = useState<Map<number, string>>(new Map());
+  const [htmlLoadedCount, setHtmlLoadedCount] = useState(0);
+  // Purely for bookmark extraction (plain text for parseManualPaste) --
+  // fetched lazily per-bookmark, never bulk-loaded like htmlByChapter.
   const [blocksByChapter, setBlocksByChapter] = useState<Map<number, EpubBlock[]>>(new Map());
-  const [loadingBlocks, setLoadingBlocks] = useState(false);
   const [bookmarks, setBookmarks] = useState<EpubBookmark[]>([]);
+  const paneRef = useRef<HTMLDivElement>(null);
   const [rangeStart, setRangeStart] = useState<Coord | null>(null);
   const [rangeEnd, setRangeEnd] = useState<Coord | null>(null);
   const [bookmarkTitleInput, setBookmarkTitleInput] = useState('');
@@ -86,28 +139,35 @@ export function EpubReaderPage() {
 
   useEffect(() => {
     if (!sourceId) return;
-    getEpubSource(sourceId).then(setSource);
-    listEpubBookmarks(sourceId).then(setBookmarks);
-    setFlowIndex(0);
+    let cancelled = false;
+    setSource(null);
+    setHtmlByChapter(new Map());
+    setHtmlLoadedCount(0);
     setBlocksByChapter(new Map());
     setRangeStart(null);
     setRangeEnd(null);
+
+    getEpubSource(sourceId).then((detail) => {
+      if (cancelled) return;
+      setSource(detail);
+      loadAllChapterHtml(sourceId, detail.chapters, (flowIndex, html) => {
+        if (cancelled) return;
+        setHtmlByChapter((prev) => new Map(prev).set(flowIndex, html));
+        setHtmlLoadedCount((n) => n + 1);
+      });
+    });
+    listEpubBookmarks(sourceId).then((list) => {
+      if (!cancelled) setBookmarks(list);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [sourceId]);
 
-  const blocks = blocksByChapter.get(flowIndex) ?? null;
+  const fullyLoaded = source !== null && htmlLoadedCount >= source.chapters.length;
 
-  useEffect(() => {
-    if (!sourceId || blocksByChapter.has(flowIndex)) return;
-    setLoadingBlocks(true);
-    getEpubChapterBlocks(sourceId, flowIndex)
-      .then((fetched) => {
-        setBlocksByChapter((prev) => new Map(prev).set(flowIndex, fetched));
-      })
-      .finally(() => setLoadingBlocks(false));
-  }, [sourceId, flowIndex, blocksByChapter]);
-
-  const handleBlockClick = (blockIndex: number) => {
-    const clicked: Coord = { flowIndex, blockIndex };
+  const handleBlockClick = (clicked: Coord) => {
     if (!rangeStart || (rangeStart && rangeEnd)) {
       setRangeStart(clicked);
       setRangeEnd(null);
@@ -121,18 +181,48 @@ export function EpubReaderPage() {
     }
   };
 
+  const handlePaneClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const coord = coordFromElement(e.target as Element);
+    if (coord) handleBlockClick(coord);
+  };
+
   const clearSelection = () => {
     setRangeStart(null);
     setRangeEnd(null);
     setBookmarkTitleInput('');
   };
 
-  const isInSelection = (blockIndex: number): boolean => {
+  const isInSelection = (coord: Coord): boolean => {
     if (!rangeStart) return false;
-    const coord: Coord = { flowIndex, blockIndex };
     const end = rangeEnd ?? rangeStart;
     return compareCoord(coord, rangeStart) >= 0 && compareCoord(coord, end) <= 0;
   };
+
+  // The reading pane's content is raw HTML (dangerouslySetInnerHTML), not
+  // React-owned elements, so selection highlighting is applied imperatively
+  // via direct DOM classList toggles instead of conditional JSX classNames.
+  useEffect(() => {
+    const pane = paneRef.current;
+    if (!pane) return;
+    const nodes = pane.querySelectorAll<HTMLElement>('[data-block-index]');
+    nodes.forEach((el) => {
+      const chapterEl = el.closest<HTMLElement>('[data-flow-index]');
+      const flowIndex = chapterEl ? Number(chapterEl.dataset.flowIndex) : NaN;
+      const blockIndex = Number(el.dataset.blockIndex);
+      if (!Number.isFinite(flowIndex) || !Number.isFinite(blockIndex)) return;
+      const coord: Coord = { flowIndex, blockIndex };
+      el.classList.toggle('epub-block-selected', isInSelection(coord));
+      el.classList.toggle(
+        'epub-block-range-start',
+        rangeStart?.flowIndex === flowIndex && rangeStart.blockIndex === blockIndex
+      );
+      el.classList.toggle(
+        'epub-block-range-end',
+        rangeEnd?.flowIndex === flowIndex && rangeEnd.blockIndex === blockIndex
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangeStart, rangeEnd, htmlByChapter]);
 
   const handleSaveBookmark = async () => {
     if (!sourceId || !rangeStart || !rangeEnd) return;
@@ -229,37 +319,38 @@ export function EpubReaderPage() {
             <button
               key={chapter.flowIndex}
               type="button"
-              className={`epub-chapter-item${chapter.flowIndex === flowIndex ? ' epub-chapter-item-active' : ''}`}
-              onClick={() => setFlowIndex(chapter.flowIndex)}
+              className="epub-chapter-item"
+              onClick={() =>
+                document.getElementById(chapterAnchorId(chapter.flowIndex))?.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'start'
+                })
+              }
             >
               {chapter.title}
             </button>
           ))}
         </nav>
 
-        <div className="epub-block-pane">
-          {loadingBlocks || !blocks ? (
-            <div className="muted">Loading chapter...</div>
-          ) : blocks.length === 0 ? (
-            <div className="muted">This chapter has no readable text.</div>
+        <div className="epub-block-pane" ref={paneRef} onClick={handlePaneClick}>
+          {!source ? (
+            <div className="muted">Loading...</div>
+          ) : !fullyLoaded ? (
+            <div className="muted">
+              Loading book... ({htmlLoadedCount} of {source.chapters.length} chapters)
+            </div>
           ) : (
             <div className="epub-block-list">
-              {blocks.map((block) => {
-                const selected = isInSelection(block.index);
-                const isStart = rangeStart?.flowIndex === flowIndex && rangeStart.blockIndex === block.index;
-                const isEnd = rangeEnd?.flowIndex === flowIndex && rangeEnd.blockIndex === block.index;
-                return (
+              {source.chapters.map((chapter) => (
+                <div key={chapter.flowIndex} id={chapterAnchorId(chapter.flowIndex)} className="epub-chapter-section">
+                  <div className="epub-chapter-heading">{chapter.title}</div>
                   <div
-                    key={block.index}
-                    className={`epub-block epub-block-${block.tag}${selected ? ' epub-block-selected' : ''}`}
-                    onClick={() => handleBlockClick(block.index)}
-                  >
-                    {isStart && <span className="epub-block-marker">start</span>}
-                    {isEnd && <span className="epub-block-marker">end</span>}
-                    {block.text}
-                  </div>
-                );
-              })}
+                    className="epub-chapter-html"
+                    data-flow-index={chapter.flowIndex}
+                    dangerouslySetInnerHTML={{ __html: htmlByChapter.get(chapter.flowIndex) ?? '' }}
+                  />
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -270,8 +361,7 @@ export function EpubReaderPage() {
             {!rangeStart && <div className="muted">Click where the recipe starts, then where it ends.</div>}
             {rangeStart && !rangeEnd && (
               <div className="muted">
-                Start marked in "{chapterTitle(source, rangeStart.flowIndex)}" — now click where it ends
-                {rangeStart.flowIndex !== flowIndex ? ' (you can switch chapters first)' : ''}.
+                Start marked in "{chapterTitle(source, rangeStart.flowIndex)}" — now scroll and click where it ends.
               </div>
             )}
             {rangeStart && rangeEnd && (

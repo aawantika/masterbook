@@ -13,6 +13,7 @@ import {
 import { MetaItem, RecipeDetail, RecipeDraft, SourceType } from '../api/types';
 import { parseBaseServings, scaleQuantityString } from '../scaleQuantity';
 import { getVideoEmbed, isUnfetchableRecipeUrl } from '../sourceUrl';
+import { useAuth } from '../auth/AuthContext';
 import { RecipeDraftEditor } from './RecipeDraftEditor';
 
 type RecipeDetailPanelProps = {
@@ -56,6 +57,7 @@ function groupInstructionsForDisplay(instructions: RecipeDetail['instructions'])
 }
 
 export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDetailPanelProps) {
+  const { user } = useAuth();
   const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
   const [mealTypes, setMealTypes] = useState<MetaItem[]>([]);
   const [cuisines, setCuisines] = useState<MetaItem[]>([]);
@@ -143,6 +145,11 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
     !!recipe.sourceRef &&
     /^https?:\/\//i.test(recipe.sourceRef) &&
     !isUnfetchableRecipeUrl(recipe.sourceRef);
+
+  // UX mirror of the server's canDeleteRecipe check (server/src/auth/permissions.ts)
+  // -- the server is what actually enforces this, this just avoids showing a
+  // Delete button that would 403 if clicked.
+  const canDelete = !!user && (user.role === 'admin' || recipe.ownerId === user.id);
 
   if (editing) {
     const editorInitial = refreshedDraft
@@ -326,9 +333,11 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
                 {refreshing ? 'Refreshing...' : '↻ Refresh from source'}
               </button>
             )}
-            <button type="button" className="danger" onClick={handleDelete}>
-              Delete
-            </button>
+            {canDelete && (
+              <button type="button" className="danger" onClick={handleDelete}>
+                Delete
+              </button>
+            )}
           </div>
         </div>
 

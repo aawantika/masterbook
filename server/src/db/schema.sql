@@ -1,3 +1,17 @@
+-- Accounts. No password/session data here -- Firebase Authentication owns
+-- login, passwords, and password-reset emails; this table just maps a
+-- Firebase identity (firebase_uid) to a local role and a place to hang
+-- recipe ownership off of. Populated by requireAuth on a user's first
+-- verified request (lazy row creation) or by the admin-only create-user
+-- route for accounts other than the initial admin.
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY,
+  firebase_uid TEXT NOT NULL UNIQUE,
+  email TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('admin','user')) DEFAULT 'user',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- recipes: the canonical record. raw_text is always preserved regardless of
 -- how well structured parsing went, so nothing is ever lost to a bad parse.
 CREATE TABLE IF NOT EXISTS recipes (

@@ -1,5 +1,5 @@
 import { MetaItem } from '../api/types';
-import { SortBy } from '../CookbookShell';
+import { MadeFilter, SortBy } from '../CookbookShell';
 
 export type ViewMode = 'grid' | 'list';
 
@@ -18,6 +18,10 @@ type FilterBarProps = {
   onToggleFavoritesOnly: () => void;
   needsFixingOnly: boolean;
   onToggleNeedsFixingOnly: () => void;
+  madeFilter: MadeFilter;
+  onChangeMadeFilter: (value: MadeFilter) => void;
+  mineOnly: boolean;
+  onToggleMineOnly: () => void;
   sortBy: SortBy;
   onChangeSortBy: (sort: SortBy) => void;
   viewMode: ViewMode;
@@ -75,11 +79,20 @@ export function FilterBar({
   onToggleFavoritesOnly,
   needsFixingOnly,
   onToggleNeedsFixingOnly,
+  madeFilter,
+  onChangeMadeFilter,
+  mineOnly,
+  onToggleMineOnly,
   sortBy,
   onChangeSortBy,
   viewMode,
   onChangeViewMode
 }: FilterBarProps) {
+  // "Made"/"Not made" are mutually exclusive (a recipe can't be both), so
+  // clicking the already-active one clears back to "all" instead of the
+  // independent-boolean toggle behavior the other chips use.
+  const toggleMade = (value: 'made' | 'not-made') => onChangeMadeFilter(madeFilter === value ? 'all' : value);
+
   return (
     <div className="filter-bar">
       <input
@@ -106,23 +119,35 @@ export function FilterBar({
         >
           🔧 Needs fixing
         </button>
+        <button type="button" className={`filter-chip${mineOnly ? ' active' : ''}`} onClick={onToggleMineOnly}>
+          My recipes
+        </button>
         <FilterGroup label="Meal type" items={mealTypes} selected={selectedMealTypeIds} onToggle={onToggleMealType} />
         <FilterGroup label="Cuisine" items={cuisines} selected={selectedCuisineIds} onToggle={onToggleCuisine} />
+        <button
+          type="button"
+          className={`filter-chip${madeFilter === 'made' ? ' active' : ''}`}
+          onClick={() => toggleMade('made')}
+        >
+          🍳 Made
+        </button>
+        <button
+          type="button"
+          className={`filter-chip${madeFilter === 'not-made' ? ' active' : ''}`}
+          onClick={() => toggleMade('not-made')}
+        >
+          Not made yet
+        </button>
         <div className="filter-group-divider" />
-        <button
-          type="button"
-          className={`filter-chip${sortBy === 'title' ? ' active' : ''}`}
-          onClick={() => onChangeSortBy('title')}
+        <select
+          className="sort-select"
+          value={sortBy}
+          onChange={(e) => onChangeSortBy(e.target.value as SortBy)}
+          aria-label="Sort by"
         >
-          A–Z
-        </button>
-        <button
-          type="button"
-          className={`filter-chip${sortBy === 'recent' ? ' active' : ''}`}
-          onClick={() => onChangeSortBy('recent')}
-        >
-          Recently added
-        </button>
+          <option value="title">Sort: A–Z</option>
+          <option value="recent">Sort: Recently added</option>
+        </select>
         <div className="filter-group-divider" />
         <button
           type="button"

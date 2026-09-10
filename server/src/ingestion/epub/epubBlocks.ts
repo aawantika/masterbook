@@ -32,3 +32,62 @@ export function chapterHtmlToBlocks(html: string): EpubBlock[] {
 
   return blocks;
 }
+
+// Tags remaining after epub2's own script/style/onEvent stripping pass
+// (see getChapter() in epub2's lib/epub.js) that could still carry
+// executable content if rendered as-is. epub2's own pass is regex-based
+// and a reasonable first filter, but this chapter HTML ends up rendered
+// via dangerouslySetInnerHTML client-side, so it gets a second, explicit
+// allowlist-style pass here rather than trusting a third-party regex to
+// have caught everything.
+const UNSAFE_TAGS = 'script, style, iframe, object, embed, form, input, button, link, meta, base';
+
+function safeDecodeURI(value: string): string {
+  try {
+    return decodeURI(value);
+  } catch {
+    return value;
+  }
+}
+
+function sanitizeForRender($: ReturnType<typeof cheerio.load>): void {
+  $(UNSAFE_TAGS).remove();
+  $('*').each((_, el) => {
+    if (el.type !== 'tag') return;
+    for (const name of Object.keys(el.attribs ?? {})) {
+      const lower = name.toLowerCase();
+      if (lower.startsWith('on')) {
+        $(el).removeAttr(name);
+        continue;
+      }
+      if (lower === 'href' || lower === 'src') {
+        const value = safeDecodeURI(el.attribs[name] ?? '').trim().toLowerCase();
+        if (value.startsWith('javascript:') || value.startsWith('data:text/html')) {
+          $(el).removeAttr(name);
+        }
+      }
+    }
+  });
+}
+
+// Same block/index scheme as chapterHtmlToBlocks (same selector, same
+// "skip if no text" rule, run against the same input) but returns the
+// chapter's actual rendered markup -- images, formatting, the book's own
+// layout -- instead of flattened text, with each matching element tagged
+// data-block-index. That lets the full-page reader reuse the exact same
+// {flowIndex, blockIndex} coordinates the plain-text block list uses for
+// click-to-bookmark, while showing what the book actually looks like.
+export function tagChapterBlocks(html: string): string {
+  const $ = cheerio.load(html);
+  sanitizeForRender($);
+
+  let index = 0;
+  $(BLOCK_SELECTOR).each((_, el) => {
+    const text = $(el).text().replace(/\s+/g, ' ').trim();
+    if (!text) return;
+    $(el).attr('data-block-index', String(index));
+    index++;
+  });
+
+  return $('body').html() ?? '';
+}

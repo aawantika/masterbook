@@ -274,6 +274,16 @@ html, body, #root {
   margin: 0 2px;
 }
 
+.sort-select {
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: white;
+  color: #1f2937;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 .filter-group-chips {
   display: flex;
   flex-wrap: wrap;
@@ -1071,6 +1081,10 @@ html, body, #root {
   gap: 10px;
 }
 
+.epub-source-row {
+  position: relative;
+}
+
 .epub-source-card {
   display: block;
   border: 1px solid #e5e7eb;
@@ -1078,6 +1092,14 @@ html, body, #root {
   padding: 12px 14px;
   color: inherit;
   text-decoration: none;
+}
+
+.epub-source-delete {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  margin-left: 0;
+  z-index: 1;
 }
 
 .epub-source-card:hover {
@@ -1130,12 +1152,6 @@ html, body, #root {
   background: #fdf6e9;
 }
 
-.epub-chapter-item-active {
-  background: #fdf6e9;
-  color: #92400e;
-  font-weight: 600;
-}
-
 .epub-block-pane {
   max-height: 75vh;
   overflow-y: auto;
@@ -1148,35 +1164,84 @@ html, body, #root {
 .epub-block-list {
   display: flex;
   flex-direction: column;
+  gap: 24px;
+}
+
+.epub-chapter-section {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
-.epub-block {
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 4px;
-  line-height: 1.5;
-  position: relative;
+/* Subtle by design -- a page-per-spine-item book can have hundreds of
+   these in a row, so it reads as a quiet page-break marker rather than a
+   real section heading like the h1/h2 blocks inside a chapter's own text. */
+.epub-chapter-heading {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9ca3af;
+  border-top: 1px solid #f0ede6;
+  padding-top: 10px;
 }
 
-.epub-block:hover {
+.epub-chapter-section:first-child .epub-chapter-heading {
+  border-top: none;
+  padding-top: 0;
+}
+
+/* The book's own markup, rendered close to as-is (see tagChapterBlocks on
+   the server) rather than flattened to plain text -- headings/images/lists
+   keep their real tags, so only generic typography needs setting here. */
+.epub-chapter-html {
+  line-height: 1.6;
+}
+
+.epub-chapter-html img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 10px 0;
+  display: block;
+}
+
+.epub-chapter-html h1,
+.epub-chapter-html h2,
+.epub-chapter-html h3,
+.epub-chapter-html h4,
+.epub-chapter-html h5,
+.epub-chapter-html h6 {
+  font-weight: 700;
+  margin: 0.7em 0 0.3em;
+}
+
+.epub-chapter-html p,
+.epub-chapter-html li,
+.epub-chapter-html blockquote {
+  margin: 0 0 0.6em;
+}
+
+/* Every element tagged data-block-index (see tagChapterBlocks) is a
+   click-to-mark-start/end target -- clicks are handled via delegation on
+   the pane, not a per-element React handler, since this subtree is raw
+   HTML rather than JSX. */
+.epub-chapter-html [data-block-index] {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin-left: -4px;
+}
+
+.epub-chapter-html [data-block-index]:hover {
   background: #fdf6e9;
 }
 
 .epub-block-selected {
-  background: #fef3c7;
+  background: #fef3c7 !important;
 }
 
-.epub-block-h1,
-.epub-block-h2,
-.epub-block-h3,
-.epub-block-h4,
-.epub-block-h5,
-.epub-block-h6 {
-  font-weight: 700;
-}
-
-.epub-block-marker {
+.epub-block-range-start::before,
+.epub-block-range-end::before {
   display: inline-block;
   font-size: 10px;
   text-transform: uppercase;
@@ -1187,6 +1252,14 @@ html, body, #root {
   padding: 1px 5px;
   margin-right: 8px;
   vertical-align: middle;
+}
+
+.epub-block-range-start::before {
+  content: 'start';
+}
+
+.epub-block-range-end::before {
+  content: 'end';
 }
 
 .epub-bookmark-pane {
@@ -1217,6 +1290,44 @@ html, body, #root {
 
 .epub-bookmark-title {
   font-weight: 600;
+  font-size: 13px;
+}
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #faf9f6;
+}
+
+.login-box {
+  width: 100%;
+  max-width: 360px;
+  padding: 32px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: white;
+}
+
+.login-box h1 {
+  margin: 0 0 20px;
+  font-size: 20px;
+}
+
+.login-box form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.topbar-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid #e5e7eb;
   font-size: 13px;
 }
 

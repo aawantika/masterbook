@@ -9,8 +9,10 @@ import {
   RecipeDetail,
   RecipeDraft,
   RecipeInput,
-  RecipeSummary
+  RecipeSummary,
+  User
 } from './types';
+import { auth } from '../firebase';
 
 // The server's `.error` field is either a plain string (routes that throw a
 // handled Error, e.g. the fetch-from-URL failure) or a Zod `.flatten()`
@@ -35,9 +37,18 @@ function describeApiError(error: unknown): string | null {
   return null;
 }
 
+// Every request needs a fresh Firebase ID token attached -- getIdToken()
+// returns a cached token unless it's close to expiry, in which case it
+// silently refreshes first, so this is cheap to call on every request
+// rather than something worth caching ourselves.
+async function authHeader(): Promise<Record<string, string>> {
+  const token = await auth.currentUser?.getIdToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
     ...options
   });
   if (!response.ok) {
@@ -63,6 +74,9 @@ export type SearchParams = {
   toTry?: boolean;
   favorites?: boolean;
   needsFixing?: boolean;
+  made?: boolean;
+  notMade?: boolean;
+  mine?: boolean;
   sort?: 'title' | 'recent';
 };
 
@@ -75,6 +89,9 @@ export function searchRecipes(params: SearchParams): Promise<RecipeSummary[]> {
   if (params.toTry) query.set('toTry', 'true');
   if (params.favorites) query.set('favorites', 'true');
   if (params.needsFixing) query.set('needsFixing', 'true');
+  if (params.made) query.set('made', 'true');
+  if (params.notMade) query.set('notMade', 'true');
+  if (params.mine) query.set('mine', 'true');
   if (params.sort === 'recent') query.set('sort', 'recent');
   const qs = query.toString();
   return request<RecipeSummary[]>(`/recipes${qs ? `?${qs}` : ''}`);
@@ -174,7 +191,7 @@ export function getIngredientNames(): Promise<MetaItem[]> {
 export async function uploadEpub(file: File): Promise<EpubSource> {
   const response = await fetch(`/api/epub/upload?filename=${encodeURIComponent(file.name)}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/epub+zip' },
+    headers: { 'Content-Type': 'application/epub+zip', ...(await authHeader()) },
     body: file
   });
   if (!response.ok) {
@@ -199,9 +216,21 @@ export function getEpubSource(id: number): Promise<EpubSourceDetail> {
   return request<EpubSourceDetail>(`/epub/sources/${id}`);
 }
 
+export function deleteEpubSource(id: number): Promise<void> {
+  return request<void>(`/epub/sources/${id}`, { method: 'DELETE' });
+}
+
 export async function getEpubChapterBlocks(id: number, flowIndex: number): Promise<EpubBlock[]> {
   const { blocks } = await request<{ blocks: EpubBlock[] }>(`/epub/sources/${id}/chapters/${flowIndex}`);
   return blocks;
+}
+
+// Full-page counterpart to getEpubChapterBlocks -- the book's actual
+// markup (tagged with the same data-block-index coordinates), for
+// rendering the reader close to how the book actually looks.
+export async function getEpubChapterHtml(id: number, flowIndex: number): Promise<string> {
+  const { html } = await request<{ html: string }>(`/epub/sources/${id}/chapters/${flowIndex}/html`);
+  return html;
 }
 
 export function listEpubBookmarks(id: number): Promise<EpubBookmark[]> {
@@ -226,4 +255,16 @@ export function createEpubBookmark(
 
 export function deleteEpubBookmark(id: number): Promise<void> {
   return request<void>(`/epub/bookmarks/${id}`, { method: 'DELETE' });
+}
+
+export function getMe(): Promise<User> {
+  return request<User>('/auth/me');
+}
+
+export function listUsers(): Promise<User[]> {
+  return request<User[]>('/auth/users');
+}
+
+export function createUser(email: string, role: 'admin' | 'user' = 'user'): Promise<User> {
+  return request<User>('/auth/users', { method: 'POST', body: JSON.stringify({ email, role }) });
 }

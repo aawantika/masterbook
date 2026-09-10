@@ -1,5 +1,5 @@
 import { EPub } from 'epub2';
-import { chapterHtmlToBlocks, EpubBlock } from './epubBlocks.js';
+import { chapterHtmlToBlocks, EpubBlock, tagChapterBlocks } from './epubBlocks.js';
 
 export type EpubChapterSummary = {
   flowIndex: number;
@@ -11,8 +11,16 @@ export type EpubMetadata = {
   author: string | null;
 };
 
-export async function openEpub(filePath: string): Promise<EPub> {
-  return EPub.createAsync(filePath);
+// `imageRoot`, when given, becomes the prefix epub2 rewrites every chapter
+// <img src> to (see getChapter() in epub2/lib/epub.js) -- e.g. passing
+// "/api/epub/sources/1/images/" turns "../images/photo.jpg" into
+// "/api/epub/sources/1/images/OEBPS/images/photo.jpg". The trailing part
+// is exactly the manifest-relative path epub2 matched internally, which
+// resolveImageManifestId() below matches again the same way to serve the
+// actual bytes. Only matters for the full-page HTML route -- the
+// plain-text block extraction never looks at src attributes at all.
+export async function openEpub(filePath: string, imageRoot?: string): Promise<EPub> {
+  return imageRoot ? EPub.createAsync(filePath, imageRoot) : EPub.createAsync(filePath);
 }
 
 export function readMetadata(epub: EPub): EpubMetadata {
@@ -57,4 +65,49 @@ export async function getChapterBlocks(epub: EPub, flowIndex: number): Promise<E
   if (!chapter?.id) throw new Error('Chapter not found');
   const html = await epub.getChapterAsync(chapter.id);
   return chapterHtmlToBlocks(html);
+}
+
+// The full-page counterpart to getChapterBlocks -- same chapter, same
+// underlying getChapterAsync() call, but returns tagged markup (see
+// tagChapterBlocks) for rendering instead of a flat text list. Requires
+// the epub to have been opened with an imageRoot for embedded <img> src
+// values to resolve to anything servable.
+export async function getChapterHtml(epub: EPub, flowIndex: number): Promise<string> {
+  const chapter = epub.flow?.[flowIndex];
+  if (!chapter?.id) throw new Error('Chapter not found');
+  const html = await epub.getChapterAsync(chapter.id);
+  return tagChapterBlocks(html);
+}
+
+function safeDecodeURI(value: string): string {
+  try {
+    return decodeURI(value);
+  } catch {
+    return value;
+  }
+}
+
+function safeEncodeURI(value: string): string {
+  try {
+    return encodeURI(value);
+  } catch {
+    return value;
+  }
+}
+
+// Mirrors epub2's own <img src> manifest-matching (see getChapter() in
+// epub2/lib/epub.js): a chapter's rewritten src is `imageRoot + img`,
+// where `img` is whichever of an href's raw/decoded/encoded form matched a
+// manifest entry. Matching the same three variants here, symmetrically,
+// resolves the request path back to that same manifest entry.
+export function resolveImageManifestId(epub: EPub, imgPath: string): string | null {
+  const manifest = epub.manifest ?? {};
+  for (const id of Object.keys(manifest)) {
+    const href = manifest[id]?.href;
+    if (!href) continue;
+    if (href === imgPath || safeDecodeURI(href) === imgPath || safeEncodeURI(href) === imgPath) {
+      return id;
+    }
+  }
+  return null;
 }

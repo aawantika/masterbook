@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { listEpubSources, uploadEpub } from '../api/client';
+import { deleteEpubSource, listEpubSources, uploadEpub } from '../api/client';
 import { EpubSource } from '../api/types';
 
 export function EpubLibraryPage() {
@@ -19,6 +19,17 @@ export function EpubLibraryPage() {
   };
 
   useEffect(reload, []);
+
+  const handleDelete = async (source: EpubSource) => {
+    const name = source.title || source.filename || 'this book';
+    const warning =
+      source.recipeCount > 0
+        ? `Delete "${name}"? Its ${source.recipeCount} saved recipe${source.recipeCount === 1 ? '' : 's'} will stay in your cookbook, but any unextracted bookmarks will be lost. This can't be undone.`
+        : `Delete "${name}"? This can't be undone.`;
+    if (!window.confirm(warning)) return;
+    await deleteEpubSource(source.id);
+    reload();
+  };
 
   const handleFile = async (file: File | undefined) => {
     if (!file) return;
@@ -78,7 +89,7 @@ export function EpubLibraryPage() {
       ) : (
         <ul className="epub-source-list">
           {sources.map((source) => (
-            <li key={source.id}>
+            <li key={source.id} className="epub-source-row">
               <Link to={`/epub/${source.id}`} className="epub-source-card">
                 <div className="epub-source-title">{source.title || source.filename || 'Untitled book'}</div>
                 {source.author && <div className="epub-source-author">{source.author}</div>}
@@ -86,6 +97,13 @@ export function EpubLibraryPage() {
                   {source.recipeCount} recipe{source.recipeCount === 1 ? '' : 's'} saved
                 </div>
               </Link>
+              <button
+                type="button"
+                className="link-button epub-source-delete"
+                onClick={() => handleDelete(source)}
+              >
+                Delete
+              </button>
             </li>
           ))}
         </ul>

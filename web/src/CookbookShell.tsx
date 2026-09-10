@@ -3,8 +3,14 @@ import { Link, Outlet, useNavigate, useParams } from 'react-router-dom';
 import { getCuisines, getMealTypes, searchRecipes, setFavorite, setNeedsFixing, setWantToTry } from './api/client';
 import { MetaItem, RecipeSummary } from './api/types';
 import { Sidebar } from './components/Sidebar';
+import { useAuth } from './auth/AuthContext';
 
 export type SortBy = 'title' | 'recent';
+// "all" shows everything; the other two are mutually exclusive with each
+// other (a recipe can't be both made and not-made), so this is a single
+// tri-state value rather than two independent booleans like the other
+// filter chips -- selecting one clears the other automatically.
+export type MadeFilter = 'all' | 'made' | 'not-made';
 
 function useDebounced<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -31,6 +37,10 @@ export type ShellContext = {
   toggleFavoritesOnly: () => void;
   needsFixingOnly: boolean;
   toggleNeedsFixingOnly: () => void;
+  madeFilter: MadeFilter;
+  setMadeFilter: (value: MadeFilter) => void;
+  mineOnly: boolean;
+  toggleMineOnly: () => void;
   sortBy: SortBy;
   setSortBy: (sort: SortBy) => void;
   results: RecipeSummary[];
@@ -42,6 +52,7 @@ export type ShellContext = {
 
 export function CookbookShell() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const { id } = useParams<{ id: string }>();
   const selectedRecipeId = id ? Number(id) : null;
 
@@ -57,6 +68,8 @@ export function CookbookShell() {
   const [toTryOnly, setToTryOnly] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [needsFixingOnly, setNeedsFixingOnly] = useState(false);
+  const [madeFilter, setMadeFilter] = useState<MadeFilter>('all');
+  const [mineOnly, setMineOnly] = useState(false);
   const [sortBy, setSortBy] = useState<SortBy>('title');
   const [results, setResults] = useState<RecipeSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +97,9 @@ export function CookbookShell() {
         toTry: toTryOnly,
         favorites: favoritesOnly,
         needsFixing: needsFixingOnly,
+        made: madeFilter === 'made',
+        notMade: madeFilter === 'not-made',
+        mine: mineOnly,
         sort: sortBy
       });
       setResults(data);
@@ -102,6 +118,8 @@ export function CookbookShell() {
     toTryOnly,
     favoritesOnly,
     needsFixingOnly,
+    madeFilter,
+    mineOnly,
     sortBy,
     reloadSignal
   ]);
@@ -146,6 +164,10 @@ export function CookbookShell() {
     toggleFavoritesOnly: () => setFavoritesOnly((prev) => !prev),
     needsFixingOnly,
     toggleNeedsFixingOnly: () => setNeedsFixingOnly((prev) => !prev),
+    madeFilter,
+    setMadeFilter,
+    mineOnly,
+    toggleMineOnly: () => setMineOnly((prev) => !prev),
     sortBy,
     setSortBy,
     results,
@@ -171,6 +193,11 @@ export function CookbookShell() {
             <h1 className="shell-title">Local Cookbook</h1>
           </Link>
           <div className="middle-topbar-actions">
+            {user?.role === 'admin' && (
+              <Link to="/admin/users" className="button-link secondary-link">
+                Manage users
+              </Link>
+            )}
             <Link to="/epub" className="button-link secondary-link">
               EPUB library
             </Link>
@@ -180,6 +207,14 @@ export function CookbookShell() {
             <Link to="/add" className="button-link">
               + Add recipe
             </Link>
+            {user && (
+              <span className="topbar-user">
+                <span className="muted">{user.email}</span>
+                <button type="button" className="link-button" onClick={logout}>
+                  Log out
+                </button>
+              </span>
+            )}
           </div>
         </div>
 

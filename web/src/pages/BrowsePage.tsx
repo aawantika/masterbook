@@ -22,6 +22,10 @@ export function BrowsePage() {
     toggleFavoritesOnly,
     needsFixingOnly,
     toggleNeedsFixingOnly,
+    madeFilter,
+    setMadeFilter,
+    mineOnly,
+    toggleMineOnly,
     sortBy,
     setSortBy,
     results,
@@ -50,6 +54,10 @@ export function BrowsePage() {
         onToggleFavoritesOnly={toggleFavoritesOnly}
         needsFixingOnly={needsFixingOnly}
         onToggleNeedsFixingOnly={toggleNeedsFixingOnly}
+        madeFilter={madeFilter}
+        onChangeMadeFilter={setMadeFilter}
+        mineOnly={mineOnly}
+        onToggleMineOnly={toggleMineOnly}
         sortBy={sortBy}
         onChangeSortBy={setSortBy}
         viewMode={viewMode}

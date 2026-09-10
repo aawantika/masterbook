@@ -74,12 +74,34 @@ function migrateInstructionsShape(): void {
   }
 }
 
+// recipes.user_id is a column addition on an existing table (the `users`
+// table itself is brand new, so it "just migrates" via schema.sql above --
+// this only needs the guarded ALTER TABLE pattern). Stays nullable, same as
+// every other ALTER-added column here, since SQLite can't retrofit NOT NULL
+// without a table rebuild. Backfills any still-unowned recipe onto the
+// admin account -- idempotent (only touches NULL rows), safe to run before
+// an admin exists yet (no-op until the first admin logs in and gets a
+// users row via requireAuth's lazy creation).
+function migrateOwnership(): void {
+  const columns = db.prepare('PRAGMA table_info(recipes)').all() as Array<{ name: string }>;
+  const names = new Set(columns.map((c) => c.name));
+  if (!names.has('user_id')) {
+    db.exec('ALTER TABLE recipes ADD COLUMN user_id INTEGER REFERENCES users(id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_recipes_user ON recipes(user_id)');
+  }
+  const admin = db
+    .prepare("SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1")
+    .get() as { id: number } | undefined;
+  if (admin) db.prepare('UPDATE recipes SET user_id = ? WHERE user_id IS NULL').run(admin.id);
+}
+
 export function migrate(): void {
   db.exec(getSchemaSql());
   migrateRecipeTimeColumns();
   migrateNewColumns();
   migrateInstructionsShape();
   dropEpubCandidatesTable();
+  migrateOwnership();
 
   const fts5Check = db.prepare(
     "SELECT count(*) as count FROM pragma_compile_options WHERE compile_options LIKE '%FTS5%'"

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { canDeleteRecipe } from '../auth/permissions.js';
 import {
   createRecipe,
   deleteRecipe,
@@ -57,10 +58,25 @@ recipesRouter.get('/', (req, res) => {
   const toTryOnly = req.query.toTry === 'true';
   const favoritesOnly = req.query.favorites === 'true';
   const needsFixingOnly = req.query.needsFixing === 'true';
+  const madeOnly = req.query.made === 'true';
+  const notMadeOnly = req.query.notMade === 'true';
+  const mineOnly = req.query.mine === 'true';
   const sortBy = req.query.sort === 'recent' ? 'recent' : 'title';
 
   res.json(
-    searchRecipes({ query, mealTypeIds, cuisineIds, ingredientIds, toTryOnly, favoritesOnly, needsFixingOnly, sortBy })
+    searchRecipes({
+      query,
+      mealTypeIds,
+      cuisineIds,
+      ingredientIds,
+      toTryOnly,
+      favoritesOnly,
+      needsFixingOnly,
+      madeOnly,
+      notMadeOnly,
+      ownerId: mineOnly ? req.user!.id : undefined,
+      sortBy
+    })
   );
 });
 
@@ -93,7 +109,9 @@ recipesRouter.post('/', (req, res) => {
   const parsed = recipeInputSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const id = createRecipe(parsed.data);
+  // Owner comes from the authenticated session, never from the request
+  // body -- a client can't claim someone else's recipe as their own.
+  const id = createRecipe(parsed.data, req.user!.id);
   res.status(201).json(getRecipeById(id));
 });
 
@@ -113,6 +131,13 @@ recipesRouter.put('/:id', (req, res) => {
 recipesRouter.delete('/:id', (req, res) => {
   const id = parseIdParam(req.params.id);
   if (!id) return res.status(400).json({ error: 'Invalid recipe id' });
+
+  const recipe = getRecipeById(id);
+  if (!recipe) return res.status(404).json({ error: 'Recipe not found' });
+
+  if (!canDeleteRecipe(recipe, req.user!)) {
+    return res.status(403).json({ error: "Only this recipe's creator or an admin can delete it" });
+  }
 
   deleteRecipe(id);
   res.status(204).send();

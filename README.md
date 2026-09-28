@@ -32,6 +32,8 @@ git pull
 docker compose up -d --build
 ```
 
+**Auto-deploy**: the host runs `scripts/deploy.sh` hourly via launchd. It pulls `main` and rebuilds only when GitHub has new commits, so the workflow is to develop and test on another machine, push to `main`, and the live site picks it up within the hour. Run `scripts/deploy.sh` by hand to deploy immediately. Install instructions are in `scripts/com.masterbook.deploy.plist`; the log is `~/Library/Logs/masterbook-deploy.log`. Don't edit code directly on the host: the script only fast-forwards, and it will refuse to deploy over local commits.
+
 `data/` and `epub-sources/` are bind-mounted volumes — they're the app's entire durable state. Moving to new hardware is copying those two folders plus the two secrets and running the same command.
 
 **Host setup (Mac mini)**: disable sleep and auto-restart after power loss (`sudo pmset -a sleep 0 autorestart 1`), and set Docker Desktop to start at login.

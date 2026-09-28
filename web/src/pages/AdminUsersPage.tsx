@@ -126,6 +126,8 @@ export function AdminUsersPage() {
                       {u.emailVerified
                         ? 'signed up, email verified, not yet approved'
                         : "signed up, email NOT verified yet -- can't approve until they click the link we emailed them"}
+                      {' · added '}
+                      {u.createdAt.slice(0, 10)}
                     </div>
                     <div className="editor-actions">
                       <button
@@ -147,7 +149,9 @@ export function AdminUsersPage() {
             {approved.map((u) => (
               <li key={u.id} className="epub-source-card">
                 <div className="epub-source-title">{u.email}</div>
-                <div className="muted epub-source-meta">{u.role}</div>
+                <div className="muted epub-source-meta">
+                  {u.role} · added {u.createdAt.slice(0, 10)}
+                </div>
                 <div className="editor-actions">
                   <button
                     type="button"

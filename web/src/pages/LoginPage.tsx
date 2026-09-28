@@ -93,25 +93,20 @@ export function LoginPage() {
           {resetNotice && <div className="editor-notice">{resetNotice}</div>}
           {mode === 'signup' && (
             <div className="editor-notice">
-              After signing up, an admin needs to approve your account before you can start using masterbook.
+              After signing up, we'll email you a verification link — check your spam/junk folder if it doesn't show
+              up in a minute or two. Once you've verified, an admin needs to approve your account before you can
+              start using masterbook.
             </div>
           )}
-          <div className="editor-actions">
-            <button type="submit" disabled={submitting}>
-              {submitting ? (mode === 'signup' ? 'Signing up...' : 'Logging in...') : mode === 'signup' ? 'Sign up' : 'Log in'}
-            </button>
-            {mode === 'login' && (
-              <button type="button" className="link-button" onClick={handleForgotPassword}>
-                Forgot password?
-              </button>
-            )}
-          </div>
+          <button type="submit" className="login-submit" disabled={submitting}>
+            {submitting ? (mode === 'signup' ? 'Signing up...' : 'Logging in...') : mode === 'signup' ? 'Sign up' : 'Log in'}
+          </button>
         </form>
         <div className="login-mode-toggle">
           {mode === 'login' ? (
             <button
               type="button"
-              className="link-button"
+              className="login-toggle-button"
               onClick={() => {
                 setMode('signup');
                 setError(null);
@@ -123,7 +118,7 @@ export function LoginPage() {
           ) : (
             <button
               type="button"
-              className="link-button"
+              className="login-toggle-button"
               onClick={() => {
                 setMode('login');
                 setError(null);
@@ -134,6 +129,16 @@ export function LoginPage() {
             </button>
           )}
         </div>
+        {/* Tucked away below the main actions, deliberately -- easy to reach
+            if you actually need it, hard to fat-finger by accident right
+            next to the primary Log in button the way it used to sit. */}
+        {mode === 'login' && (
+          <div className="login-forgot-password">
+            <button type="button" className="link-button" onClick={handleForgotPassword}>
+              Forgot password?
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

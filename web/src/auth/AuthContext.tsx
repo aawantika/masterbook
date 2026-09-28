@@ -18,11 +18,31 @@ export type AuthState = {
 
 const AuthContext = createContext<AuthState | null>(null);
 
+// Mirrors server/src/middleware/auth.ts's DEV_SKIP_AUTH -- import.meta.env.DEV
+// is Vite's own "this is the dev server, not a production build" flag
+// (never true in a built web/dist, the only thing the real Docker image
+// serves), so this is just as impossible to accidentally ship as the
+// server-side half is.
+const DEV_SKIP_AUTH = import.meta.env.DEV && import.meta.env.VITE_DEV_SKIP_AUTH === 'true';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (DEV_SKIP_AUTH) {
+      // Skips real Firebase sign-in entirely -- the server hands back a
+      // synthesized local admin account regardless of what's (not)
+      // attached as a Bearer token. Not calling createSession() here since
+      // that route needs a real Firebase ID token to mint a session
+      // cookie; images just won't load in this mode, which is an
+      // acceptable tradeoff for a no-credentials-needed UI preview.
+      getMe()
+        .then(setUser)
+        .catch(() => setUser(null))
+        .finally(() => setLoading(false));
+      return;
+    }
     // Fires on sign-in, sign-out, and silent token refresh. Firebase only
     // knows "who" -- our own server is the source of truth for "what
     // role," so a sign-in fetches the local profile via /api/auth/me

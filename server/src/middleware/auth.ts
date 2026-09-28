@@ -4,6 +4,27 @@ import { backfillRecipeOwnership } from '../db/migrate.js';
 import { createUserRecord, findUserByFirebaseUid, listUsers } from '../db/users.js';
 import { getSiteStatus } from '../db/siteStatus.js';
 
+// Local-only convenience -- lets `npm run dev` be previewed without a
+// firebase-service-account.json on hand, by skipping real Firebase token
+// verification and handing back a synthesized local admin account
+// instead. TWO separate conditions must both be true, specifically so
+// this can never accidentally activate for real: NODE_ENV must not be
+// 'production' (the Docker image always sets it -- see Dockerfile), AND
+// DEV_SKIP_AUTH must be explicitly set. Neither is set anywhere in
+// docker-compose.yml or the Dockerfile, so the real deployment can't
+// enable this short of someone deliberately editing those files.
+const DEV_SKIP_AUTH = process.env.NODE_ENV !== 'production' && process.env.DEV_SKIP_AUTH === 'true';
+const DEV_USER_FIREBASE_UID = 'local-dev-user';
+
+if (DEV_SKIP_AUTH) {
+  // Loud and impossible to miss in the terminal -- this should never be
+  // mistaken for a real, secured session.
+  console.warn(
+    '\n⚠️  DEV_SKIP_AUTH is on -- authentication is DISABLED. Every request is treated as a local admin. ' +
+      'Never set this in a real deployment.\n'
+  );
+}
+
 // Verifies a Firebase ID token (sent as `Authorization: Bearer <token>`)
 // and resolves it to a local `users` row, attached as req.user -- creating
 // that row on first sight if it doesn't exist yet (self-signup lands here
@@ -16,6 +37,17 @@ import { getSiteStatus } from '../db/siteStatus.js';
 // verified Firebase identity; "can this person do anything yet" is a
 // separate, later check.
 export const requireAuth: RequestHandler = async (req, res, next) => {
+  if (DEV_SKIP_AUTH) {
+    let user = findUserByFirebaseUid(DEV_USER_FIREBASE_UID);
+    if (!user) {
+      user = createUserRecord(DEV_USER_FIREBASE_UID, 'dev@localhost', 'admin', true);
+      backfillRecipeOwnership();
+    }
+    req.user = user;
+    next();
+    return;
+  }
+
   const header = req.header('authorization');
   const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : null;
   if (!token) {

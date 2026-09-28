@@ -1,16 +1,18 @@
 import { FormEvent, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { sendPasswordResetEmail } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useAuth } from '../auth/AuthContext';
 
 type LocationState = { from?: { pathname: string } };
+type Mode = 'login' | 'signup';
 
 export function LoginPage() {
   const { user, loading, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
+  const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -18,6 +20,9 @@ export function LoginPage() {
   const [resetNotice, setResetNotice] = useState<string | null>(null);
 
   // Already logged in -- redirect away rather than show the form again.
+  // A freshly-signed-up-but-not-yet-approved account lands here too (still
+  // "logged in" as far as Firebase/AuthContext are concerned) -- RequireAuth
+  // is what shows the actual pending-approval screen once it redirects in.
   if (!loading && user) {
     const from = (location.state as LocationState | null)?.from?.pathname ?? '/';
     return <Navigate to={from} replace />;
@@ -29,11 +34,20 @@ export function LoginPage() {
     setResetNotice(null);
     setSubmitting(true);
     try {
-      await login(email.trim(), password);
+      if (mode === 'signup') {
+        // Real self-service Firebase signup -- distinct from the admin's
+        // createUser() (server-side, Admin SDK, no password set). This
+        // account exists and can sign in immediately, but the server's
+        // requireApproved leaves it pending until an admin approves it
+        // (see RequireAuth's pending-approval screen).
+        await createUserWithEmailAndPassword(auth, email.trim(), password);
+      } else {
+        await login(email.trim(), password);
+      }
       const from = (location.state as LocationState | null)?.from?.pathname ?? '/';
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed.');
+      setError(err instanceof Error ? err.message : mode === 'signup' ? 'Sign up failed.' : 'Login failed.');
     } finally {
       setSubmitting(false);
     }
@@ -74,15 +88,49 @@ export function LoginPage() {
           </label>
           {error && <div className="editor-error">{error}</div>}
           {resetNotice && <div className="editor-notice">{resetNotice}</div>}
+          {mode === 'signup' && (
+            <div className="editor-notice">
+              After signing up, an admin needs to approve your account before you can start using masterbook.
+            </div>
+          )}
           <div className="editor-actions">
             <button type="submit" disabled={submitting}>
-              {submitting ? 'Logging in...' : 'Log in'}
+              {submitting ? (mode === 'signup' ? 'Signing up...' : 'Logging in...') : mode === 'signup' ? 'Sign up' : 'Log in'}
             </button>
-            <button type="button" className="link-button" onClick={handleForgotPassword}>
-              Forgot password?
-            </button>
+            {mode === 'login' && (
+              <button type="button" className="link-button" onClick={handleForgotPassword}>
+                Forgot password?
+              </button>
+            )}
           </div>
         </form>
+        <div className="login-mode-toggle">
+          {mode === 'login' ? (
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => {
+                setMode('signup');
+                setError(null);
+                setResetNotice(null);
+              }}
+            >
+              Need an account? Sign up
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => {
+                setMode('login');
+                setError(null);
+                setResetNotice(null);
+              }}
+            >
+              Already have an account? Log in
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

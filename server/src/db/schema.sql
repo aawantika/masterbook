@@ -1,14 +1,22 @@
 -- Accounts. No password/session data here -- Firebase Authentication owns
 -- login, passwords, and password-reset emails; this table just maps a
--- Firebase identity (firebase_uid) to a local role and a place to hang
--- recipe ownership off of. Populated by requireAuth on a user's first
--- verified request (lazy row creation) or by the admin-only create-user
--- route for accounts other than the initial admin.
+-- Firebase identity (firebase_uid) to a local role/approval state and a
+-- place to hang recipe ownership off of. Populated by requireAuth on a
+-- user's first verified request (lazy row creation, for self-signup) or
+-- by the admin-only create-user route (for admin-initiated invites).
+--
+-- approved_at follows the same nullable-timestamp convention as
+-- recipes.favorited_at/want_to_try_at/needs_fixing_at elsewhere in this
+-- schema: NULL means pending, a timestamp means approved. Self-signups
+-- land unapproved and can't use anything except GET /api/auth/me until an
+-- admin approves them; admin-created accounts and the bootstrap first-ever
+-- login are approved immediately, since an admin already vouched for them.
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY,
   firebase_uid TEXT NOT NULL UNIQUE,
   email TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('admin','user')) DEFAULT 'user',
+  approved_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

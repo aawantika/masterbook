@@ -102,6 +102,24 @@ export function backfillRecipeOwnership(): void {
   if (admin) db.prepare('UPDATE recipes SET user_id = ? WHERE user_id IS NULL').run(admin.id);
 }
 
+// users.approved_at is a column addition on an existing table -- same
+// guarded-ALTER pattern as migrateOwnership above. Every account that
+// exists the *first* time this migration ever runs (the bootstrap admin,
+// anyone admin-created so far) was already implicitly trusted under the
+// old all-or-nothing model, so they're backfilled as approved rather than
+// suddenly locked out the moment self-signup lands. The backfill UPDATE
+// deliberately lives inside this same one-time branch, not as an
+// unconditional statement run on every boot -- otherwise a newly
+// self-signed-up *pending* user would get silently auto-approved the next
+// time the server restarts, defeating the whole approval gate.
+function migrateUserApproval(): void {
+  const columns = db.prepare('PRAGMA table_info(users)').all() as Array<{ name: string }>;
+  if (!columns.some((c) => c.name === 'approved_at')) {
+    db.exec('ALTER TABLE users ADD COLUMN approved_at TEXT');
+    db.exec('UPDATE users SET approved_at = created_at WHERE approved_at IS NULL');
+  }
+}
+
 export function migrate(): void {
   db.exec(getSchemaSql());
   migrateRecipeTimeColumns();
@@ -109,6 +127,7 @@ export function migrate(): void {
   migrateInstructionsShape();
   dropEpubCandidatesTable();
   migrateOwnership();
+  migrateUserApproval();
 
   const fts5Check = db.prepare(
     "SELECT count(*) as count FROM pragma_compile_options WHERE compile_options LIKE '%FTS5%'"

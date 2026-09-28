@@ -106,6 +106,7 @@ export type User = {
   firebaseUid: string;
   email: string;
   role: 'admin' | 'user';
+  approvedAt: string | null;
   createdAt: string;
 };
 

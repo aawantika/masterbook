@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { migrate } from './db/migrate.js';
-import { requireAuth } from './middleware/auth.js';
+import { requireApproved, requireAuth } from './middleware/auth.js';
 import { authRouter } from './routes/auth.js';
 import { metaRouter } from './routes/meta.js';
 import { recipesRouter } from './routes/recipes.js';
@@ -35,6 +35,15 @@ app.use('/api/epub', epubImagesRouter);
 // client-side against Firebase directly, never through this server.
 app.use('/api', requireAuth);
 
+// authRouter is mounted here, between requireAuth and requireApproved, on
+// purpose: GET /me, POST/DELETE /session, and the admin users/approve
+// routes all need to work for a verified-but-not-yet-approved self-signup
+// (that's exactly how the web client shows a real "pending approval"
+// screen instead of a generic failed request). Everything mounted below
+// requireApproved needs a fully approved account.
+app.use('/api/auth', authRouter);
+app.use('/api', requireApproved);
+
 app.use('/api/meta', metaRouter);
 app.use('/api/recipes', recipesRouter);
 app.use('/api', attemptsRouter);
@@ -42,7 +51,6 @@ app.use('/api/ingest/manual', manualIngestRouter);
 app.use('/api/ingest/website', websiteIngestRouter);
 app.use('/api/images', imagesRouter);
 app.use('/api/epub', epubRouter);
-app.use('/api/auth', authRouter);
 
 // Serves the built web app (web/dist) directly from this same process when
 // it's actually present -- true only inside the Docker image (see the root

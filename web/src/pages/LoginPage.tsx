@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useAuth } from '../auth/AuthContext';
 
@@ -39,8 +39,11 @@ export function LoginPage() {
         // createUser() (server-side, Admin SDK, no password set). This
         // account exists and can sign in immediately, but the server's
         // requireApproved leaves it pending until an admin approves it
-        // (see RequireAuth's pending-approval screen).
-        await createUserWithEmailAndPassword(auth, email.trim(), password);
+        // (see RequireAuth's pending-approval screen). The verification
+        // email proves they own the address they typed -- the server
+        // refuses to approve an unverified account.
+        const credential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+        await sendEmailVerification(credential.user);
       } else {
         await login(email.trim(), password);
       }

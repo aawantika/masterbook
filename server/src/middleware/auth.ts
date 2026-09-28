@@ -1,5 +1,6 @@
 import { RequestHandler } from 'express';
 import { getFirebaseAuth } from '../auth/firebaseAdmin.js';
+import { backfillRecipeOwnership } from '../db/migrate.js';
 import { createUserRecord, findUserByFirebaseUid, listUsers } from '../db/users.js';
 
 // Verifies a Firebase ID token (sent as `Authorization: Bearer <token>`)
@@ -30,6 +31,7 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
   if (!user) {
     if (listUsers().length === 0) {
       user = createUserRecord(decoded.uid, decoded.email ?? '', 'admin');
+      backfillRecipeOwnership();
     } else {
       res.status(403).json({ error: 'This account has not been added to masterbook. Ask the admin to add you.' });
       return;

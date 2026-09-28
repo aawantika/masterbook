@@ -4,19 +4,17 @@ import path from 'node:path';
 import express, { Router } from 'express';
 import { z } from 'zod';
 import { imagesDir } from '../db/client.js';
+import { requireSessionCookie } from '../middleware/sessionCookie.js';
 
 export const imagesRouter = Router();
 
 // Serves whatever's already been saved locally — GET only. Split out from
 // imagesRouter and mounted *before* the requireAuth gate in index.ts: an
 // <img src="/api/images/...">  tag doesn't carry the app's
-// Authorization: Bearer header the way fetch() calls do, and there's
-// nothing sensitive in an image's bytes beyond what's already visible in
-// the authenticated UI, so this stays public rather than requiring every
-// recipe image to be fetched as a blob just to attach a header. Filenames
-// are random UUIDs (see fetch-remote below), not guessable/enumerable.
+// Authorization: Bearer header the way fetch() calls do, so these are
+// gated by the session cookie instead (see middleware/sessionCookie.ts).
 export const publicImagesRouter = Router();
-publicImagesRouter.use(express.static(imagesDir));
+publicImagesRouter.use(requireSessionCookie, express.static(imagesDir));
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const EXTENSION_BY_MIME: Record<string, string> = {

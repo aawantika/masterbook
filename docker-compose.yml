@@ -35,11 +35,10 @@ services:
   # The tunnel's public hostname is configured in the Cloudflare Zero Trust
   # dashboard to point at http://masterbook:3001 (the service name above).
   # TUNNEL_TOKEN comes from a gitignored .env file next to this compose
-  # file. Behind the `tunnel` profile until that token exists:
-  #   docker compose --profile tunnel up -d
+  # file -- without it this container just restart-loops, so for a purely
+  # local run use `docker compose up -d masterbook` instead.
   cloudflared:
     image: cloudflare/cloudflared:latest
-    profiles: ['tunnel']
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:

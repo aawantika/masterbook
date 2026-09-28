@@ -29,7 +29,7 @@ This is how the real deployment runs: one container serves both the built React 
 
 ```
 git pull
-docker compose --profile tunnel up -d --build
+docker compose up -d --build
 ```
 
 `data/` and `epub-sources/` are bind-mounted volumes — they're the app's entire durable state. Moving to new hardware is copying those two folders plus the two secrets and running the same command.

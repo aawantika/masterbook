@@ -12,6 +12,8 @@ epub-sources/
 *.db-wal
 *.db-shm
 *.epub
+# zips of the above, made ad hoc when moving data between machines
+*.zip
 
 .env.local
 .env

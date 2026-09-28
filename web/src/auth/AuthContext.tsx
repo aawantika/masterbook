@@ -1,7 +1,7 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth } from '../firebase';
-import { getMe } from '../api/client';
+import { createSession, deleteSession, getMe } from '../api/client';
 import { User } from '../api/types';
 
 export type AuthState = {
@@ -29,7 +29,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        setUser(await getMe());
+        const [me] = await Promise.all([getMe(), createSession()]);
+        setUser(me);
       } catch {
         // Authenticated with Firebase but rejected by our server (not yet
         // added by the admin -- see requireAuth's 403 case in
@@ -50,6 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    // Before signOut -- the DELETE itself needs the still-valid Bearer token.
+    await deleteSession().catch(() => {});
     await signOut(auth);
   };
 

@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase';
-import { createUser, listUsers } from '../api/client';
+import { approveUser, createUser, listUsers } from '../api/client';
 import { User } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 
@@ -16,6 +16,7 @@ export function AdminUsersPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [resending, setResending] = useState<number | null>(null);
+  const [approving, setApproving] = useState<number | null>(null);
 
   const reload = () => {
     setLoading(true);
@@ -31,6 +32,24 @@ export function AdminUsersPage() {
   if (user && user.role !== 'admin') {
     return <Navigate to="/" replace />;
   }
+
+  const pending = users.filter((u) => !u.approvedAt);
+  const approved = users.filter((u) => u.approvedAt);
+
+  const handleApprove = async (target: User) => {
+    setError(null);
+    setNotice(null);
+    setApproving(target.id);
+    try {
+      await approveUser(target.id);
+      setNotice(`Approved ${target.email}.`);
+      reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to approve user.');
+    } finally {
+      setApproving(null);
+    }
+  };
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
@@ -95,24 +114,46 @@ export function AdminUsersPage() {
       {loading ? (
         <div className="muted">Loading...</div>
       ) : (
-        <ul className="epub-source-list">
-          {users.map((u) => (
-            <li key={u.id} className="epub-source-card">
-              <div className="epub-source-title">{u.email}</div>
-              <div className="muted epub-source-meta">{u.role}</div>
-              <div className="editor-actions">
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => handleResendReset(u)}
-                  disabled={resending === u.id}
-                >
-                  {resending === u.id ? 'Sending...' : 'Send password reset'}
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <>
+          {pending.length > 0 && (
+            <>
+              <h2 className="field-section-heading">Pending approval</h2>
+              <ul className="epub-source-list">
+                {pending.map((u) => (
+                  <li key={u.id} className="epub-source-card">
+                    <div className="epub-source-title">{u.email}</div>
+                    <div className="muted epub-source-meta">signed up, not yet approved</div>
+                    <div className="editor-actions">
+                      <button type="button" onClick={() => handleApprove(u)} disabled={approving === u.id}>
+                        {approving === u.id ? 'Approving...' : 'Approve'}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          <h2 className="field-section-heading">Users</h2>
+          <ul className="epub-source-list">
+            {approved.map((u) => (
+              <li key={u.id} className="epub-source-card">
+                <div className="epub-source-title">{u.email}</div>
+                <div className="muted epub-source-meta">{u.role}</div>
+                <div className="editor-actions">
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => handleResendReset(u)}
+                    disabled={resending === u.id}
+                  >
+                    {resending === u.id ? 'Sending...' : 'Send password reset'}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );

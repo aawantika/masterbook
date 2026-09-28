@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getFirebaseAuth } from '../auth/firebaseAdmin.js';
-import { createUserRecord, listUsers } from '../db/users.js';
+import { approveUser, createUserRecord, listUsers } from '../db/users.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { SESSION_COOKIE, SESSION_MAX_AGE_MS } from '../middleware/sessionCookie.js';
 
@@ -52,12 +52,14 @@ const createUserSchema = z.object({
 });
 
 // Creates the Firebase Auth account (no password set) plus the local
-// users row. Deliberately does NOT generate/send a password-reset link
-// itself -- Admin SDK's generatePasswordResetLink() only builds the link
-// string, it doesn't email it. The actual "Firebase sends the email"
-// behavior comes from the *client* SDK's sendPasswordResetEmail(), which
-// the web AdminUsersPage calls right after this succeeds -- see
-// web/src/pages/AdminUsersPage.tsx.
+// users row, approved immediately -- an admin creating the account here is
+// already the act of vouching for it, distinct from self-signup (see
+// requireAuth), which lands pending instead. Deliberately does NOT
+// generate/send a password-reset link itself -- Admin SDK's
+// generatePasswordResetLink() only builds the link string, it doesn't
+// email it. The actual "Firebase sends the email" behavior comes from the
+// *client* SDK's sendPasswordResetEmail(), which the web AdminUsersPage
+// calls right after this succeeds -- see web/src/pages/AdminUsersPage.tsx.
 authRouter.post('/users', requireAdmin, async (req, res) => {
   const parsed = createUserSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -68,7 +70,7 @@ authRouter.post('/users', requireAdmin, async (req, res) => {
 
   try {
     const firebaseUser = await getFirebaseAuth().createUser({ email });
-    const user = createUserRecord(firebaseUser.uid, email, role ?? 'user');
+    const user = createUserRecord(firebaseUser.uid, email, role ?? 'user', true);
     res.status(201).json(user);
   } catch (err) {
     // Firebase throws a structured error whose `.message` is already
@@ -78,4 +80,22 @@ authRouter.post('/users', requireAdmin, async (req, res) => {
     const message = err && typeof err === 'object' && 'message' in err ? String(err.message) : 'Failed to create user';
     res.status(409).json({ error: message });
   }
+});
+
+// Approves a pending self-signup -- see requireAuth (creates the row,
+// unapproved) and requireApproved (blocks it everywhere until this runs).
+// Idempotent: approving an already-approved user is a harmless no-op
+// (approveUser's WHERE clause only touches rows still NULL).
+authRouter.patch('/users/:id/approve', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: 'Invalid user id' });
+    return;
+  }
+  const user = approveUser(id);
+  if (!user) {
+    res.status(404).json({ error: 'User not found' });
+    return;
+  }
+  res.json(user);
 });

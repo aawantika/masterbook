@@ -279,3 +279,7 @@ export function listUsers(): Promise<User[]> {
 export function createUser(email: string, role: 'admin' | 'user' = 'user'): Promise<User> {
   return request<User>('/auth/users', { method: 'POST', body: JSON.stringify({ email, role }) });
 }
+
+export function approveUser(id: number): Promise<User> {
+  return request<User>(`/auth/users/${id}/approve`, { method: 'PATCH' });
+}

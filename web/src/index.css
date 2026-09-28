@@ -1321,6 +1321,18 @@ html, body, #root {
   gap: 14px;
 }
 
+.login-mode-toggle {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  text-align: center;
+}
+
+.login-box p {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .topbar-user {
   display: flex;
   align-items: center;

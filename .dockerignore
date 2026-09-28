@@ -1,0 +1,16 @@
+node_modules/
+server/node_modules/
+web/node_modules/
+server/dist/
+web/dist/
+data/
+epub-sources/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.epub
+*.log
+.DS_Store
+.git/
+.env.local

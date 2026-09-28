@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { migrate } from './db/migrate.js';
 import { requireAuth } from './middleware/auth.js';
@@ -35,6 +38,26 @@ app.use('/api/ingest/website', websiteIngestRouter);
 app.use('/api/images', imagesRouter);
 app.use('/api/epub', epubRouter);
 app.use('/api/auth', authRouter);
+
+// Serves the built web app (web/dist) directly from this same process when
+// it's actually present -- true only inside the Docker image (see the root
+// Dockerfile, which copies web/dist alongside server/dist under a shared
+// /app root so this resolves correctly). In local dev, nobody's built
+// web/dist and the Vite dev server serves the frontend separately on its
+// own port, proxying /api/* over -- this block is simply a no-op there,
+// same code path either way, no separate "production mode" flag needed.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const webDistPath = path.resolve(__dirname, '../../web/dist');
+if (fs.existsSync(webDistPath)) {
+  app.use(express.static(webDistPath));
+  // SPA fallback -- any GET that isn't a static asset or an /api/* route
+  // (which would already have been handled above) gets index.html, so
+  // client-side routes like /recipes/3 work on a hard refresh too.
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' || req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(webDistPath, 'index.html'));
+  });
+}
 
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST || '127.0.0.1';

@@ -14,3 +14,8 @@ epub-sources/
 *.epub
 
 .env.local
+
+# Firebase service-account credential -- downloaded once from the Firebase
+# Console, referenced by docker-compose.yml's GOOGLE_APPLICATION_CREDENTIALS
+# mount, never committed.
+firebase-service-account.json

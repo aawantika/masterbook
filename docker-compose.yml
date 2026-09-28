@@ -1,0 +1,27 @@
+services:
+  masterbook:
+    build: .
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      - PORT=3001
+      # 0.0.0.0, not 127.0.0.1 -- inside the container's own network
+      # namespace, binding to loopback only would make the app unreachable
+      # via Docker's port mapping from the host (and, later, from the
+      # Cloudflare Tunnel pointed at that host port). Local (non-Docker)
+      # dev is unaffected -- this env var is only set here, in compose.
+      - HOST=0.0.0.0
+      - GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/firebase-service-account.json
+    volumes:
+      # The literal portability unit (see the plan) -- these two host
+      # directories are the entire durable state of the app. Moving to
+      # different hardware later is copying these two folders and
+      # starting the same compose file there.
+      - ./data:/app/data
+      - ./epub-sources:/app/epub-sources
+      # Never baked into the image or committed -- downloaded once from
+      # the Firebase Console, lives only on this host's disk, mounted
+      # read-only into the container at the path GOOGLE_APPLICATION_CREDENTIALS
+      # points at above.
+      - ./firebase-service-account.json:/run/secrets/firebase-service-account.json:ro

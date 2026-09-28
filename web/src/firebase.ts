@@ -5,17 +5,13 @@ import { getAuth } from 'firebase/auth';
 // Firebase's security model relies on server-side ID-token verification
 // (see server/src/middleware/auth.ts) and Firebase's own project security
 // settings, not on hiding this config from the browser.
-//
-// PLACEHOLDER VALUES -- replace with the real config from Firebase Console
-// > Project settings > General > Your apps > Web app > SDK setup and
-// configuration, once that project has been created.
 const firebaseConfig = {
-  apiKey: 'REPLACE_ME',
-  authDomain: 'REPLACE_ME.firebaseapp.com',
-  projectId: 'REPLACE_ME',
-  storageBucket: 'REPLACE_ME.appspot.com',
-  messagingSenderId: 'REPLACE_ME',
-  appId: 'REPLACE_ME'
+  apiKey: 'AIzaSyA4Q7ZxaNq178UH7cwVy5H0tru04FujE24',
+  authDomain: 'masterbook-2caae.firebaseapp.com',
+  projectId: 'masterbook-2caae',
+  storageBucket: 'masterbook-2caae.firebasestorage.app',
+  messagingSenderId: '517561137324',
+  appId: '1:517561137324:web:f9db1900c49ffddcb58709'
 };
 
 export const firebaseApp = initializeApp(firebaseConfig);

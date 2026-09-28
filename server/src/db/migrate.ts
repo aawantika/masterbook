@@ -89,6 +89,13 @@ function migrateOwnership(): void {
     db.exec('ALTER TABLE recipes ADD COLUMN user_id INTEGER REFERENCES users(id)');
     db.exec('CREATE INDEX IF NOT EXISTS idx_recipes_user ON recipes(user_id)');
   }
+  backfillRecipeOwnership();
+}
+
+// Also called by requireAuth right after the bootstrap admin is created, so
+// pre-accounts recipes (e.g. a database carried over from local-only use)
+// are owned immediately instead of only after the next server restart.
+export function backfillRecipeOwnership(): void {
   const admin = db
     .prepare("SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1")
     .get() as { id: number } | undefined;

@@ -261,6 +261,17 @@ export function getMe(): Promise<User> {
   return request<User>('/auth/me');
 }
 
+// Sets/clears the httpOnly session cookie that <img src> requests to
+// /api/images and EPUB book images are checked against (they can't carry
+// the Bearer header) -- see server/src/middleware/sessionCookie.ts.
+export function createSession(): Promise<void> {
+  return request<void>('/auth/session', { method: 'POST' });
+}
+
+export function deleteSession(): Promise<void> {
+  return request<void>('/auth/session', { method: 'DELETE' });
+}
+
 export function listUsers(): Promise<User[]> {
   return request<User[]>('/auth/users');
 }

@@ -1,10 +1,12 @@
 # Masterbook
 
-A personal, local-only recipe database — unifies recipes pulled from EPUB cookbooks, Instagram saves, and website pastes into one searchable app. Search/filter by meal type and cuisine; track a "want to try" queue, favorites, and a "needs fixing" flag for recipes you want to come back and clean up; keep a running cooking log (date, rating, notes/adjustments) per recipe across multiple attempts; browse a global activity log across every recipe you've cooked.
+A personal, self-hosted recipe database — unifies recipes pulled from EPUB cookbooks, Instagram saves, and website pastes into one searchable app. Search/filter by meal type and cuisine; track a "want to try" queue, favorites, and a "needs fixing" flag for recipes you want to come back and clean up; keep a running cooking log (date, rating, notes/adjustments) per recipe across multiple attempts; browse a global activity log across every recipe you've cooked.
 
-## Why local-only
+## Privacy model
 
-Some recipes here are extracted from personal EPUB copies of copyrighted cookbooks. This app never syncs anywhere, never hosts on the public internet, and the server binds to `127.0.0.1` only. The app's code lives in this repo; your actual recipe data (the SQLite database, saved recipe images, any imported EPUB files) lives in gitignored local folders (`data/`, `epub-sources/`) and never leaves your machine. Cloning this repo gives you the app, not anyone's recipes — each person who runs it builds their own local cookbook.
+Some recipes here are extracted from personal EPUB copies of copyrighted cookbooks, so this app is private by design: it's self-hosted on one machine (a Mac mini, via Docker) and shared only with an invite-only list of friends and family through Firebase Auth. There's no public sign-up — the first account to ever log in becomes the admin, and everyone else must be added by the admin from the Users page. Every API route requires a Firebase ID token, and image routes (which `<img>` tags can't attach a token to) require a Firebase session cookie set at login.
+
+The app's code lives in this repo; your actual recipe data (the SQLite database, saved recipe images, any imported EPUB files) and secrets (Firebase service-account key, Cloudflare tunnel token) live in gitignored local files and never get committed. Cloning this repo gives you the app, not anyone's recipes.
 
 ## Stack
 
@@ -12,7 +14,29 @@ Some recipes here are extracted from personal EPUB copies of copyrighted cookboo
 - **Web**: React + Vite SPA, proxied to the server in dev
 - npm workspaces monorepo (`server/`, `web/`), single `npm run dev` runs both
 
-## Getting started
+## Self-hosting (Docker + Cloudflare Tunnel)
+
+This is how the real deployment runs: one container serves both the built React app and `/api/*` on port 3001, and a `cloudflared` container exposes it at a public hostname through a Cloudflare Tunnel (outbound-only — no router port-forwarding). The app's port is bound to `127.0.0.1` on the host, so it isn't reachable from the LAN directly.
+
+**One-time setup**
+
+1. **Firebase** (console.firebase.google.com): create a project; enable Authentication → Email/Password; under Authentication → Settings → User actions, **disable "Enable create (sign-up)"**; add your tunnel hostname under Authentication → Settings → Authorized domains. Register a Web app and paste its config into `web/src/firebase.ts`. Generate a service-account key (Project settings → Service accounts) and save it as `firebase-service-account.json` in the repo root (gitignored — must exist before `docker compose up`, or Docker mounts an empty directory in its place).
+2. **Cloudflare**: with a domain on Cloudflare, create a tunnel in Zero Trust → Networks → Tunnels (Docker connector). Add a public hostname pointing at `http://masterbook:3001`. Put the token in a gitignored `.env` file in the repo root: `TUNNEL_TOKEN=...`
+3. **Data**: copy an existing `data/` folder (containing `cookbook.db` and `images/`) and `epub-sources/` into the repo root, or start empty. Stop any running server first so the SQLite WAL is checkpointed into `cookbook.db`. Older databases are migrated automatically on startup.
+4. **Log in first yourself** — the first login becomes admin and is assigned ownership of all existing recipes. Then add others from the Users page (they receive a Firebase password-reset email to set their password).
+
+**Run / update**
+
+```
+git pull
+docker compose up -d --build
+```
+
+`data/` and `epub-sources/` are bind-mounted volumes — they're the app's entire durable state. Moving to new hardware is copying those two folders plus the two secrets and running the same command.
+
+**Host setup (Mac mini)**: disable sleep and auto-restart after power loss (`sudo pmset -a sleep 0 autorestart 1`), and set Docker Desktop to start at login.
+
+## Local development
 
 ```
 npm install
@@ -32,7 +56,7 @@ The database (`data/cookbook.db`) is created and migrated automatically on first
   - Some sites actively block fetching altogether (bot protection, not just JS rendering) — for those, "Skip — just save the link(s)" opens the editor with the link pre-filled so you're not stuck hand-transcribing a whole recipe just to bookmark it.
   - A recipe can have both a written source (`sourceRef`) and a separate companion video (`videoRef`) at once — e.g. a blog post plus its YouTube demo — shown side by side on the detail page.
   - Instagram/YouTube recipes get an embedded video player (via each platform's own public embed endpoint) on the detail page. Instagram never exposes a scrapable static image, so if you find one yourself (e.g. via the browser's dev tools on the rendered post), pasting the URL into the editor's Image field and hitting "Save locally" downloads the actual bytes to `data/images/` — Instagram's own image URLs are signed and expire after a few days, so this makes it permanent.
-- **EPUB cookbooks**: not yet wired up. The schema (`epub_sources`, `epub_candidates`) is already in place for it; the extraction pipeline (heuristic chapter/segment parsing + a review queue reusing the same editor) is a planned follow-up, sequenced after the rest of the app was working end-to-end.
+- **EPUB cookbooks**: upload an EPUB from the EPUB library page, browse it in the built-in reader, select the blocks that make up a recipe, and extract them straight into the normal recipe editor. Bookmarks let you tag recipes within a book to come back to.
 
 ## Features
 
@@ -69,5 +93,4 @@ See `.gitignore` — `data/` (the SQLite DB, plus any recipe images saved locall
 
 ## Roadmap
 
-- EPUB ingestion pipeline (`epub2` for parsing, heuristic chapter/segment splitting into review candidates, reusing the manual-paste editor for review/confirm).
-- Remote/phone access was considered and deliberately deferred — staying `127.0.0.1`-only for now. If it matters later, the planned approach is [Tailscale](https://tailscale.com) (an encrypted device-to-device tunnel between just your own devices), not actually hosting the app publicly.
+- Automated nightly SQLite backups off the host machine.

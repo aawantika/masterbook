@@ -19,16 +19,16 @@ import {
   readMetadata,
   resolveImageManifestId
 } from '../ingestion/epub/epubReader.js';
+import { requireSessionCookie } from '../middleware/sessionCookie.js';
 
 export const epubRouter = Router();
 // Split out from epubRouter and mounted *before* the requireAuth gate in
 // index.ts -- see that file for why: <img src> requests (this reader's
 // embedded book images, rendered via dangerouslySetInnerHTML) don't carry
-// the app's Authorization: Bearer header the way fetch() calls do, and
-// there's nothing sensitive in the image bytes themselves beyond what's
-// already visible in the authenticated UI, so this one route stays public
-// rather than requiring every image to be fetched as a blob just to attach
-// a header.
+// the app's Authorization: Bearer header the way fetch() calls do, so this
+// route is gated by the session cookie instead (see
+// middleware/sessionCookie.ts). Book ids are sequential, so unlike recipe
+// images these paths would be easy to enumerate if left open.
 export const epubImagesRouter = Router();
 
 function epubFilePath(id: number): string {
@@ -164,6 +164,7 @@ epubRouter.get('/sources/:id/chapters/:flowIndex/html', async (req, res) => {
 // segment is exactly the manifest-relative path epub2 embedded, so it's
 // matched straight back against the manifest rather than re-derived.
 // Mounted publicly (see epubImagesRouter comment above) -- not on epubRouter.
+epubImagesRouter.use('/sources/:id/images', requireSessionCookie);
 epubImagesRouter.get('/sources/:id/images/*imgPath', async (req, res) => {
   const id = parseIdParam(req.params.id);
   if (!id) return res.status(400).json({ error: 'Invalid id' });

@@ -3,7 +3,11 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - '3001:3001'
+      # Host loopback only -- reachable from this Mac (for local use and
+      # debugging) but not from other machines on the LAN. Remote access
+      # goes through the cloudflared service below, which reaches the app
+      # over the internal Docker network, not this published port.
+      - '127.0.0.1:3001:3001'
     environment:
       - PORT=3001
       # 0.0.0.0, not 127.0.0.1 -- inside the container's own network
@@ -25,3 +29,19 @@ services:
       # read-only into the container at the path GOOGLE_APPLICATION_CREDENTIALS
       # points at above.
       - ./firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
+
+  # Cloudflare Tunnel -- an outbound-only connection from this host to
+  # Cloudflare, so no router port-forwarding and no public IP exposure.
+  # The tunnel's public hostname is configured in the Cloudflare Zero Trust
+  # dashboard to point at http://masterbook:3001 (the service name above).
+  # TUNNEL_TOKEN comes from a gitignored .env file next to this compose
+  # file -- without it this container just restart-loops, so for a purely
+  # local run use `docker compose up -d masterbook` instead.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN:-}
+    depends_on:
+      - masterbook

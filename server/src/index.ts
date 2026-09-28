@@ -16,6 +16,11 @@ import { epubRouter, epubImagesRouter } from './routes/epub.js';
 migrate();
 
 const app = express();
+// Behind Cloudflare Tunnel, the TLS connection ends at Cloudflare and
+// cloudflared forwards plain HTTP from the Docker network -- trusting
+// X-Forwarded-Proto from loopback/private addresses lets req.secure report
+// https correctly, so the session cookie gets its Secure flag.
+app.set('trust proxy', 'loopback, uniquelocal');
 app.use(express.json());
 
 // Raw image bytes only -- mounted ahead of the auth gate below because

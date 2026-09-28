@@ -7,6 +7,7 @@ export type UserRecord = {
   firebaseUid: string;
   email: string;
   displayName: string | null;
+  avatarUrl: string | null;
   role: Role;
   approvedAt: string | null;
   createdAt: string;
@@ -17,6 +18,7 @@ type UserRow = {
   firebase_uid: string;
   email: string;
   display_name: string | null;
+  avatar_url: string | null;
   role: Role;
   approved_at: string | null;
   created_at: string;
@@ -28,6 +30,7 @@ function toUser(row: UserRow): UserRecord {
     firebaseUid: row.firebase_uid,
     email: row.email,
     displayName: row.display_name,
+    avatarUrl: row.avatar_url,
     role: row.role,
     approvedAt: row.approved_at,
     createdAt: row.created_at
@@ -50,6 +53,14 @@ export function updateDisplayName(id: number, displayName: string | null): UserR
     displayName?.trim() || null,
     id
   );
+  return findUserById(id);
+}
+
+// Self-service only (see routes/me.ts) -- the admin display-name editor
+// doesn't touch avatars. Passing null clears it (removes the picture,
+// falls back to no avatar) rather than being a way to set it to "no URL".
+export function updateAvatarUrl(id: number, avatarUrl: string | null): UserRecord | null {
+  db.prepare('UPDATE users SET avatar_url = ? WHERE id = ?').run(avatarUrl, id);
   return findUserById(id);
 }
 

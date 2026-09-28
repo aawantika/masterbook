@@ -3,8 +3,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { migrate } from './db/migrate.js';
-import { requireApproved, requireAuth } from './middleware/auth.js';
+import { requireApproved, requireAuth, requireSiteNotFrozen } from './middleware/auth.js';
 import { authRouter } from './routes/auth.js';
+import { meRouter } from './routes/me.js';
 import { metaRouter } from './routes/meta.js';
 import { recipesRouter } from './routes/recipes.js';
 import { attemptsRouter } from './routes/attempts.js';
@@ -43,7 +44,12 @@ app.use('/api', requireAuth);
 // requireApproved needs a fully approved account.
 app.use('/api/auth', authRouter);
 app.use('/api', requireApproved);
+// Blocks non-admin writes app-wide while the site is frozen (see
+// requireSiteNotFrozen) -- reads (GET) and everything under authRouter
+// above (login/session/approve/site-status itself) are unaffected.
+app.use('/api', requireSiteNotFrozen);
 
+app.use('/api/me', meRouter);
 app.use('/api/meta', metaRouter);
 app.use('/api/recipes', recipesRouter);
 app.use('/api', attemptsRouter);

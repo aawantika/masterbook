@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS users (
   -- resolveDisplayName in db/users.ts) rather than showing a raw email
   -- address to every other member in "added by" labels.
   display_name TEXT,
+  -- Self-service only (see routes/me.ts's avatar upload) -- an /api/images/
+  -- URL, same convention as recipes.image_url, not a raw upload stored here.
+  avatar_url TEXT,
   role TEXT NOT NULL CHECK (role IN ('admin','user')) DEFAULT 'user',
   approved_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -42,12 +45,35 @@ CREATE TABLE IF NOT EXISTS recipes (
   epub_source_id INTEGER REFERENCES epub_sources(id),
   image_url TEXT,
   notes TEXT,
-  want_to_try_at TEXT,
-  favorited_at TEXT,
+  -- needs_fixing_at stays a single shared/global flag deliberately -- "this
+  -- recipe's data is broken" is a fact about the recipe, not a personal
+  -- opinion, unlike favorited/want-to-try below.
   needs_fixing_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Favorites and the "want to try" queue are per-person -- one row per
+-- (recipe, user) pair, unlike needs_fixing_at above which stays a single
+-- column on recipes itself. Used to be recipes.favorited_at/want_to_try_at
+-- (single shared columns); migrated to these junction tables by
+-- migrate.ts's migratePerUserFavoritesAndQueue so everyone using the app
+-- gets their own favorites/queue instead of sharing one.
+CREATE TABLE IF NOT EXISTS recipe_favorites (
+  recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  favorited_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (recipe_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_recipe_favorites_user ON recipe_favorites(user_id);
+
+CREATE TABLE IF NOT EXISTS recipe_want_to_try (
+  recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  want_to_try_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (recipe_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_recipe_want_to_try_user ON recipe_want_to_try(user_id);
 
 CREATE TABLE IF NOT EXISTS ingredient_catalog (
   id INTEGER PRIMARY KEY,
@@ -90,9 +116,13 @@ CREATE TABLE IF NOT EXISTS recipe_cuisines (
 );
 
 -- the cooking log: one recipe -> many attempts, each with its own date/rating/notes.
+-- Ratings/notes stay a single shared value per attempt (not per-user) --
+-- user_id is purely attribution ("who logged this"), same idea as
+-- recipes.user_id, for the activity log's "by <name>" line.
 CREATE TABLE IF NOT EXISTS recipe_attempts (
   id INTEGER PRIMARY KEY,
   recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id),
   attempted_at TEXT NOT NULL,
   rating INTEGER CHECK (rating BETWEEN 1 AND 5),
   notes TEXT,
@@ -133,6 +163,19 @@ CREATE TABLE IF NOT EXISTS epub_bookmarks (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_epub_bookmarks_source ON epub_bookmarks(epub_source_id);
+
+-- Single-row switch, checked by requireSiteNotFrozen on every mutating
+-- request. NULL frozen_at means the site is open; a timestamp means an
+-- admin has paused non-admin writes (adds/edits/deletes/uploads/toggles)
+-- while they fix something -- reads still work for everyone. There's
+-- deliberately only ever one row (id is CHECK'd to 1); migrate.ts inserts
+-- it once if missing rather than every table needing its own frozen flag.
+CREATE TABLE IF NOT EXISTS site_status (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  frozen_at TEXT,
+  frozen_by INTEGER REFERENCES users(id),
+  frozen_message TEXT
+);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS recipes_fts USING fts5(
   title,

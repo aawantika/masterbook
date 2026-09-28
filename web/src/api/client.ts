@@ -11,6 +11,8 @@ import {
   RecipeDraft,
   RecipeInput,
   RecipeSummary,
+  SiteStats,
+  SiteStatus,
   User
 } from './types';
 import { auth } from '../firebase';
@@ -77,9 +79,12 @@ export type SearchParams = {
   needsFixing?: boolean;
   made?: boolean;
   notMade?: boolean;
-  // A specific contributor's id -- "everyone" is just omitting this
-  // entirely, same as every other optional filter here.
-  ownerId?: number;
+  // Minimum average rating (1-5 stars, global -- not per-user).
+  minRating?: number;
+  // One or more contributor ids -- "everyone" is just omitting this
+  // entirely (or passing an empty array), same as every other optional
+  // filter here.
+  ownerIds?: number[];
   sort?: 'title' | 'recent';
 };
 
@@ -94,7 +99,8 @@ export function searchRecipes(params: SearchParams): Promise<RecipeSummary[]> {
   if (params.needsFixing) query.set('needsFixing', 'true');
   if (params.made) query.set('made', 'true');
   if (params.notMade) query.set('notMade', 'true');
-  if (params.ownerId != null) query.set('ownerId', String(params.ownerId));
+  if (params.minRating != null) query.set('minRating', String(params.minRating));
+  if (params.ownerIds?.length) query.set('ownerIds', params.ownerIds.join(','));
   if (params.sort === 'recent') query.set('sort', 'recent');
   const qs = query.toString();
   return request<RecipeSummary[]>(`/recipes${qs ? `?${qs}` : ''}`);
@@ -296,4 +302,50 @@ export function updateDisplayName(id: number, displayName: string | null): Promi
     method: 'PATCH',
     body: JSON.stringify({ displayName })
   });
+}
+
+// Self-service profile actions -- always act on the logged-in user
+// themselves (see server/src/routes/me.ts), unlike updateDisplayName()
+// above which is the admin-only editor for anyone.
+export function updateMyDisplayName(displayName: string | null): Promise<User> {
+  return request<User>('/me/display-name', { method: 'PATCH', body: JSON.stringify({ displayName }) });
+}
+
+export async function uploadMyAvatar(file: File): Promise<User> {
+  const response = await fetch('/api/me/avatar', {
+    method: 'POST',
+    headers: { 'Content-Type': file.type, ...(await authHeader()) },
+    body: file
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    let message = `${response.status} ${response.statusText}`;
+    try {
+      const parsed = JSON.parse(body);
+      message = describeApiError(parsed?.error) ?? message;
+    } catch {
+      // Not JSON — fall through to the status-line message above.
+    }
+    throw new Error(message);
+  }
+  return response.json();
+}
+
+export function deleteMyAvatar(): Promise<User> {
+  return request<User>('/me/avatar', { method: 'DELETE' });
+}
+
+export function getSiteStatus(): Promise<SiteStatus> {
+  return request<SiteStatus>('/auth/site-status');
+}
+
+export function setSiteFrozen(frozen: boolean, message: string | null): Promise<SiteStatus> {
+  return request<SiteStatus>('/auth/site-status', {
+    method: 'PATCH',
+    body: JSON.stringify({ frozen, message })
+  });
+}
+
+export function getSiteStats(): Promise<SiteStats> {
+  return request<SiteStats>('/auth/stats');
 }

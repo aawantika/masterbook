@@ -24,9 +24,11 @@ export function BrowsePage() {
     toggleNeedsFixingOnly,
     madeFilter,
     setMadeFilter,
+    minRating,
+    setMinRating,
     contributors,
-    ownerFilter,
-    setOwnerFilter,
+    selectedOwnerIds,
+    toggleOwner,
     sortBy,
     setSortBy,
     results,
@@ -57,9 +59,11 @@ export function BrowsePage() {
         onToggleNeedsFixingOnly={toggleNeedsFixingOnly}
         madeFilter={madeFilter}
         onChangeMadeFilter={setMadeFilter}
+        minRating={minRating}
+        onChangeMinRating={setMinRating}
         contributors={contributors}
-        ownerFilter={ownerFilter}
-        onChangeOwnerFilter={setOwnerFilter}
+        selectedOwnerIds={selectedOwnerIds}
+        onToggleOwner={toggleOwner}
         sortBy={sortBy}
         onChangeSortBy={setSortBy}
         viewMode={viewMode}

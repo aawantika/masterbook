@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { checkDuplicates, createRecipe, fetchRecipeFromUrl, getCuisines, getMealTypes, parseManualPaste } from '../api/client';
 import { MetaItem, RecipeDraft, RecipeInput, SourceType } from '../api/types';
-import { deriveSourceNameFromUrl, extractYouTubeVideoId, isInstagramUrl, youtubeThumbnailUrl } from '../sourceUrl';
+import {
+  deriveSourceNameFromUrl,
+  extractYouTubeVideoId,
+  isInstagramUrl,
+  isUnfetchableRecipeUrl,
+  youtubeThumbnailUrl
+} from '../sourceUrl';
 import { RecipeDraftEditor } from './RecipeDraftEditor';
 
 type ImportPanelProps = {
@@ -10,8 +16,15 @@ type ImportPanelProps = {
   onCancel: () => void;
 };
 
+// Was a placeholder (grayed-out hint text that just vanishes on focus/
+// typing) -- real starter text instead, so it's actually there to select-
+// all-and-paste-over or edit in place, not something that disappears the
+// moment you click into the box.
+const PASTE_TEMPLATE =
+  'Title:\n\nSource:\n\nIngredients (use - for section names)\n- For the sauce\n2 tbsp gochujang\n...\n\nInstructions\n1. Mix...\n...';
+
 export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
-  const [pasteText, setPasteText] = useState('');
+  const [pasteText, setPasteText] = useState(PASTE_TEMPLATE);
   const [fetchUrl, setFetchUrl] = useState('');
   const [sourceType, setSourceType] = useState<SourceType>('manual');
   const [sourceRef, setSourceRef] = useState('');
@@ -31,7 +44,9 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
   }, []);
 
   const handleParse = async () => {
-    if (!pasteText.trim()) return;
+    // Untouched template text isn't real content any more than an empty
+    // box was before this became real starter text instead of a placeholder.
+    if (!pasteText.trim() || pasteText === PASTE_TEMPLATE) return;
     const parsed = await parseManualPaste(pasteText);
     // A URL pasted as part of the recipe text itself (rather than typed
     // into the separate field above) becomes the source link automatically
@@ -78,6 +93,17 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
       setFetchNotice(
         "YouTube can't be auto-fetched — paste the recipe text below and I'll structure it. Grabbed the video thumbnail for you."
       );
+      return;
+    }
+
+    // Other sites confirmed not to hand back usable structured data (see
+    // KNOWN_UNFETCHABLE_HOSTNAMES in sourceUrl.ts) -- skip straight to
+    // "paste the text" instead of attempting a fetch that's already known
+    // to fail.
+    if (isUnfetchableRecipeUrl(url)) {
+      setSourceType('website');
+      setSourceRef(url);
+      setFetchNotice("This site can't be auto-fetched — paste the recipe text below and I'll structure it.");
       return;
     }
 
@@ -156,6 +182,14 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
               placeholder="https://..."
             />
           </label>
+          {/* Most recipe websites' pages carry structured Recipe data that
+              gets fetched and parsed automatically. These don't -- said
+              upfront rather than only after clicking Fetch and hitting an
+              error, since it's not obvious which links will and won't work. */}
+          <div className="muted import-manual-note">
+            Can't be auto-fetched, paste the text below instead: Instagram, YouTube/Shorts, Serious Eats, Maangchi,
+            and some other bot-protected recipe sites (the paste box further down still works for any of these).
+          </div>
           {fetchError && <div className="editor-error">{fetchError}</div>}
           {fetchNotice && <div className="editor-notice">{fetchNotice}</div>}
           <div className="editor-actions">
@@ -174,14 +208,7 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
 
           <label className="field">
             <span>Paste recipe text</span>
-            <textarea
-              value={pasteText}
-              onChange={(e) => setPasteText(e.target.value)}
-              rows={12}
-              placeholder={
-                'Title:\n\nSource:\n\nIngredients (use - for section names)\n- For the sauce\n2 tbsp gochujang\n...\n\nInstructions\n1. Mix...\n...'
-              }
-            />
+            <textarea value={pasteText} onChange={(e) => setPasteText(e.target.value)} rows={12} />
           </label>
           <div className="editor-actions">
             <button type="button" onClick={handleParse}>

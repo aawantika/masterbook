@@ -2,6 +2,7 @@ import { RequestHandler } from 'express';
 import { getFirebaseAuth } from '../auth/firebaseAdmin.js';
 import { backfillRecipeOwnership } from '../db/migrate.js';
 import { createUserRecord, findUserByFirebaseUid, listUsers } from '../db/users.js';
+import { getSiteStatus } from '../db/siteStatus.js';
 
 // Verifies a Firebase ID token (sent as `Authorization: Bearer <token>`)
 // and resolves it to a local `users` row, attached as req.user -- creating
@@ -56,6 +57,28 @@ export const requireApproved: RequestHandler = (req, res, next) => {
 export const requireAdmin: RequestHandler = (req, res, next) => {
   if (req.user?.role !== 'admin') {
     res.status(403).json({ error: 'Admin access required' });
+    return;
+  }
+  next();
+};
+
+// "Freeze the site" -- an admin-only pause on everyone else's writes while
+// they're fixing something, without having to boot people out or shut the
+// whole app down. Mounted after requireApproved, ahead of every
+// content-mutating router (recipes/attempts/ingest/images/epub), so it's
+// one check rather than repeating it per-route. GET/HEAD (browsing) is
+// always allowed regardless of freeze state; an admin's own requests are
+// never blocked, since they're the one doing the fixing.
+export const requireSiteNotFrozen: RequestHandler = (req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD') return next();
+  if (req.user?.role === 'admin') return next();
+
+  const status = getSiteStatus();
+  if (status.frozenAt) {
+    res.status(503).json({
+      error: status.frozenMessage || 'Masterbook is in maintenance mode right now -- try again shortly.',
+      frozenAt: status.frozenAt
+    });
     return;
   }
   next();

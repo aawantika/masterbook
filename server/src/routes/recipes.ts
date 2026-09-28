@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { canDeleteRecipe } from '../auth/permissions.js';
+import { canDeleteRecipe, canEditRecipe } from '../auth/permissions.js';
 import {
   createRecipe,
   deleteRecipe,
@@ -60,17 +60,20 @@ recipesRouter.get('/', (req, res) => {
   const needsFixingOnly = req.query.needsFixing === 'true';
   const madeOnly = req.query.made === 'true';
   const notMadeOnly = req.query.notMade === 'true';
-  const mineOnly = req.query.mine === 'true';
-  // Generic "added by this specific person" filter -- mine=true is kept as
-  // a convenience shortcut for "added by me" rather than making the client
-  // look up its own id, but ownerId takes it from here if both were somehow
-  // passed at once.
-  const requestedOwnerId = typeof req.query.ownerId === 'string' ? Number(req.query.ownerId) : undefined;
-  const ownerId = Number.isInteger(requestedOwnerId)
-    ? requestedOwnerId
-    : mineOnly
-      ? req.user!.id
+  const requestedMinRating = typeof req.query.minRating === 'string' ? Number(req.query.minRating) : undefined;
+  const minRating =
+    Number.isInteger(requestedMinRating) && requestedMinRating! >= 1 && requestedMinRating! <= 5
+      ? requestedMinRating
       : undefined;
+  const mineOnly = req.query.mine === 'true';
+  // "Added by" -- one or more contributor ids (?ownerIds=1,2,3). mine=true
+  // and the older singular ?ownerId= are both kept as back-compat
+  // shortcuts, folded into the same array rather than the client needing
+  // to know its own id for the "just me" case.
+  const requestedOwnerIds = parseIdList(req.query.ownerIds);
+  const legacyOwnerId = typeof req.query.ownerId === 'string' ? Number(req.query.ownerId) : undefined;
+  const ownerIds =
+    requestedOwnerIds ?? (Number.isInteger(legacyOwnerId) ? [legacyOwnerId as number] : mineOnly ? [req.user!.id] : undefined);
   const sortBy = req.query.sort === 'recent' ? 'recent' : 'title';
 
   res.json(
@@ -84,8 +87,10 @@ recipesRouter.get('/', (req, res) => {
       needsFixingOnly,
       madeOnly,
       notMadeOnly,
-      ownerId,
-      sortBy
+      minRating,
+      ownerIds,
+      sortBy,
+      viewerUserId: req.user!.id
     })
   );
 });
@@ -110,7 +115,7 @@ recipesRouter.get('/:id', (req, res) => {
   const id = parseIdParam(req.params.id);
   if (!id) return res.status(400).json({ error: 'Invalid recipe id' });
 
-  const recipe = getRecipeById(id);
+  const recipe = getRecipeById(id, req.user!.id);
   if (!recipe) return res.status(404).json({ error: 'Recipe not found' });
   res.json(recipe);
 });
@@ -122,7 +127,7 @@ recipesRouter.post('/', (req, res) => {
   // Owner comes from the authenticated session, never from the request
   // body -- a client can't claim someone else's recipe as their own.
   const id = createRecipe(parsed.data, req.user!.id);
-  res.status(201).json(getRecipeById(id));
+  res.status(201).json(getRecipeById(id, req.user!.id));
 });
 
 recipesRouter.put('/:id', (req, res) => {
@@ -132,17 +137,22 @@ recipesRouter.put('/:id', (req, res) => {
   const parsed = recipeInputSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  if (!getRecipeById(id)) return res.status(404).json({ error: 'Recipe not found' });
+  const existing = getRecipeById(id, req.user!.id);
+  if (!existing) return res.status(404).json({ error: 'Recipe not found' });
+
+  if (!canEditRecipe(existing, req.user!)) {
+    return res.status(403).json({ error: "Only this recipe's creator or an admin can edit it" });
+  }
 
   updateRecipe(id, parsed.data);
-  res.json(getRecipeById(id));
+  res.json(getRecipeById(id, req.user!.id));
 });
 
 recipesRouter.delete('/:id', (req, res) => {
   const id = parseIdParam(req.params.id);
   if (!id) return res.status(400).json({ error: 'Invalid recipe id' });
 
-  const recipe = getRecipeById(id);
+  const recipe = getRecipeById(id, req.user!.id);
   if (!recipe) return res.status(404).json({ error: 'Recipe not found' });
 
   if (!canDeleteRecipe(recipe, req.user!)) {
@@ -162,8 +172,10 @@ recipesRouter.post('/:id/want-to-try', (req, res) => {
   const parsed = wantToTrySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  setWantToTry(id, parsed.data.want);
-  res.json(getRecipeById(id));
+  // Per-person -- always the requesting user's own queue, never someone
+  // else's (see recipe_want_to_try in schema.sql).
+  setWantToTry(id, req.user!.id, parsed.data.want);
+  res.json(getRecipeById(id, req.user!.id));
 });
 
 const favoriteSchema = z.object({ favorite: z.boolean() });
@@ -175,8 +187,10 @@ recipesRouter.post('/:id/favorite', (req, res) => {
   const parsed = favoriteSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  setFavorite(id, parsed.data.favorite);
-  res.json(getRecipeById(id));
+  // Per-person -- always the requesting user's own favorites (see
+  // recipe_favorites in schema.sql).
+  setFavorite(id, req.user!.id, parsed.data.favorite);
+  res.json(getRecipeById(id, req.user!.id));
 });
 
 const needsFixingSchema = z.object({ needsFixing: z.boolean() });
@@ -188,6 +202,7 @@ recipesRouter.post('/:id/needs-fixing', (req, res) => {
   const parsed = needsFixingSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
+  // Stays global/shared, unlike favorite/want-to-try above.
   setNeedsFixing(id, parsed.data.needsFixing);
-  res.json(getRecipeById(id));
+  res.json(getRecipeById(id, req.user!.id));
 });

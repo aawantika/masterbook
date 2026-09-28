@@ -35,12 +35,29 @@ export function youtubeThumbnailUrl(videoId: string): string {
   return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
 }
 
+// Sites confirmed (by actually trying them) to not hand back usable
+// structured recipe data — bot-protected, or the fetch just doesn't come
+// back with a real Recipe schema in practice. Add to this list as more
+// come up rather than letting each one fail silently one at a time.
+const KNOWN_UNFETCHABLE_HOSTNAMES = ['seriouseats.com', 'maangchi.com'];
+
+function isKnownUnfetchableHostname(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+    return KNOWN_UNFETCHABLE_HOSTNAMES.some((known) => hostname === known || hostname.endsWith(`.${known}`));
+  } catch {
+    return false;
+  }
+}
+
 // A URL that's known not to expose structured recipe data on the page
 // itself — Instagram is login-gated/JS-rendered, YouTube pages carry video
-// metadata rather than a Recipe schema. Both need the recipe text pasted
-// in manually rather than auto-fetched or auto-refreshed.
+// metadata rather than a Recipe schema, and the rest are sites that have
+// actually been tried and don't come back with usable structured data.
+// All of these need the recipe text pasted in manually rather than
+// auto-fetched or auto-refreshed.
 export function isUnfetchableRecipeUrl(url: string): boolean {
-  return isInstagramUrl(url) || extractYouTubeVideoId(url) !== null;
+  return isInstagramUrl(url) || extractYouTubeVideoId(url) !== null || isKnownUnfetchableHostname(url);
 }
 
 // Bare hostname as a starting-point source name -- the user can rename it

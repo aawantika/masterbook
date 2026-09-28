@@ -75,6 +75,7 @@ export type ActivityEntry = {
   attemptedAt: string;
   rating: number | null;
   notes: string | null;
+  userName: string | null;
 };
 
 export type RecipeDetail = {
@@ -113,12 +114,37 @@ export type User = {
   firebaseUid: string;
   email: string;
   displayName: string | null;
+  avatarUrl: string | null;
   role: 'admin' | 'user';
   approvedAt: string | null;
   createdAt: string;
   // Only present on the admin user listing (GET /auth/users) -- Firebase's
   // live flag for whether the account has proven it owns this email.
   emailVerified?: boolean;
+};
+
+export type SiteStatus = {
+  frozenAt: string | null;
+  frozenBy: number | null;
+  frozenMessage: string | null;
+};
+
+export type UserRecipeCount = {
+  userId: number | null;
+  name: string;
+  recipeCount: number;
+};
+
+export type SiteStats = {
+  totalRecipes: number;
+  totalUsers: number;
+  perUser: UserRecipeCount[];
+  storage: {
+    databaseBytes: number;
+    imagesBytes: number;
+    epubSourcesBytes: number;
+    totalBytes: number;
+  };
 };
 
 export type DuplicateMatch = { id: number; title: string; sourceName: string | null };

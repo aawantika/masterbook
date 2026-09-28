@@ -122,7 +122,7 @@ export function AdminUsersPage() {
             <option value="admin">Admin</option>
           </select>
         </label>
-        <button type="submit" disabled={creating}>
+        <button type="submit" className="primary-button" disabled={creating}>
           {creating ? 'Creating...' : 'Add user'}
         </button>
       </form>
@@ -136,67 +136,92 @@ export function AdminUsersPage() {
           {pending.length > 0 && (
             <>
               <h2 className="field-section-heading">Pending approval</h2>
-              <ul className="epub-source-list">
-                {pending.map((u) => (
-                  <li key={u.id} className="epub-source-card">
-                    <div className="epub-source-title">{u.email}</div>
-                    <div className="muted epub-source-meta">
-                      {u.emailVerified
-                        ? 'signed up, email verified, not yet approved'
-                        : "signed up, email NOT verified yet -- can't approve until they click the link we emailed them"}
-                      {' · added '}
-                      {u.createdAt.slice(0, 10)}
-                    </div>
-                    <div className="editor-actions">
-                      <button
-                        type="button"
-                        onClick={() => handleApprove(u)}
-                        disabled={approving === u.id || !u.emailVerified}
-                      >
-                        {approving === u.id ? 'Approving...' : 'Approve'}
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Email</th>
+                      <th>Status</th>
+                      <th>Joined</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pending.map((u) => (
+                      <tr key={u.id}>
+                        <td>{u.email}</td>
+                        <td className="muted">
+                          {u.emailVerified
+                            ? 'Verified, not yet approved'
+                            : "Email not verified -- can't approve yet"}
+                        </td>
+                        <td className="muted">{u.createdAt.slice(0, 10)}</td>
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() => handleApprove(u)}
+                            disabled={approving === u.id || !u.emailVerified}
+                          >
+                            {approving === u.id ? 'Approving...' : 'Approve'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
 
           <h2 className="field-section-heading">Users</h2>
-          <ul className="epub-source-list">
-            {approved.map((u) => (
-              <li key={u.id} className="epub-source-card">
-                <div className="epub-source-title">{u.displayName || u.email}</div>
-                {u.displayName && <div className="muted epub-source-meta">{u.email}</div>}
-                <div className="muted epub-source-meta">
-                  {u.role} · added {u.createdAt.slice(0, 10)}
-                </div>
-                <div className="field-row">
-                  <label className="field">
-                    <span>Display name</span>
-                    <input
-                      value={nameDrafts[u.id] ?? u.displayName ?? ''}
-                      onChange={(e) => setNameDrafts((prev) => ({ ...prev, [u.id]: e.target.value }))}
-                      placeholder={u.email.split('@')[0]}
-                    />
-                  </label>
-                  <button type="button" className="secondary" onClick={() => handleSaveName(u)} disabled={savingName === u.id}>
-                    {savingName === u.id ? 'Saving...' : 'Save name'}
-                  </button>
-                </div>
-                <div className="editor-actions">
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => handleResendReset(u)}
-                    disabled={resending === u.id}
-                  >
-                    {resending === u.id ? 'Sending...' : 'Send password reset'}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Joined</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {approved.map((u) => (
+                  <tr key={u.id}>
+                    <td>
+                      <input
+                        className="admin-table-name-input"
+                        value={nameDrafts[u.id] ?? u.displayName ?? ''}
+                        onChange={(e) => setNameDrafts((prev) => ({ ...prev, [u.id]: e.target.value }))}
+                        placeholder={u.email.split('@')[0]}
+                      />
+                      <button
+                        type="button"
+                        className="secondary admin-table-save-name"
+                        onClick={() => handleSaveName(u)}
+                        disabled={savingName === u.id}
+                      >
+                        {savingName === u.id ? 'Saving...' : 'Save'}
+                      </button>
+                    </td>
+                    <td className="muted">{u.email}</td>
+                    <td className="muted">{u.role}</td>
+                    <td className="muted">{u.createdAt.slice(0, 10)}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => handleResendReset(u)}
+                        disabled={resending === u.id}
+                      >
+                        {resending === u.id ? 'Sending...' : 'Send password reset'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
     </div>

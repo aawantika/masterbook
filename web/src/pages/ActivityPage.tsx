@@ -30,6 +30,7 @@ export function ActivityPage() {
                   {entry.recipeTitle}
                 </Link>
                 {entry.rating != null && <span>{'★'.repeat(entry.rating)}</span>}
+                {entry.userName && <span className="muted">by {entry.userName}</span>}
               </div>
               {entry.notes && <div className="log-entry-notes">{entry.notes}</div>}
             </li>

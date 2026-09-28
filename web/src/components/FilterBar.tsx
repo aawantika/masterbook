@@ -1,5 +1,5 @@
 import { Contributor, MetaItem } from '../api/types';
-import { MadeFilter, OwnerFilter, SortBy } from '../CookbookShell';
+import { MadeFilter, SortBy } from '../CookbookShell';
 
 export type ViewMode = 'grid' | 'list';
 
@@ -20,9 +20,11 @@ type FilterBarProps = {
   onToggleNeedsFixingOnly: () => void;
   madeFilter: MadeFilter;
   onChangeMadeFilter: (value: MadeFilter) => void;
+  minRating: number | null;
+  onChangeMinRating: (value: number | null) => void;
   contributors: Contributor[];
-  ownerFilter: OwnerFilter;
-  onChangeOwnerFilter: (value: OwnerFilter) => void;
+  selectedOwnerIds: Set<number>;
+  onToggleOwner: (id: number) => void;
   sortBy: SortBy;
   onChangeSortBy: (sort: SortBy) => void;
   viewMode: ViewMode;
@@ -82,9 +84,11 @@ export function FilterBar({
   onToggleNeedsFixingOnly,
   madeFilter,
   onChangeMadeFilter,
+  minRating,
+  onChangeMinRating,
   contributors,
-  ownerFilter,
-  onChangeOwnerFilter,
+  selectedOwnerIds,
+  onToggleOwner,
   sortBy,
   onChangeSortBy,
   viewMode,
@@ -121,19 +125,12 @@ export function FilterBar({
         >
           🔧 Needs fixing
         </button>
-        <select
-          className="sort-select"
-          value={ownerFilter}
-          onChange={(e) => onChangeOwnerFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-          aria-label="Added by"
-        >
-          <option value="all">Added by: Everyone</option>
-          {contributors.map((c) => (
-            <option key={c.id} value={c.id}>
-              Added by: {c.name}
-            </option>
-          ))}
-        </select>
+        {/* Was a single-select dropdown ("Added by: X") -- switched to the
+            same multi-select disclosure pattern as Meal type/Cuisine below,
+            so you can filter to any combination of people at once instead
+            of just one. An empty selection means "everyone", same as it
+            always has. */}
+        <FilterGroup label="Added by" items={contributors} selected={selectedOwnerIds} onToggle={onToggleOwner} />
         <FilterGroup label="Meal type" items={mealTypes} selected={selectedMealTypeIds} onToggle={onToggleMealType} />
         <FilterGroup label="Cuisine" items={cuisines} selected={selectedCuisineIds} onToggle={onToggleCuisine} />
         <button
@@ -150,6 +147,19 @@ export function FilterBar({
         >
           Not made yet
         </button>
+        <select
+          className="sort-select"
+          value={minRating ?? ''}
+          onChange={(e) => onChangeMinRating(e.target.value === '' ? null : Number(e.target.value))}
+          aria-label="Minimum rating"
+        >
+          <option value="">Rating: Any</option>
+          <option value="5">★★★★★ only</option>
+          <option value="4">★★★★+</option>
+          <option value="3">★★★+</option>
+          <option value="2">★★+</option>
+          <option value="1">★+</option>
+        </select>
         <div className="filter-group-divider" />
         <select
           className="sort-select"

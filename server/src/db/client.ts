@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../../../');
-const dataDir = path.join(projectRoot, 'data');
-const dbPath = path.join(dataDir, 'cookbook.db');
+export const dataDir = path.join(projectRoot, 'data');
+export const dbPath = path.join(dataDir, 'cookbook.db');
 export const imagesDir = path.join(dataDir, 'images');
 // Top-level (not nested under data/) to match the existing .gitignore entry
 // -- epub-sources/ is its own gitignored directory, same as data/.

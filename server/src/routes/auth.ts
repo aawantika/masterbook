@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { getFirebaseAuth } from '../auth/firebaseAdmin.js';
 import { approveUser, createUserRecord, findUserById, listUsers, updateDisplayName } from '../db/users.js';
+import { getSiteStatus, setFrozen } from '../db/siteStatus.js';
+import { getSiteStats } from '../db/stats.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { SESSION_COOKIE, SESSION_MAX_AGE_MS } from '../middleware/sessionCookie.js';
 
@@ -154,4 +156,36 @@ authRouter.patch('/users/:id/display-name', requireAdmin, (req, res) => {
     return;
   }
   res.json(user);
+});
+
+// Any approved user can check this -- it's what drives the "site is in
+// maintenance mode" banner for non-admins, so it has to be readable before
+// they'd otherwise hit a 503 from requireSiteNotFrozen on their first write.
+authRouter.get('/site-status', (_req, res) => {
+  res.json(getSiteStatus());
+});
+
+const siteStatusSchema = z.object({
+  frozen: z.boolean(),
+  message: z.string().trim().max(300).nullable().optional()
+});
+
+// The actual freeze/unfreeze toggle -- see requireSiteNotFrozen for what
+// this does once set. Admin-only, obviously; message is optional context
+// shown to everyone else (e.g. "fixing a parsing bug, back in 10 minutes").
+authRouter.patch('/site-status', requireAdmin, (req, res) => {
+  const parsed = siteStatusSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+  setFrozen(parsed.data.frozen, req.user!.id, parsed.data.message ?? null);
+  res.json(getSiteStatus());
+});
+
+// Recipe counts per contributor + on-disk storage usage (db file incl. WAL,
+// uploaded images, epub sources) -- admin-only, since it touches every
+// user's email/name in one response.
+authRouter.get('/stats', requireAdmin, (_req, res) => {
+  res.json(getSiteStats());
 });

@@ -12,7 +12,7 @@ import {
 } from '../api/client';
 import { MetaItem, RecipeDetail, RecipeDraft, SourceType } from '../api/types';
 import { parseBaseServings, scaleQuantityString } from '../scaleQuantity';
-import { getVideoEmbed, isUnfetchableRecipeUrl } from '../sourceUrl';
+import { getVideoEmbed } from '../sourceUrl';
 import { useAuth } from '../auth/AuthContext';
 import { RecipeDraftEditor } from './RecipeDraftEditor';
 
@@ -66,6 +66,12 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
   const [refreshedDraft, setRefreshedDraft] = useState<RecipeDraft | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  // Purely local display state -- which sectioned ingredient/instruction
+  // groups are collapsed. Deliberately not saved anywhere (not to the
+  // recipe, not to localStorage): a fresh mount always starts with
+  // everything expanded, same as a page refresh.
+  const [collapsedIngredientGroups, setCollapsedIngredientGroups] = useState<Set<number>>(new Set());
+  const [collapsedInstructionGroups, setCollapsedInstructionGroups] = useState<Set<number>>(new Set());
 
   const load = async () => {
     const [r, mt, c] = await Promise.all([getRecipe(recipeId), getMealTypes(), getCuisines()]);
@@ -92,6 +98,15 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
   const videoEmbed = getVideoEmbed(recipe.videoRef) ?? getVideoEmbed(recipe.sourceRef);
   const baseServings = parseBaseServings(recipe.servings);
   const scaleFactor = baseServings && targetServings ? targetServings / baseServings : 1;
+
+  const toggleCollapsedGroup = (setter: React.Dispatch<React.SetStateAction<Set<number>>>, groupIndex: number) => {
+    setter((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupIndex)) next.delete(groupIndex);
+      else next.add(groupIndex);
+      return next;
+    });
+  };
 
   const handleDelete = async () => {
     if (!window.confirm(`Delete "${recipe.title}"? This can't be undone.`)) return;
@@ -140,16 +155,18 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
     }
   };
 
-  const canRefreshFromSource =
-    recipe.sourceType === 'website' &&
-    !!recipe.sourceRef &&
-    /^https?:\/\//i.test(recipe.sourceRef) &&
-    !isUnfetchableRecipeUrl(recipe.sourceRef);
+  // Temporarily disabled while a source-refresh parsing issue gets sorted
+  // out -- was: recipe.sourceType === 'website' && !!recipe.sourceRef &&
+  // /^https?:\/\//i.test(recipe.sourceRef) && !isUnfetchableRecipeUrl(recipe.sourceRef)
+  const canRefreshFromSource = false;
 
-  // UX mirror of the server's canDeleteRecipe check (server/src/auth/permissions.ts)
-  // -- the server is what actually enforces this, this just avoids showing a
-  // Delete button that would 403 if clicked.
+  // UX mirror of the server's canDeleteRecipe/canEditRecipe checks
+  // (server/src/auth/permissions.ts) -- the server is what actually
+  // enforces this, this just avoids showing a button that would 403 if
+  // clicked. Both currently use the same rule (owner or admin), but kept
+  // as separate consts since the server exposes them as separate functions.
   const canDelete = !!user && (user.role === 'admin' || recipe.ownerId === user.id);
+  const canEdit = !!user && (user.role === 'admin' || recipe.ownerId === user.id);
 
   if (editing) {
     const editorInitial = refreshedDraft
@@ -326,9 +343,11 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
           )}
 
           <div className="recipe-detail-actions info-column-group">
-            <button type="button" onClick={() => setEditing(true)}>
-              Edit
-            </button>
+            {canEdit && (
+              <button type="button" onClick={() => setEditing(true)}>
+                Edit
+              </button>
+            )}
             {canRefreshFromSource && (
               <button type="button" className="secondary" onClick={handleRefreshFromSource} disabled={refreshing}>
                 {refreshing ? 'Refreshing...' : '↻ Refresh from source'}
@@ -365,38 +384,67 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
       <div className="recipe-detail-body">
         <div className="recipe-ingredients">
           <h3>Ingredients</h3>
-          {groupIngredientsForDisplay(recipe.ingredients).map((group, groupIndex) => (
-            <div className="ingredient-display-group" key={groupIndex}>
-              {group.section && <h4 className="ingredient-section-heading">{group.section}</h4>}
-              <ul>
-                {group.items.map((ing, i) => {
-                  // "nos"/"no" is a bare count, not a real unit word — kept
-                  // as the stored value, but left out of the display text.
-                  const displayUnit = ing.unit === 'nos' ? null : ing.unit;
-                  const text =
-                    scaleFactor !== 1
-                      ? [scaleQuantityString(ing.quantity, scaleFactor), displayUnit, ing.name]
-                          .filter(Boolean)
-                          .join(' ')
-                      : ing.rawText || [ing.quantity, displayUnit, ing.name].filter(Boolean).join(' ');
-                  return <li key={i}>{text}</li>;
-                })}
-              </ul>
-            </div>
-          ))}
+          {groupIngredientsForDisplay(recipe.ingredients).map((group, groupIndex) => {
+            const collapsed = collapsedIngredientGroups.has(groupIndex);
+            return (
+              <div className="ingredient-display-group" key={groupIndex}>
+                {group.section && (
+                  <button
+                    type="button"
+                    className="section-collapse-toggle ingredient-section-heading"
+                    onClick={() => toggleCollapsedGroup(setCollapsedIngredientGroups, groupIndex)}
+                  >
+                    <span className="section-collapse-caret">{collapsed ? '▸' : '▾'}</span>
+                    {group.section}
+                  </button>
+                )}
+                {!collapsed && (
+                  <ul>
+                    {group.items.map((ing, i) => {
+                      // "nos"/"no" is a bare count, not a real unit word —
+                      // kept as the stored value, but left out of the
+                      // display text.
+                      const displayUnit = ing.unit === 'nos' ? null : ing.unit;
+                      const text =
+                        scaleFactor !== 1
+                          ? [scaleQuantityString(ing.quantity, scaleFactor), displayUnit, ing.name]
+                              .filter(Boolean)
+                              .join(' ')
+                          : ing.rawText || [ing.quantity, displayUnit, ing.name].filter(Boolean).join(' ');
+                      return <li key={i}>{text}</li>;
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
         </div>
         <div className="recipe-instructions">
           <h3>Instructions</h3>
-          {groupInstructionsForDisplay(recipe.instructions).map((group, groupIndex) => (
-            <div className="instruction-display-group" key={groupIndex}>
-              {group.section && <h4 className="instruction-section-heading">{group.section}</h4>}
-              <ol>
-                {group.items.map((step, i) => (
-                  <li key={i}>{step.text}</li>
-                ))}
-              </ol>
-            </div>
-          ))}
+          {groupInstructionsForDisplay(recipe.instructions).map((group, groupIndex) => {
+            const collapsed = collapsedInstructionGroups.has(groupIndex);
+            return (
+              <div className="instruction-display-group" key={groupIndex}>
+                {group.section && (
+                  <button
+                    type="button"
+                    className="section-collapse-toggle instruction-section-heading"
+                    onClick={() => toggleCollapsedGroup(setCollapsedInstructionGroups, groupIndex)}
+                  >
+                    <span className="section-collapse-caret">{collapsed ? '▸' : '▾'}</span>
+                    {group.section}
+                  </button>
+                )}
+                {!collapsed && (
+                  <ol>
+                    {group.items.map((step, i) => (
+                      <li key={i}>{step.text}</li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 

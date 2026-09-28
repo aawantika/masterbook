@@ -102,6 +102,61 @@ export function backfillRecipeOwnership(): void {
   if (admin) db.prepare('UPDATE recipes SET user_id = ? WHERE user_id IS NULL').run(admin.id);
 }
 
+// Favorites/queue used to be recipes.favorited_at/want_to_try_at -- single
+// columns shared by everyone. Moving them to per-user junction tables (see
+// schema.sql's recipe_favorites/recipe_want_to_try, already created by
+// db.exec(getSchemaSql()) before this runs) needs a backfill: every recipe
+// in this app so far was both added *and* favorited/queued by the same
+// single user (there was only ever one user before accounts existed), so
+// attributing each existing global flag to the recipe's owner is not a
+// guess -- it's the actual correct history for every real row this will
+// ever run against. A recipe with no owner (legacy/unowned) can't be
+// attributed to anyone and is simply left out of the per-user tables --
+// nobody "loses" a favorite that has no recorded owner to give it to
+// anyway. Guarded on column presence, same one-time-branch pattern as
+// migrateUserApproval above, so a restart after the columns are already
+// gone never tries to re-run this (they won't exist to check against).
+function migratePerUserFavoritesAndQueue(): void {
+  const columns = db.prepare('PRAGMA table_info(recipes)').all() as Array<{ name: string }>;
+  const names = new Set(columns.map((c) => c.name));
+
+  if (names.has('favorited_at')) {
+    db.exec(`
+      INSERT OR IGNORE INTO recipe_favorites (recipe_id, user_id, favorited_at)
+      SELECT id, user_id, favorited_at FROM recipes
+      WHERE favorited_at IS NOT NULL AND user_id IS NOT NULL
+    `);
+    db.exec('ALTER TABLE recipes DROP COLUMN favorited_at');
+  }
+  if (names.has('want_to_try_at')) {
+    db.exec(`
+      INSERT OR IGNORE INTO recipe_want_to_try (recipe_id, user_id, want_to_try_at)
+      SELECT id, user_id, want_to_try_at FROM recipes
+      WHERE want_to_try_at IS NOT NULL AND user_id IS NOT NULL
+    `);
+    db.exec('ALTER TABLE recipes DROP COLUMN want_to_try_at');
+  }
+}
+
+// recipe_attempts.user_id is purely attribution (see schema.sql) -- every
+// attempt logged before this column existed was logged by whoever added
+// the recipe it belongs to (same single-user history reasoning as
+// migratePerUserFavoritesAndQueue above), so that's what it backfills onto.
+// An attempt on an unowned/legacy recipe is left unattributed (NULL) rather
+// than guessed at -- the activity log just shows no name for those, same
+// as it shows no "added by" for an unowned recipe card.
+function migrateAttemptOwnership(): void {
+  const columns = db.prepare('PRAGMA table_info(recipe_attempts)').all() as Array<{ name: string }>;
+  if (!columns.some((c) => c.name === 'user_id')) {
+    db.exec('ALTER TABLE recipe_attempts ADD COLUMN user_id INTEGER REFERENCES users(id)');
+    db.exec(`
+      UPDATE recipe_attempts
+      SET user_id = (SELECT r.user_id FROM recipes r WHERE r.id = recipe_attempts.recipe_id)
+      WHERE user_id IS NULL
+    `);
+  }
+}
+
 // users.approved_at is a column addition on an existing table -- same
 // guarded-ALTER pattern as migrateOwnership above. Every account that
 // exists the *first* time this migration ever runs (the bootstrap admin,
@@ -127,6 +182,23 @@ function migrateUserDisplayName(): void {
   }
 }
 
+function migrateUserAvatarUrl(): void {
+  const columns = db.prepare('PRAGMA table_info(users)').all() as Array<{ name: string }>;
+  if (!columns.some((c) => c.name === 'avatar_url')) {
+    db.exec('ALTER TABLE users ADD COLUMN avatar_url TEXT');
+  }
+}
+
+// site_status is brand new (schema.sql's CREATE TABLE IF NOT EXISTS handles
+// the table itself), but it needs exactly one row to hang the freeze toggle
+// off of. INSERT OR IGNORE is safe to run every boot, unlike the approval
+// backfill above -- it can only ever create the row if it's missing, never
+// overwrite an existing row's frozen_at, so it can't accidentally
+// un-freeze (or re-freeze) the site on a restart.
+function ensureSiteStatusRow(): void {
+  db.exec('INSERT OR IGNORE INTO site_status (id, frozen_at, frozen_by, frozen_message) VALUES (1, NULL, NULL, NULL)');
+}
+
 export function migrate(): void {
   db.exec(getSchemaSql());
   migrateRecipeTimeColumns();
@@ -134,8 +206,12 @@ export function migrate(): void {
   migrateInstructionsShape();
   dropEpubCandidatesTable();
   migrateOwnership();
+  migratePerUserFavoritesAndQueue();
+  migrateAttemptOwnership();
   migrateUserApproval();
   migrateUserDisplayName();
+  migrateUserAvatarUrl();
+  ensureSiteStatusRow();
 
   const fts5Check = db.prepare(
     "SELECT count(*) as count FROM pragma_compile_options WHERE compile_options LIKE '%FTS5%'"

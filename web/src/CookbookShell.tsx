@@ -4,20 +4,15 @@ import {
   getContributors,
   getCuisines,
   getMealTypes,
+  getSiteStatus,
   searchRecipes,
   setFavorite,
   setNeedsFixing,
   setWantToTry
 } from './api/client';
-import { Contributor, MetaItem, RecipeSummary } from './api/types';
+import { Contributor, MetaItem, RecipeSummary, SiteStatus } from './api/types';
 import { Sidebar } from './components/Sidebar';
 import { useAuth } from './auth/AuthContext';
-
-// 'all' shows everyone's recipes (the default, matches pre-accounts
-// behavior); any other value is a specific contributor's user id, shown
-// via the "Added by" dropdown (see FilterBar) rather than a plain "mine"
-// toggle -- lets you filter to *anyone* in the group, not just yourself.
-export type OwnerFilter = 'all' | number;
 
 export type SortBy = 'title' | 'recent';
 // "all" shows everything; the other two are mutually exclusive with each
@@ -53,9 +48,11 @@ export type ShellContext = {
   toggleNeedsFixingOnly: () => void;
   madeFilter: MadeFilter;
   setMadeFilter: (value: MadeFilter) => void;
+  minRating: number | null;
+  setMinRating: (value: number | null) => void;
   contributors: Contributor[];
-  ownerFilter: OwnerFilter;
-  setOwnerFilter: (value: OwnerFilter) => void;
+  selectedOwnerIds: Set<number>;
+  toggleOwner: (id: number) => void;
   sortBy: SortBy;
   setSortBy: (sort: SortBy) => void;
   results: RecipeSummary[];
@@ -74,6 +71,11 @@ export function CookbookShell() {
   const [reloadSignal, setReloadSignal] = useState(0);
   const bumpReload = () => setReloadSignal((n) => n + 1);
 
+  // Off-canvas on mobile, collapsed by default (see the @media block in
+  // index.css) -- irrelevant above that breakpoint since the CSS there is
+  // what actually makes the toggle/backdrop visible at all.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounced(query, 250);
   const [mealTypes, setMealTypes] = useState<MetaItem[]>([]);
@@ -85,10 +87,12 @@ export function CookbookShell() {
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [needsFixingOnly, setNeedsFixingOnly] = useState(false);
   const [madeFilter, setMadeFilter] = useState<MadeFilter>('all');
-  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('all');
+  const [minRating, setMinRating] = useState<number | null>(null);
+  const [selectedOwnerIds, setSelectedOwnerIds] = useState<Set<number>>(new Set());
   const [sortBy, setSortBy] = useState<SortBy>('title');
   const [results, setResults] = useState<RecipeSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [siteStatus, setSiteStatus] = useState<SiteStatus | null>(null);
 
   useEffect(() => {
     Promise.all([getMealTypes(), getCuisines(), getContributors()]).then(([mt, c, contrib]) => {
@@ -96,6 +100,10 @@ export function CookbookShell() {
       setCuisines(c);
       setContributors(contrib);
     });
+    // Only matters for non-admins (an admin's writes are never blocked --
+    // see requireSiteNotFrozen), but harmless either way, and simplest to
+    // just always check on load rather than branch on role first.
+    getSiteStatus().then(setSiteStatus);
   }, []);
 
   const runSearch = async () => {
@@ -116,7 +124,8 @@ export function CookbookShell() {
         needsFixing: needsFixingOnly,
         made: madeFilter === 'made',
         notMade: madeFilter === 'not-made',
-        ownerId: ownerFilter === 'all' ? undefined : ownerFilter,
+        minRating: minRating ?? undefined,
+        ownerIds: Array.from(selectedOwnerIds),
         sort: sortBy
       });
       setResults(data);
@@ -136,7 +145,8 @@ export function CookbookShell() {
     favoritesOnly,
     needsFixingOnly,
     madeFilter,
-    ownerFilter,
+    minRating,
+    selectedOwnerIds,
     sortBy,
     reloadSignal
   ]);
@@ -183,9 +193,11 @@ export function CookbookShell() {
     toggleNeedsFixingOnly: () => setNeedsFixingOnly((prev) => !prev),
     madeFilter,
     setMadeFilter,
+    minRating,
+    setMinRating,
     contributors,
-    ownerFilter,
-    setOwnerFilter,
+    selectedOwnerIds,
+    toggleOwner: (ownerId) => toggleInSet(setSelectedOwnerIds, ownerId),
     sortBy,
     setSortBy,
     results,
@@ -197,28 +209,43 @@ export function CookbookShell() {
 
   return (
     <div className="cookbook-shell">
-      <aside className="shell-pane shell-pane-left">
+      <div
+        className={`sidebar-backdrop${sidebarOpen ? ' sidebar-open' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+      <aside className={`shell-pane shell-pane-left${sidebarOpen ? ' sidebar-open' : ''}`}>
         <Sidebar
           selectedRecipeId={selectedRecipeId}
-          onSelectRecipe={(recipeId) => navigate(`/recipes/${recipeId}`)}
+          onSelectRecipe={(recipeId) => {
+            setSidebarOpen(false);
+            navigate(`/recipes/${recipeId}`);
+          }}
           reloadSignal={reloadSignal}
         />
       </aside>
 
       <main className="shell-pane shell-pane-middle">
         <div className="middle-topbar">
+          <button
+            type="button"
+            className="sidebar-toggle"
+            aria-label={sidebarOpen ? 'Close recipe list' : 'Open recipe list'}
+            onClick={() => setSidebarOpen((prev) => !prev)}
+          >
+            {sidebarOpen ? '✕' : '☰'}
+          </button>
           <Link to="/" className="shell-title-link">
-            <h1 className="shell-title">Local Cookbook</h1>
+            <h1 className="shell-title">Masterbook</h1>
           </Link>
           <div className="middle-topbar-actions">
             {user?.role === 'admin' && (
-              <Link to="/admin/users" className="button-link secondary-link">
-                Manage users
+              <Link to="/admin" className="button-link secondary-link">
+                Admin
               </Link>
             )}
-            <Link to="/epub" className="button-link secondary-link">
-              EPUB library
-            </Link>
+            {/* Temporarily hidden -- marked pending for now. The route
+                itself (/epub) is untouched, so this is just a one-line
+                revert whenever it's ready to come back. */}
             <Link to="/activity" className="button-link secondary-link">
               Activity log
             </Link>
@@ -227,14 +254,31 @@ export function CookbookShell() {
             </Link>
             {user && (
               <span className="topbar-user">
-                <span className="muted">{user.email}</span>
-                <button type="button" className="link-button" onClick={logout}>
+                <Link to="/profile" className="topbar-profile-link">
+                  {user.avatarUrl ? (
+                    <img className="topbar-avatar" src={user.avatarUrl} alt="" />
+                  ) : (
+                    <span className="topbar-avatar topbar-avatar-placeholder">
+                      {(user.displayName || user.email).slice(0, 1).toUpperCase()}
+                    </span>
+                  )}
+                  <span className="muted">{user.displayName || user.email}</span>
+                </Link>
+                <button type="button" className="logout-button" onClick={logout}>
                   Log out
                 </button>
               </span>
             )}
           </div>
         </div>
+
+        {siteStatus?.frozenAt && user?.role !== 'admin' && (
+          <div className="site-frozen-banner">
+            🧊 Masterbook is in maintenance mode right now -- browsing works, but adding/editing/deleting is
+            temporarily paused.
+            {siteStatus.frozenMessage && <> "{siteStatus.frozenMessage}"</>}
+          </div>
+        )}
 
         <div className="middle-content">
           <Outlet context={context} />

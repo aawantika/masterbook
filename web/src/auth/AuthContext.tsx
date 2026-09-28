@@ -9,6 +9,11 @@ export type AuthState = {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  // Re-fetches /me and updates context state -- called after a
+  // self-service profile change (display name, avatar) so the topbar and
+  // everywhere else reading useAuth().user reflect it immediately, instead
+  // of only updating the profile page's own local state.
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -60,7 +65,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signOut(auth);
   };
 
-  return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>;
+  const refreshUser = async () => {
+    const me = await getMe();
+    setUser(me);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>{children}</AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthState {

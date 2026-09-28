@@ -172,18 +172,27 @@ export function deleteRecipe(recipeId: number): void {
   db.prepare('DELETE FROM recipes WHERE id = ?').run(recipeId);
 }
 
-export function setWantToTry(recipeId: number, want: boolean): void {
-  db.prepare('UPDATE recipes SET want_to_try_at = ? WHERE id = ?').run(
-    want ? new Date().toISOString() : null,
-    recipeId
-  );
+// Favorites/queue are per-person (see schema.sql's recipe_favorites/
+// recipe_want_to_try) -- each user has their own row per recipe, unlike
+// setNeedsFixing below which stays a single shared column.
+export function setWantToTry(recipeId: number, userId: number, want: boolean): void {
+  if (want) {
+    db.prepare(
+      "INSERT INTO recipe_want_to_try (recipe_id, user_id, want_to_try_at) VALUES (?, ?, datetime('now')) ON CONFLICT (recipe_id, user_id) DO NOTHING"
+    ).run(recipeId, userId);
+  } else {
+    db.prepare('DELETE FROM recipe_want_to_try WHERE recipe_id = ? AND user_id = ?').run(recipeId, userId);
+  }
 }
 
-export function setFavorite(recipeId: number, favorite: boolean): void {
-  db.prepare('UPDATE recipes SET favorited_at = ? WHERE id = ?').run(
-    favorite ? new Date().toISOString() : null,
-    recipeId
-  );
+export function setFavorite(recipeId: number, userId: number, favorite: boolean): void {
+  if (favorite) {
+    db.prepare(
+      "INSERT INTO recipe_favorites (recipe_id, user_id, favorited_at) VALUES (?, ?, datetime('now')) ON CONFLICT (recipe_id, user_id) DO NOTHING"
+    ).run(recipeId, userId);
+  } else {
+    db.prepare('DELETE FROM recipe_favorites WHERE recipe_id = ? AND user_id = ?').run(recipeId, userId);
+  }
 }
 
 export function setNeedsFixing(recipeId: number, needsFixing: boolean): void {
@@ -221,8 +230,21 @@ export type SearchFilters = {
   needsFixingOnly?: boolean;
   madeOnly?: boolean;
   notMadeOnly?: boolean;
-  ownerId?: number;
+  // Average rating (across all logged attempts, global -- not per-user,
+  // same as the ratings themselves) of at least this many stars.
+  minRating?: number;
+  // One or more contributor ids -- "show me recipes added by any of these
+  // people" (an OR across the list, same as mealTypeIds/cuisineIds above).
+  // Omitted entirely means "everyone," same as before this became
+  // multi-select.
+  ownerIds?: number[];
   sortBy?: 'title' | 'recent';
+  // Whose favorites/queue to report and filter by -- favorited_at/
+  // want_to_try_at on the returned rows are THIS user's, not global (see
+  // recipe_favorites/recipe_want_to_try in schema.sql). Always the
+  // requesting user's own id; there is no "view someone else's favorites"
+  // mode.
+  viewerUserId: number;
 };
 
 function sanitizeFtsQuery(query: string): string {
@@ -260,10 +282,12 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
     params.push(...filters.ingredientIds);
   }
   if (filters.toTryOnly) {
-    clauses.push('r.want_to_try_at IS NOT NULL');
+    clauses.push('EXISTS (SELECT 1 FROM recipe_want_to_try WHERE recipe_id = r.id AND user_id = ?)');
+    params.push(filters.viewerUserId);
   }
   if (filters.favoritesOnly) {
-    clauses.push('r.favorited_at IS NOT NULL');
+    clauses.push('EXISTS (SELECT 1 FROM recipe_favorites WHERE recipe_id = r.id AND user_id = ?)');
+    params.push(filters.viewerUserId);
   }
   if (filters.needsFixingOnly) {
     clauses.push('r.needs_fixing_at IS NOT NULL');
@@ -278,12 +302,19 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
   if (filters.notMadeOnly) {
     clauses.push('NOT EXISTS (SELECT 1 FROM recipe_attempts WHERE recipe_id = r.id)');
   }
-  // Only applied in "my recipes" mode -- omitted entirely (no clause) for
-  // "all recipes", which keeps that mode byte-for-byte identical to
-  // pre-accounts behavior: every recipe, unfiltered.
-  if (filters.ownerId !== undefined) {
-    clauses.push('r.user_id = ?');
-    params.push(filters.ownerId);
+  if (filters.minRating != null) {
+    clauses.push(
+      '(SELECT AVG(rating) FROM recipe_attempts WHERE recipe_id = r.id AND rating IS NOT NULL) >= ?'
+    );
+    params.push(filters.minRating);
+  }
+  // Omitted entirely (no clause) means "everyone", which keeps that mode
+  // byte-for-byte identical to pre-accounts behavior: every recipe,
+  // unfiltered.
+  if (filters.ownerIds && filters.ownerIds.length > 0) {
+    const placeholders = filters.ownerIds.map(() => '?').join(', ');
+    clauses.push(`r.user_id IN (${placeholders})`);
+    params.push(...filters.ownerIds);
   }
 
   const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
@@ -291,11 +322,16 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
 
   const rows = db
     .prepare(
-      `SELECT r.id, r.title, r.source_type, r.source_ref, r.source_name, r.image_url, r.want_to_try_at, r.favorited_at, r.needs_fixing_at, r.user_id, u.email as owner_email, u.display_name as owner_display_name
-       FROM recipes r LEFT JOIN users u ON u.id = r.user_id
+      `SELECT r.id, r.title, r.source_type, r.source_ref, r.source_name, r.image_url, r.needs_fixing_at, r.user_id,
+              u.email as owner_email, u.display_name as owner_display_name,
+              rwt.want_to_try_at as want_to_try_at, rf.favorited_at as favorited_at
+       FROM recipes r
+       LEFT JOIN users u ON u.id = r.user_id
+       LEFT JOIN recipe_want_to_try rwt ON rwt.recipe_id = r.id AND rwt.user_id = ?
+       LEFT JOIN recipe_favorites rf ON rf.recipe_id = r.id AND rf.user_id = ?
        ${where} ${orderBy}`
     )
-    .all(...params) as Array<{
+    .all(filters.viewerUserId, filters.viewerUserId, ...params) as Array<{
     id: number;
     title: string;
     source_type: string;
@@ -372,7 +408,7 @@ export type RecipeDetail = {
   ownerName: string | null;
 };
 
-export function getRecipeById(recipeId: number): RecipeDetail | null {
+export function getRecipeById(recipeId: number, viewerUserId: number): RecipeDetail | null {
   const row = db.prepare('SELECT * FROM recipes WHERE id = ?').get(recipeId) as
     | {
         id: number;
@@ -387,13 +423,24 @@ export function getRecipeById(recipeId: number): RecipeDetail | null {
         video_ref: string | null;
         image_url: string | null;
         notes: string | null;
-        want_to_try_at: string | null;
-        favorited_at: string | null;
         needs_fixing_at: string | null;
         user_id: number | null;
       }
     | undefined;
   if (!row) return null;
+
+  const wantToTryAt = (
+    db.prepare('SELECT want_to_try_at FROM recipe_want_to_try WHERE recipe_id = ? AND user_id = ?').get(
+      recipeId,
+      viewerUserId
+    ) as { want_to_try_at: string } | undefined
+  )?.want_to_try_at ?? null;
+  const favoritedAt = (
+    db.prepare('SELECT favorited_at FROM recipe_favorites WHERE recipe_id = ? AND user_id = ?').get(
+      recipeId,
+      viewerUserId
+    ) as { favorited_at: string } | undefined
+  )?.favorited_at ?? null;
 
   const ingredients = db
     .prepare(
@@ -448,8 +495,8 @@ export function getRecipeById(recipeId: number): RecipeDetail | null {
     videoRef: row.video_ref,
     imageUrl: row.image_url,
     notes: row.notes,
-    wantToTryAt: row.want_to_try_at,
-    favoritedAt: row.favorited_at,
+    wantToTryAt,
+    favoritedAt,
     needsFixingAt: row.needs_fixing_at,
     mealTypeIds,
     cuisineNames,
@@ -467,10 +514,16 @@ function resolveDisplayNameForOwner(userId: number): string | null {
   return owner ? resolveDisplayName(owner.displayName, owner.email) : null;
 }
 
-export function addAttempt(recipeId: number, attemptedAt: string, rating: number | null, notes: string | null): number {
+export function addAttempt(
+  recipeId: number,
+  userId: number,
+  attemptedAt: string,
+  rating: number | null,
+  notes: string | null
+): number {
   const result = db
-    .prepare('INSERT INTO recipe_attempts (recipe_id, attempted_at, rating, notes) VALUES (?, ?, ?, ?)')
-    .run(recipeId, attemptedAt, rating, notes);
+    .prepare('INSERT INTO recipe_attempts (recipe_id, user_id, attempted_at, rating, notes) VALUES (?, ?, ?, ?, ?)')
+    .run(recipeId, userId, attemptedAt, rating, notes);
   return Number(result.lastInsertRowid);
 }
 
@@ -481,6 +534,7 @@ export type ActivityEntry = {
   attemptedAt: string;
   rating: number | null;
   notes: string | null;
+  userName: string | null;
 };
 
 // Every logged cooking attempt across all recipes, newest first — the raw
@@ -489,9 +543,11 @@ export type ActivityEntry = {
 export function listAllAttempts(): ActivityEntry[] {
   const rows = db
     .prepare(
-      `SELECT ra.id, ra.recipe_id, r.title, ra.attempted_at, ra.rating, ra.notes
+      `SELECT ra.id, ra.recipe_id, r.title, ra.attempted_at, ra.rating, ra.notes,
+              u.email as user_email, u.display_name as user_display_name
        FROM recipe_attempts ra
        JOIN recipes r ON r.id = ra.recipe_id
+       LEFT JOIN users u ON u.id = ra.user_id
        ORDER BY ra.attempted_at DESC, ra.id DESC`
     )
     .all() as Array<{
@@ -501,6 +557,8 @@ export function listAllAttempts(): ActivityEntry[] {
     attempted_at: string;
     rating: number | null;
     notes: string | null;
+    user_email: string | null;
+    user_display_name: string | null;
   }>;
 
   return rows.map((r) => ({
@@ -509,7 +567,8 @@ export function listAllAttempts(): ActivityEntry[] {
     recipeTitle: r.title,
     attemptedAt: r.attempted_at,
     rating: r.rating,
-    notes: r.notes
+    notes: r.notes,
+    userName: r.user_email ? resolveDisplayName(r.user_display_name, r.user_email) : null
   }));
 }
 

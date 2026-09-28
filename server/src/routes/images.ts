@@ -16,8 +16,8 @@ export const imagesRouter = Router();
 export const publicImagesRouter = Router();
 publicImagesRouter.use(requireSessionCookie, express.static(imagesDir));
 
-const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
-const EXTENSION_BY_MIME: Record<string, string> = {
+export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+export const EXTENSION_BY_MIME: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/webp': 'webp',

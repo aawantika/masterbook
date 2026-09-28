@@ -1,5 +1,6 @@
 import { db } from './client.js';
 import { ParsedIngredientLine, ParsedInstructionStep } from '../types/recipe.js';
+import { findUserById, resolveDisplayName } from './users.js';
 
 export type RecipeInput = {
   title: string;
@@ -207,6 +208,7 @@ export type RecipeSummary = {
   mealTypes: string[];
   cuisines: string[];
   ownerId: number | null;
+  ownerName: string | null;
 };
 
 export type SearchFilters = {
@@ -289,7 +291,9 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
 
   const rows = db
     .prepare(
-      `SELECT r.id, r.title, r.source_type, r.source_ref, r.source_name, r.image_url, r.want_to_try_at, r.favorited_at, r.needs_fixing_at, r.user_id FROM recipes r ${where} ${orderBy}`
+      `SELECT r.id, r.title, r.source_type, r.source_ref, r.source_name, r.image_url, r.want_to_try_at, r.favorited_at, r.needs_fixing_at, r.user_id, u.email as owner_email, u.display_name as owner_display_name
+       FROM recipes r LEFT JOIN users u ON u.id = r.user_id
+       ${where} ${orderBy}`
     )
     .all(...params) as Array<{
     id: number;
@@ -302,6 +306,8 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
     favorited_at: string | null;
     needs_fixing_at: string | null;
     user_id: number | null;
+    owner_email: string | null;
+    owner_display_name: string | null;
   }>;
 
   const avgRatingStmt = db.prepare(
@@ -330,7 +336,8 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
       lastCookedAt: ratingRow.last,
       mealTypes: (mealTypesStmt.all(row.id) as Array<{ name: string }>).map((r) => r.name),
       cuisines: (cuisinesStmt.all(row.id) as Array<{ name: string }>).map((r) => r.name),
-      ownerId: row.user_id
+      ownerId: row.user_id,
+      ownerName: row.owner_email ? resolveDisplayName(row.owner_display_name, row.owner_email) : null
     };
   });
 }
@@ -362,6 +369,7 @@ export type RecipeDetail = {
   cuisineNames: string[];
   attempts: Array<{ id: number; attemptedAt: string; rating: number | null; notes: string | null }>;
   ownerId: number | null;
+  ownerName: string | null;
 };
 
 export function getRecipeById(recipeId: number): RecipeDetail | null {
@@ -446,8 +454,17 @@ export function getRecipeById(recipeId: number): RecipeDetail | null {
     mealTypeIds,
     cuisineNames,
     attempts: attempts.map((a) => ({ id: a.id, attemptedAt: a.attempted_at, rating: a.rating, notes: a.notes })),
-    ownerId: row.user_id
+    ownerId: row.user_id,
+    ownerName: row.user_id != null ? resolveDisplayNameForOwner(row.user_id) : null
   };
+}
+
+// A single-row lookup (unlike searchRecipes' JOIN, which covers a whole
+// result set at once) -- getRecipeById is only ever called for one recipe,
+// so a plain extra query here is simpler than a JOIN for one row.
+function resolveDisplayNameForOwner(userId: number): string | null {
+  const owner = findUserById(userId);
+  return owner ? resolveDisplayName(owner.displayName, owner.email) : null;
 }
 
 export function addAttempt(recipeId: number, attemptedAt: string, rating: number | null, notes: string | null): number {

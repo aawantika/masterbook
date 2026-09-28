@@ -8,12 +8,14 @@ import { ActivityPage } from './pages/ActivityPage';
 import { EpubLibraryPage } from './pages/EpubLibraryPage';
 import { EpubReaderPage } from './pages/EpubReaderPage';
 import { LoginPage } from './pages/LoginPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
 
 export function App() {
   return (
     <Routes>
       <Route path="login" element={<LoginPage />} />
+      <Route path="reset-password" element={<ResetPasswordPage />} />
       <Route
         element={
           <RequireAuth>

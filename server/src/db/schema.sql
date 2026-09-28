@@ -15,6 +15,11 @@ CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY,
   firebase_uid TEXT NOT NULL UNIQUE,
   email TEXT NOT NULL,
+  -- Set by the admin from the Manage Users page. NULL until then --
+  -- display falls back to the part of the email before "@" (see
+  -- resolveDisplayName in db/users.ts) rather than showing a raw email
+  -- address to every other member in "added by" labels.
+  display_name TEXT,
   role TEXT NOT NULL CHECK (role IN ('admin','user')) DEFAULT 'user',
   approved_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))

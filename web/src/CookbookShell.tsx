@@ -1,9 +1,23 @@
 import { useEffect, useState } from 'react';
 import { Link, Outlet, useNavigate, useParams } from 'react-router-dom';
-import { getCuisines, getMealTypes, searchRecipes, setFavorite, setNeedsFixing, setWantToTry } from './api/client';
-import { MetaItem, RecipeSummary } from './api/types';
+import {
+  getContributors,
+  getCuisines,
+  getMealTypes,
+  searchRecipes,
+  setFavorite,
+  setNeedsFixing,
+  setWantToTry
+} from './api/client';
+import { Contributor, MetaItem, RecipeSummary } from './api/types';
 import { Sidebar } from './components/Sidebar';
 import { useAuth } from './auth/AuthContext';
+
+// 'all' shows everyone's recipes (the default, matches pre-accounts
+// behavior); any other value is a specific contributor's user id, shown
+// via the "Added by" dropdown (see FilterBar) rather than a plain "mine"
+// toggle -- lets you filter to *anyone* in the group, not just yourself.
+export type OwnerFilter = 'all' | number;
 
 export type SortBy = 'title' | 'recent';
 // "all" shows everything; the other two are mutually exclusive with each
@@ -39,8 +53,9 @@ export type ShellContext = {
   toggleNeedsFixingOnly: () => void;
   madeFilter: MadeFilter;
   setMadeFilter: (value: MadeFilter) => void;
-  mineOnly: boolean;
-  toggleMineOnly: () => void;
+  contributors: Contributor[];
+  ownerFilter: OwnerFilter;
+  setOwnerFilter: (value: OwnerFilter) => void;
   sortBy: SortBy;
   setSortBy: (sort: SortBy) => void;
   results: RecipeSummary[];
@@ -63,21 +78,23 @@ export function CookbookShell() {
   const debouncedQuery = useDebounced(query, 250);
   const [mealTypes, setMealTypes] = useState<MetaItem[]>([]);
   const [cuisines, setCuisines] = useState<MetaItem[]>([]);
+  const [contributors, setContributors] = useState<Contributor[]>([]);
   const [selectedMealTypeIds, setSelectedMealTypeIds] = useState<Set<number>>(new Set());
   const [selectedCuisineIds, setSelectedCuisineIds] = useState<Set<number>>(new Set());
   const [toTryOnly, setToTryOnly] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [needsFixingOnly, setNeedsFixingOnly] = useState(false);
   const [madeFilter, setMadeFilter] = useState<MadeFilter>('all');
-  const [mineOnly, setMineOnly] = useState(false);
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('all');
   const [sortBy, setSortBy] = useState<SortBy>('title');
   const [results, setResults] = useState<RecipeSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getMealTypes(), getCuisines()]).then(([mt, c]) => {
+    Promise.all([getMealTypes(), getCuisines(), getContributors()]).then(([mt, c, contrib]) => {
       setMealTypes(mt);
       setCuisines(c);
+      setContributors(contrib);
     });
   }, []);
 
@@ -99,7 +116,7 @@ export function CookbookShell() {
         needsFixing: needsFixingOnly,
         made: madeFilter === 'made',
         notMade: madeFilter === 'not-made',
-        mine: mineOnly,
+        ownerId: ownerFilter === 'all' ? undefined : ownerFilter,
         sort: sortBy
       });
       setResults(data);
@@ -119,7 +136,7 @@ export function CookbookShell() {
     favoritesOnly,
     needsFixingOnly,
     madeFilter,
-    mineOnly,
+    ownerFilter,
     sortBy,
     reloadSignal
   ]);
@@ -166,8 +183,9 @@ export function CookbookShell() {
     toggleNeedsFixingOnly: () => setNeedsFixingOnly((prev) => !prev),
     madeFilter,
     setMadeFilter,
-    mineOnly,
-    toggleMineOnly: () => setMineOnly((prev) => !prev),
+    contributors,
+    ownerFilter,
+    setOwnerFilter,
     sortBy,
     setSortBy,
     results,

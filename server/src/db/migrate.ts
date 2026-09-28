@@ -120,6 +120,13 @@ function migrateUserApproval(): void {
   }
 }
 
+function migrateUserDisplayName(): void {
+  const columns = db.prepare('PRAGMA table_info(users)').all() as Array<{ name: string }>;
+  if (!columns.some((c) => c.name === 'display_name')) {
+    db.exec('ALTER TABLE users ADD COLUMN display_name TEXT');
+  }
+}
+
 export function migrate(): void {
   db.exec(getSchemaSql());
   migrateRecipeTimeColumns();
@@ -128,6 +135,7 @@ export function migrate(): void {
   dropEpubCandidatesTable();
   migrateOwnership();
   migrateUserApproval();
+  migrateUserDisplayName();
 
   const fts5Check = db.prepare(
     "SELECT count(*) as count FROM pragma_compile_options WHERE compile_options LIKE '%FTS5%'"

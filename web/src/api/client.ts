@@ -1,5 +1,6 @@
 import {
   ActivityEntry,
+  Contributor,
   DuplicateMatch,
   EpubBlock,
   EpubBookmark,
@@ -76,7 +77,9 @@ export type SearchParams = {
   needsFixing?: boolean;
   made?: boolean;
   notMade?: boolean;
-  mine?: boolean;
+  // A specific contributor's id -- "everyone" is just omitting this
+  // entirely, same as every other optional filter here.
+  ownerId?: number;
   sort?: 'title' | 'recent';
 };
 
@@ -91,7 +94,7 @@ export function searchRecipes(params: SearchParams): Promise<RecipeSummary[]> {
   if (params.needsFixing) query.set('needsFixing', 'true');
   if (params.made) query.set('made', 'true');
   if (params.notMade) query.set('notMade', 'true');
-  if (params.mine) query.set('mine', 'true');
+  if (params.ownerId != null) query.set('ownerId', String(params.ownerId));
   if (params.sort === 'recent') query.set('sort', 'recent');
   const qs = query.toString();
   return request<RecipeSummary[]>(`/recipes${qs ? `?${qs}` : ''}`);
@@ -179,6 +182,10 @@ export function getCuisines(): Promise<MetaItem[]> {
 
 export function getIngredientNames(): Promise<MetaItem[]> {
   return request<MetaItem[]>('/meta/ingredients');
+}
+
+export function getContributors(): Promise<Contributor[]> {
+  return request<Contributor[]>('/meta/contributors');
 }
 
 // Bespoke fetch, not the shared request() helper -- request() always
@@ -282,4 +289,11 @@ export function createUser(email: string, role: 'admin' | 'user' = 'user'): Prom
 
 export function approveUser(id: number): Promise<User> {
   return request<User>(`/auth/users/${id}/approve`, { method: 'PATCH' });
+}
+
+export function updateDisplayName(id: number, displayName: string | null): Promise<User> {
+  return request<User>(`/auth/users/${id}/display-name`, {
+    method: 'PATCH',
+    body: JSON.stringify({ displayName })
+  });
 }

@@ -71,6 +71,7 @@ export function RecipeListRow({
         ) : (
           <span className="muted">Not yet rated</span>
         )}
+        {recipe.ownerName && <span className="muted">by {recipe.ownerName}</span>}
       </div>
     </div>
   );

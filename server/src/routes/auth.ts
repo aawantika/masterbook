@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getFirebaseAuth } from '../auth/firebaseAdmin.js';
-import { approveUser, createUserRecord, findUserById, listUsers } from '../db/users.js';
+import { approveUser, createUserRecord, findUserById, listUsers, updateDisplayName } from '../db/users.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { SESSION_COOKIE, SESSION_MAX_AGE_MS } from '../middleware/sessionCookie.js';
 
@@ -129,4 +129,29 @@ authRouter.patch('/users/:id/approve', requireAdmin, async (req, res) => {
     }
   }
   res.json(approveUser(id));
+});
+
+const displayNameSchema = z.object({ displayName: z.string().trim().max(60).nullable() });
+
+// Admin-set only, for now -- there's no self-service profile page yet, and
+// the admin is already the one relaying invites/approvals to each person,
+// so asking what name to use is a small extra step in that same
+// conversation rather than a reason to build a whole settings page.
+authRouter.patch('/users/:id/display-name', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: 'Invalid user id' });
+    return;
+  }
+  const parsed = displayNameSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+  const user = updateDisplayName(id, parsed.data.displayName);
+  if (!user) {
+    res.status(404).json({ error: 'User not found' });
+    return;
+  }
+  res.json(user);
 });

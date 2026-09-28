@@ -15,6 +15,7 @@ export function LoginPage() {
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [resetNotice, setResetNotice] = useState<string | null>(null);
@@ -32,6 +33,10 @@ export function LoginPage() {
     e.preventDefault();
     setError(null);
     setResetNotice(null);
+    if (mode === 'signup' && password !== confirmPassword) {
+      setError("Passwords don't match.");
+      return;
+    }
     setSubmitting(true);
     try {
       if (mode === 'signup') {
@@ -89,6 +94,17 @@ export function LoginPage() {
             <span>Password</span>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </label>
+          {mode === 'signup' && (
+            <label className="field">
+              <span>Confirm password</span>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            </label>
+          )}
           {error && <div className="editor-error">{error}</div>}
           {resetNotice && <div className="editor-notice">{resetNotice}</div>}
           {mode === 'signup' && (
@@ -111,6 +127,7 @@ export function LoginPage() {
                 setMode('signup');
                 setError(null);
                 setResetNotice(null);
+                setConfirmPassword('');
               }}
             >
               Need an account? Sign up
@@ -123,6 +140,7 @@ export function LoginPage() {
                 setMode('login');
                 setError(null);
                 setResetNotice(null);
+                setConfirmPassword('');
               }}
             >
               Already have an account? Log in

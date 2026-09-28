@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase';
-import { approveUser, createUser, listUsers } from '../api/client';
+import { approveUser, createUser, listUsers, updateDisplayName } from '../api/client';
 import { User } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 
@@ -17,6 +17,8 @@ export function AdminUsersPage() {
   const [creating, setCreating] = useState(false);
   const [resending, setResending] = useState<number | null>(null);
   const [approving, setApproving] = useState<number | null>(null);
+  const [nameDrafts, setNameDrafts] = useState<Record<number, string>>({});
+  const [savingName, setSavingName] = useState<number | null>(null);
 
   const reload = () => {
     setLoading(true);
@@ -88,6 +90,22 @@ export function AdminUsersPage() {
     }
   };
 
+  const handleSaveName = async (target: User) => {
+    setError(null);
+    setNotice(null);
+    setSavingName(target.id);
+    try {
+      const draft = (nameDrafts[target.id] ?? target.displayName ?? '').trim();
+      await updateDisplayName(target.id, draft || null);
+      setNotice(`Updated name for ${target.email}.`);
+      reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update name.');
+    } finally {
+      setSavingName(null);
+    }
+  };
+
   return (
     <div className="detail-panel">
       <h1>Manage users</h1>
@@ -148,9 +166,23 @@ export function AdminUsersPage() {
           <ul className="epub-source-list">
             {approved.map((u) => (
               <li key={u.id} className="epub-source-card">
-                <div className="epub-source-title">{u.email}</div>
+                <div className="epub-source-title">{u.displayName || u.email}</div>
+                {u.displayName && <div className="muted epub-source-meta">{u.email}</div>}
                 <div className="muted epub-source-meta">
                   {u.role} · added {u.createdAt.slice(0, 10)}
+                </div>
+                <div className="field-row">
+                  <label className="field">
+                    <span>Display name</span>
+                    <input
+                      value={nameDrafts[u.id] ?? u.displayName ?? ''}
+                      onChange={(e) => setNameDrafts((prev) => ({ ...prev, [u.id]: e.target.value }))}
+                      placeholder={u.email.split('@')[0]}
+                    />
+                  </label>
+                  <button type="button" className="secondary" onClick={() => handleSaveName(u)} disabled={savingName === u.id}>
+                    {savingName === u.id ? 'Saving...' : 'Save name'}
+                  </button>
                 </div>
                 <div className="editor-actions">
                   <button

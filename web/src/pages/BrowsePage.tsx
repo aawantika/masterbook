@@ -24,8 +24,9 @@ export function BrowsePage() {
     toggleNeedsFixingOnly,
     madeFilter,
     setMadeFilter,
-    mineOnly,
-    toggleMineOnly,
+    contributors,
+    ownerFilter,
+    setOwnerFilter,
     sortBy,
     setSortBy,
     results,
@@ -56,8 +57,9 @@ export function BrowsePage() {
         onToggleNeedsFixingOnly={toggleNeedsFixingOnly}
         madeFilter={madeFilter}
         onChangeMadeFilter={setMadeFilter}
-        mineOnly={mineOnly}
-        onToggleMineOnly={toggleMineOnly}
+        contributors={contributors}
+        ownerFilter={ownerFilter}
+        onChangeOwnerFilter={setOwnerFilter}
         sortBy={sortBy}
         onChangeSortBy={setSortBy}
         viewMode={viewMode}

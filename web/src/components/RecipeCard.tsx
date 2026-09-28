@@ -81,6 +81,7 @@ export function RecipeCard({
           <span className="muted">Not yet rated</span>
         )}
         {recipe.lastCookedAt && <span className="muted">Last made {recipe.lastCookedAt.slice(0, 10)}</span>}
+        {recipe.ownerName && <span className="muted">Added by {recipe.ownerName}</span>}
       </div>
     </div>
   );

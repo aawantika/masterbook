@@ -61,6 +61,16 @@ recipesRouter.get('/', (req, res) => {
   const madeOnly = req.query.made === 'true';
   const notMadeOnly = req.query.notMade === 'true';
   const mineOnly = req.query.mine === 'true';
+  // Generic "added by this specific person" filter -- mine=true is kept as
+  // a convenience shortcut for "added by me" rather than making the client
+  // look up its own id, but ownerId takes it from here if both were somehow
+  // passed at once.
+  const requestedOwnerId = typeof req.query.ownerId === 'string' ? Number(req.query.ownerId) : undefined;
+  const ownerId = Number.isInteger(requestedOwnerId)
+    ? requestedOwnerId
+    : mineOnly
+      ? req.user!.id
+      : undefined;
   const sortBy = req.query.sort === 'recent' ? 'recent' : 'title';
 
   res.json(
@@ -74,7 +84,7 @@ recipesRouter.get('/', (req, res) => {
       needsFixingOnly,
       madeOnly,
       notMadeOnly,
-      ownerId: mineOnly ? req.user!.id : undefined,
+      ownerId,
       sortBy
     })
   );

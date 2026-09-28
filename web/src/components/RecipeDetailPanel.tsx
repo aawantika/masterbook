@@ -284,6 +284,7 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
           <div>
             <span className="badge">{recipe.sourceName || recipe.sourceType}</span>
           </div>
+          {recipe.ownerName && <div className="muted">Added by {recipe.ownerName}</div>}
           {recipe.mealTypeIds.length > 0 && (
             <div className="badge-row">
               {mealTypes

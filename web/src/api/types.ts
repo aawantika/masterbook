@@ -58,6 +58,7 @@ export type RecipeSummary = {
   mealTypes: string[];
   cuisines: string[];
   ownerId: number | null;
+  ownerName: string | null;
 };
 
 export type RecipeAttempt = {
@@ -97,14 +98,21 @@ export type RecipeDetail = {
   cuisineNames: string[];
   attempts: RecipeAttempt[];
   ownerId: number | null;
+  ownerName: string | null;
 };
 
 export type MetaItem = { id: number; name: string };
+
+// The "who's in this group" list for the browse page's "Added by" filter --
+// GET /api/meta/contributors, visible to any approved member, not just
+// admins (unlike User/GET /auth/users below).
+export type Contributor = { id: number; name: string };
 
 export type User = {
   id: number;
   firebaseUid: string;
   email: string;
+  displayName: string | null;
   role: 'admin' | 'user';
   approvedAt: string | null;
   createdAt: string;

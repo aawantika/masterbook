@@ -1,5 +1,5 @@
-import { MetaItem } from '../api/types';
-import { MadeFilter, SortBy } from '../CookbookShell';
+import { Contributor, MetaItem } from '../api/types';
+import { MadeFilter, OwnerFilter, SortBy } from '../CookbookShell';
 
 export type ViewMode = 'grid' | 'list';
 
@@ -20,8 +20,9 @@ type FilterBarProps = {
   onToggleNeedsFixingOnly: () => void;
   madeFilter: MadeFilter;
   onChangeMadeFilter: (value: MadeFilter) => void;
-  mineOnly: boolean;
-  onToggleMineOnly: () => void;
+  contributors: Contributor[];
+  ownerFilter: OwnerFilter;
+  onChangeOwnerFilter: (value: OwnerFilter) => void;
   sortBy: SortBy;
   onChangeSortBy: (sort: SortBy) => void;
   viewMode: ViewMode;
@@ -81,8 +82,9 @@ export function FilterBar({
   onToggleNeedsFixingOnly,
   madeFilter,
   onChangeMadeFilter,
-  mineOnly,
-  onToggleMineOnly,
+  contributors,
+  ownerFilter,
+  onChangeOwnerFilter,
   sortBy,
   onChangeSortBy,
   viewMode,
@@ -119,9 +121,19 @@ export function FilterBar({
         >
           🔧 Needs fixing
         </button>
-        <button type="button" className={`filter-chip${mineOnly ? ' active' : ''}`} onClick={onToggleMineOnly}>
-          My recipes
-        </button>
+        <select
+          className="sort-select"
+          value={ownerFilter}
+          onChange={(e) => onChangeOwnerFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+          aria-label="Added by"
+        >
+          <option value="all">Added by: Everyone</option>
+          {contributors.map((c) => (
+            <option key={c.id} value={c.id}>
+              Added by: {c.name}
+            </option>
+          ))}
+        </select>
         <FilterGroup label="Meal type" items={mealTypes} selected={selectedMealTypeIds} onToggle={onToggleMealType} />
         <FilterGroup label="Cuisine" items={cuisines} selected={selectedCuisineIds} onToggle={onToggleCuisine} />
         <button

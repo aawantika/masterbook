@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getFirebaseAuth } from '../auth/firebaseAdmin.js';
 import { createUserRecord, listUsers } from '../db/users.js';
 import { requireAdmin } from '../middleware/auth.js';
+import { SESSION_COOKIE, SESSION_MAX_AGE_MS } from '../middleware/sessionCookie.js';
 
 export const authRouter = Router();
 
@@ -13,6 +14,32 @@ export const authRouter = Router();
 // through this server.
 authRouter.get('/me', (req, res) => {
   res.json(req.user);
+});
+
+// Exchanges the (already requireAuth-verified) ID token for a Firebase
+// session cookie that image routes accept -- see middleware/sessionCookie.ts.
+// The web client calls this on every sign-in / page load, so the cookie's
+// 5-day lifetime keeps sliding forward for anyone actively using the app.
+authRouter.post('/session', async (req, res) => {
+  const idToken = req.header('authorization')!.slice('Bearer '.length);
+  try {
+    const cookie = await getFirebaseAuth().createSessionCookie(idToken, { expiresIn: SESSION_MAX_AGE_MS });
+    res.cookie(SESSION_COOKIE, cookie, {
+      maxAge: SESSION_MAX_AGE_MS,
+      httpOnly: true,
+      secure: req.secure,
+      sameSite: 'lax',
+      path: '/api'
+    });
+    res.status(204).end();
+  } catch {
+    res.status(401).json({ error: 'Could not create session' });
+  }
+});
+
+authRouter.delete('/session', (_req, res) => {
+  res.clearCookie(SESSION_COOKIE, { path: '/api' });
+  res.status(204).end();
 });
 
 authRouter.get('/users', requireAdmin, (_req, res) => {

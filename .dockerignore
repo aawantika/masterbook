@@ -14,3 +14,5 @@ epub-sources/
 .DS_Store
 .git/
 .env.local
+.env
+firebase-service-account.json

@@ -10,6 +10,7 @@ import {
 } from '../sourceUrl';
 import { RecipeDraftEditor } from './RecipeDraftEditor';
 import { Button, ButtonLink } from './Button';
+import { useAuth } from '../auth/AuthContext';
 
 type ImportPanelProps = {
   onCreated: (recipeId: number) => void;
@@ -23,6 +24,7 @@ type ImportPanelProps = {
 const PASTE_TEMPLATE = 'Title:\n\nSource:\n\nIngredients (use - for section names)\n\nInstructions';
 
 export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
+  const { user } = useAuth();
   const [pasteText, setPasteText] = useState(PASTE_TEMPLATE);
   const [fetchUrl, setFetchUrl] = useState('');
   const [sourceType, setSourceType] = useState<SourceType>('manual');
@@ -198,9 +200,11 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
             <Button variant="secondary" onClick={handleSkipToManual}>
               Skip — just save the link(s)
             </Button>
-            <ButtonLink to="/epub" variant="secondary">
-              + Add from EPUB
-            </ButtonLink>
+            {user?.role === 'admin' && (
+              <ButtonLink to="/epub" variant="secondary">
+                + Add from EPUB
+              </ButtonLink>
+            )}
           </div>
 
           <div className="import-divider">— or paste the recipe text directly —</div>

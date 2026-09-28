@@ -19,7 +19,7 @@ import {
   readMetadata,
   resolveImageManifestId
 } from '../ingestion/epub/epubReader.js';
-import { requireSessionCookie } from '../middleware/sessionCookie.js';
+import { requireAdminSessionCookie } from '../middleware/sessionCookie.js';
 
 export const epubRouter = Router();
 // Split out from epubRouter and mounted *before* the requireAuth gate in
@@ -164,7 +164,7 @@ epubRouter.get('/sources/:id/chapters/:flowIndex/html', async (req, res) => {
 // segment is exactly the manifest-relative path epub2 embedded, so it's
 // matched straight back against the manifest rather than re-derived.
 // Mounted publicly (see epubImagesRouter comment above) -- not on epubRouter.
-epubImagesRouter.use('/sources/:id/images', requireSessionCookie);
+epubImagesRouter.use('/sources/:id/images', requireAdminSessionCookie);
 epubImagesRouter.get('/sources/:id/images/*imgPath', async (req, res) => {
   const id = parseIdParam(req.params.id);
   if (!id) return res.status(400).json({ error: 'Invalid id' });

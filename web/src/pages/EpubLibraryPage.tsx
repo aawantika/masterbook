@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { deleteEpubSource, listEpubSources, uploadEpub } from '../api/client';
 import { EpubSource } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 
 export function EpubLibraryPage() {
+  const { user } = useAuth();
   const [sources, setSources] = useState<EpubSource[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -48,6 +50,13 @@ export function EpubLibraryPage() {
       setUploading(false);
     }
   };
+
+  // Real enforcement is server-side (requireAdmin on /api/epub) -- this is
+  // just UX so a non-admin who hits /epub directly sees a redirect instead
+  // of a page full of failed-request errors.
+  if (user && user.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="detail-panel">

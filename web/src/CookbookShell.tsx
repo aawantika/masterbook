@@ -259,9 +259,17 @@ export function CookbookShell() {
                 Admin
               </ButtonLink>
             )}
-            {/* Temporarily hidden -- marked pending for now. The route
-                itself (/epub) is untouched, so this is just a one-line
-                revert whenever it's ready to come back. */}
+            {/* Admin-only, on purpose -- not "hidden for now" anymore, the
+                backend actually enforces this too (see requireAdmin on
+                /api/epub in server/src/index.ts). A known vulnerability in
+                a transitive EPUB-parsing dependency made "any approved
+                user can upload a zip" a real attack surface, so this stays
+                a personal, admin-only side feature until that's resolved. */}
+            {user?.role === 'admin' && (
+              <ButtonLink to="/epub" variant="secondary">
+                EPUB library
+              </ButtonLink>
+            )}
             <ButtonLink to="/activity" variant="secondary">
               Activity log
             </ButtonLink>

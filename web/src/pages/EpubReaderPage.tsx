@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { ShellContext } from '../CookbookShell';
 import {
   checkDuplicates,
@@ -17,6 +17,7 @@ import {
 import { EpubBlock, EpubBookmark, EpubChapterSummary, EpubSourceDetail, MetaItem, RecipeDraft, RecipeInput } from '../api/types';
 import { RecipeDraftEditor } from '../components/RecipeDraftEditor';
 import { Button } from '../components/Button';
+import { useAuth } from '../auth/AuthContext';
 
 type Coord = { flowIndex: number; blockIndex: number };
 
@@ -109,6 +110,7 @@ async function resolveBookmarkText(
 }
 
 export function EpubReaderPage() {
+  const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
   const sourceId = Number(id);
   const navigate = useNavigate();
@@ -286,6 +288,13 @@ export function EpubReaderPage() {
   const selectionSpansChapters = rangeStart && rangeEnd && rangeStart.flowIndex !== rangeEnd.flowIndex;
 
   const sortedBookmarks = useMemo(() => [...bookmarks].sort(compareBookmarks), [bookmarks]);
+
+  // Real enforcement is server-side (requireAdmin on /api/epub) -- this is
+  // just UX so a non-admin who hits /epub/:id directly sees a redirect
+  // instead of a page full of failed-request errors.
+  if (user && user.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
 
   if (draft) {
     return (

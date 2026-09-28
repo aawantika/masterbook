@@ -45,3 +45,30 @@ export const requireSessionCookie: RequestHandler = async (req, res, next) => {
   }
   next();
 };
+
+// Same as requireSessionCookie, plus an admin check -- used only for EPUB
+// book images (epubImagesRouter), now that EPUB is admin-only (see
+// index.ts). Kept separate from requireSessionCookie itself since that one
+// is shared with publicImagesRouter, which every approved user still needs
+// for ordinary recipe photos.
+export const requireAdminSessionCookie: RequestHandler = async (req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+
+  const cookie = readSessionCookie(req.header('cookie'));
+  if (!cookie) {
+    res.status(401).end();
+    return;
+  }
+  try {
+    const decoded = await getFirebaseAuth().verifySessionCookie(cookie);
+    const user = findUserByFirebaseUid(decoded.uid);
+    if (!user?.approvedAt || user.role !== 'admin') {
+      res.status(403).end();
+      return;
+    }
+  } catch {
+    res.status(401).end();
+    return;
+  }
+  next();
+};

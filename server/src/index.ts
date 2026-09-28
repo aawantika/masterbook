@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { migrate } from './db/migrate.js';
-import { requireApproved, requireAuth, requireSiteNotFrozen } from './middleware/auth.js';
+import { requireAdmin, requireApproved, requireAuth, requireSiteNotFrozen } from './middleware/auth.js';
 import { authRouter } from './routes/auth.js';
 import { meRouter } from './routes/me.js';
 import { metaRouter } from './routes/meta.js';
@@ -56,7 +56,13 @@ app.use('/api', attemptsRouter);
 app.use('/api/ingest/manual', manualIngestRouter);
 app.use('/api/ingest/website', websiteIngestRouter);
 app.use('/api/images', imagesRouter);
-app.use('/api/epub', epubRouter);
+// EPUB is admin-only for now -- a known symlink/DoS vulnerability in
+// adm-zip (a transitive dep of the epub2 parsing library, no fixed version
+// available yet) makes "any approved user can upload a zip file" a real
+// attack surface, not a theoretical one. Narrowing this to just the admin
+// account until that's actually resolved (rewritten parser, or the
+// upstream lib gets patched).
+app.use('/api/epub', requireAdmin, epubRouter);
 
 // Serves the built web app (web/dist) directly from this same process when
 // it's actually present -- true only inside the Docker image (see the root

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getFirebaseAuth } from '../auth/firebaseAdmin.js';
-import { approveUser, createUserRecord, listUsers } from '../db/users.js';
+import { approveUser, createUserRecord, findUserById, listUsers } from '../db/users.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { SESSION_COOKIE, SESSION_MAX_AGE_MS } from '../middleware/sessionCookie.js';
 
@@ -21,6 +21,14 @@ authRouter.get('/me', (req, res) => {
 // The web client calls this on every sign-in / page load, so the cookie's
 // 5-day lifetime keeps sliding forward for anyone actively using the app.
 authRouter.post('/session', async (req, res) => {
+  // Pending self-signups don't get one -- the cookie is what unlocks image
+  // routes (see middleware/sessionCookie.ts, which re-checks approval on
+  // every request too, so a cookie issued before a future "unapprove"
+  // still stops working).
+  if (!req.user?.approvedAt) {
+    res.status(403).json({ error: 'Your account is pending admin approval.' });
+    return;
+  }
   const idToken = req.header('authorization')!.slice('Bearer '.length);
   try {
     const cookie = await getFirebaseAuth().createSessionCookie(idToken, { expiresIn: SESSION_MAX_AGE_MS });
@@ -42,8 +50,19 @@ authRouter.delete('/session', (_req, res) => {
   res.status(204).end();
 });
 
-authRouter.get('/users', requireAdmin, (_req, res) => {
-  res.json(listUsers());
+// Includes Firebase's live emailVerified flag per account, so the admin can
+// see whether a pending self-signup has actually proven they own the email
+// they typed before approving it. getUsers() takes at most 100 identifiers
+// per call.
+authRouter.get('/users', requireAdmin, async (_req, res) => {
+  const users = listUsers();
+  const verified = new Map<string, boolean>();
+  for (let i = 0; i < users.length; i += 100) {
+    const batch = users.slice(i, i + 100).map((u) => ({ uid: u.firebaseUid }));
+    const result = await getFirebaseAuth().getUsers(batch);
+    for (const record of result.users) verified.set(record.uid, record.emailVerified);
+  }
+  res.json(users.map((u) => ({ ...u, emailVerified: verified.get(u.firebaseUid) ?? false })));
 });
 
 const createUserSchema = z.object({
@@ -85,17 +104,29 @@ authRouter.post('/users', requireAdmin, async (req, res) => {
 // Approves a pending self-signup -- see requireAuth (creates the row,
 // unapproved) and requireApproved (blocks it everywhere until this runs).
 // Idempotent: approving an already-approved user is a harmless no-op
-// (approveUser's WHERE clause only touches rows still NULL).
-authRouter.patch('/users/:id/approve', requireAdmin, (req, res) => {
+// (approveUser's WHERE clause only touches rows still NULL). Requires the
+// account's email to be verified first -- see below.
+authRouter.patch('/users/:id/approve', requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     res.status(400).json({ error: 'Invalid user id' });
     return;
   }
-  const user = approveUser(id);
-  if (!user) {
+  const target = findUserById(id);
+  if (!target) {
     res.status(404).json({ error: 'User not found' });
     return;
   }
-  res.json(user);
+  // Self-signup lets anyone type any email address -- without this, a
+  // stranger signing up as a friend's address would look exactly like that
+  // friend in the pending list. Checked live against Firebase (not the
+  // signup-time token claim), since verification happens after signup.
+  if (!target.approvedAt) {
+    const firebaseUser = await getFirebaseAuth().getUser(target.firebaseUid);
+    if (!firebaseUser.emailVerified) {
+      res.status(409).json({ error: `${target.email} hasn't verified their email address yet.` });
+      return;
+    }
+  }
+  res.json(approveUser(id));
 });

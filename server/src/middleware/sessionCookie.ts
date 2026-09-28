@@ -33,7 +33,9 @@ export const requireSessionCookie: RequestHandler = async (req, res, next) => {
   }
   try {
     const decoded = await getFirebaseAuth().verifySessionCookie(cookie);
-    if (!findUserByFirebaseUid(decoded.uid)) {
+    // Approved accounts only -- a pending self-signup has a users row but
+    // must not see recipe photos or EPUB pages any more than recipe data.
+    if (!findUserByFirebaseUid(decoded.uid)?.approvedAt) {
       res.status(403).end();
       return;
     }

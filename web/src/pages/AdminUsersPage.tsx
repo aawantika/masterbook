@@ -122,9 +122,17 @@ export function AdminUsersPage() {
                 {pending.map((u) => (
                   <li key={u.id} className="epub-source-card">
                     <div className="epub-source-title">{u.email}</div>
-                    <div className="muted epub-source-meta">signed up, not yet approved</div>
+                    <div className="muted epub-source-meta">
+                      {u.emailVerified
+                        ? 'signed up, email verified, not yet approved'
+                        : "signed up, email NOT verified yet -- can't approve until they click the link we emailed them"}
+                    </div>
                     <div className="editor-actions">
-                      <button type="button" onClick={() => handleApprove(u)} disabled={approving === u.id}>
+                      <button
+                        type="button"
+                        onClick={() => handleApprove(u)}
+                        disabled={approving === u.id || !u.emailVerified}
+                      >
                         {approving === u.id ? 'Approving...' : 'Approve'}
                       </button>
                     </div>

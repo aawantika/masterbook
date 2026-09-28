@@ -97,13 +97,9 @@ function RecipeLinkList({
             className={`sidebar-recipe-link${recipe.id === selectedRecipeId ? ' active' : ''}`}
             onClick={() => onSelectRecipe(recipe.id)}
           >
-            {showFavoriteHeart && recipe.favoritedAt && (
-              <>
-                <span className="heart-icon">♥</span>{' '}
-              </>
-            )}
+            {showFavoriteHeart && recipe.favoritedAt ? '❤️ ' : ''}
             {showQueueStar && recipe.wantToTryAt ? '★ ' : ''}
-            {showFixIcon && recipe.needsFixingAt ? '🔧 ' : ''}
+            {showFixIcon && recipe.needsFixingAt ? '🛠️ ' : ''}
             {recipe.title}
           </button>
         </li>
@@ -177,7 +173,7 @@ export function Sidebar({ selectedRecipeId, onSelectRecipe, reloadSignal }: Side
 
       <details className="sidebar-quick-section">
         <summary>
-          <span className="heart-icon">♥</span> Favorites <span className="sidebar-count">({favoriteRecipes.length})</span>
+          ❤️ Favorites <span className="sidebar-count">({favoriteRecipes.length})</span>
         </summary>
         {favoriteRecipes.length === 0 ? (
           <div className="sidebar-empty muted">No favorites yet.</div>
@@ -193,7 +189,7 @@ export function Sidebar({ selectedRecipeId, onSelectRecipe, reloadSignal }: Side
 
       <details className="sidebar-quick-section">
         <summary>
-          🔧 Needs fixing <span className="sidebar-count">({needsFixingRecipes.length})</span>
+          🛠️ Needs fixing <span className="sidebar-count">({needsFixingRecipes.length})</span>
         </summary>
         {needsFixingRecipes.length === 0 ? (
           <div className="sidebar-empty muted">Nothing flagged.</div>

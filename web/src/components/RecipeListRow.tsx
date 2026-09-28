@@ -30,7 +30,7 @@ export function RecipeListRow({
           onClick={() => onToggleFavorite(recipe.id, !isFavorite)}
           title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
         >
-          <span className="heart-glyph">♥</span>
+          ❤️
         </button>
         <button
           type="button"
@@ -46,7 +46,7 @@ export function RecipeListRow({
           onClick={() => onToggleNeedsFixing(recipe.id, !needsFixing)}
           title={needsFixing ? 'Marked as needs fixing' : 'Mark as needs fixing'}
         >
-          🔧
+          🛠️
         </button>
       </div>
       <button type="button" className="recipe-list-title" onClick={() => onSelect(recipe.id)}>

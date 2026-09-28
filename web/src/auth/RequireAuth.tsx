@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { sendEmailVerification } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useAuth } from './AuthContext';
+import { Button } from '../components/Button';
 
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading, logout } = useAuth();
@@ -71,12 +72,12 @@ function PendingApproval({ email, onLogout }: { email: string; onLogout: () => P
               then an admin can approve your account.
             </p>
             <div className="editor-actions">
-              <button type="button" onClick={handleRecheck} disabled={busy}>
+              <Button variant="primary" onClick={handleRecheck} disabled={busy}>
                 I've verified my email
-              </button>
-              <button type="button" className="secondary" onClick={handleResend} disabled={busy}>
+              </Button>
+              <Button variant="secondary" onClick={handleResend} disabled={busy}>
                 Resend email
-              </button>
+              </Button>
             </div>
           </>
         )}

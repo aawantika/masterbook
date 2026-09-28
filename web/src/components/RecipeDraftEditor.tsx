@@ -1,4 +1,4 @@
-import { CSSProperties, useMemo, useState } from 'react';
+import { ChangeEvent, CSSProperties, useMemo, useRef, useState } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -10,9 +10,10 @@ import {
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { MetaItem, ParsedIngredientLine, ParsedInstructionStep, RecipeInput, SourceType } from '../api/types';
-import { fetchRemoteImage } from '../api/client';
+import { fetchRemoteImage, uploadImage } from '../api/client';
 import { CANONICAL_UNITS } from '../constants';
 import { AutoGrowTextarea } from './AutoGrowTextarea';
+import { Button } from './Button';
 
 // dnd-kit needs a stable id per row that survives reordering — array index
 // doesn't work since that's exactly what changes on drag. This is purely a
@@ -179,7 +180,7 @@ function SortableIngredientRow({
         onChange={(e) => onUpdate({ name: e.target.value })}
         placeholder="ingredient"
       />
-      <button type="button" onClick={onRemove} title="Remove ingredient">
+      <button type="button" className="row-remove-btn" onClick={onRemove} title="Remove ingredient">
         ×
       </button>
     </div>
@@ -228,7 +229,7 @@ function SortableInstructionRow({
       </button>
       <span className="instruction-index">{index + 1}.</span>
       <AutoGrowTextarea value={step.text} onChange={onUpdate} placeholder={`Step ${index + 1}`} />
-      <button type="button" onClick={onRemove} title="Remove step">
+      <button type="button" className="row-remove-btn" onClick={onRemove} title="Remove step">
         ×
       </button>
     </div>
@@ -267,6 +268,7 @@ export function RecipeDraftEditor({
   const [sourceName, setSourceName] = useState(initial?.sourceName ?? '');
   const [imageUrl, setImageUrl] = useState(initial?.imageUrl ?? '');
   const [savingImage, setSavingImage] = useState(false);
+  const imageFileInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -451,6 +453,22 @@ export function RecipeDraftEditor({
     }
   };
 
+  const handleImageFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // lets picking the same file again re-trigger onChange
+    if (!file) return;
+    setSavingImage(true);
+    setError(null);
+    try {
+      const result = await uploadImage(file);
+      setImageUrl(result.imageUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload image.');
+    } finally {
+      setSavingImage(false);
+    }
+  };
+
   const toggleMealType = (id: number) => {
     setMealTypeIds((prev) => {
       const next = new Set(prev);
@@ -561,7 +579,7 @@ export function RecipeDraftEditor({
       </div>
 
       <label className="field">
-        <span>Image URL</span>
+        <span>Image</span>
         <div className="editor-image-url-row">
           <input
             value={imageUrl}
@@ -569,10 +587,26 @@ export function RecipeDraftEditor({
             placeholder="https://... (paste an image link, e.g. from Instagram)"
           />
           {imageUrl.trim() && !imageUrl.trim().startsWith('/api/images/') && (
-            <button type="button" onClick={saveImageLocally} disabled={savingImage}>
+            <Button type="button" variant="secondary" size="sm" onClick={saveImageLocally} disabled={savingImage}>
               {savingImage ? 'Saving…' : 'Save locally'}
-            </button>
+            </Button>
           )}
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => imageFileInputRef.current?.click()}
+            disabled={savingImage}
+          >
+            {savingImage ? 'Uploading…' : imageUrl.trim() ? 'Replace image' : 'Upload image'}
+          </Button>
+          <input
+            ref={imageFileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            style={{ display: 'none' }}
+            onChange={handleImageFileChange}
+          />
         </div>
         {imageUrl.trim().startsWith('/api/images/') && (
           <span className="muted">Saved locally — this copy won't expire.</span>
@@ -607,9 +641,9 @@ export function RecipeDraftEditor({
       <div className="field">
         <span className="field-section-heading">Ingredients</span>
         {ingredients.length === 0 && (
-          <button type="button" onClick={() => setIngredients([emptyEditableIngredient()])}>
+          <Button variant="secondary" size="sm" onClick={() => setIngredients([emptyEditableIngredient()])}>
             + Add ingredient
-          </button>
+          </Button>
         )}
         <DndContext sensors={dragSensors} collisionDetection={closestCenter} onDragEnd={handleIngredientDragEnd}>
           <SortableContext items={ingredients.map((ing) => ing.dndId)} strategy={verticalListSortingStrategy}>
@@ -679,17 +713,17 @@ export function RecipeDraftEditor({
             ))}
           </SortableContext>
         </DndContext>
-        <button type="button" className="secondary" onClick={addSection}>
+        <Button variant="secondary" size="sm" onClick={addSection}>
           + Add section
-        </button>
+        </Button>
       </div>
 
       <div className="field">
         <span className="field-section-heading">Instructions</span>
         {instructions.length === 0 && (
-          <button type="button" onClick={() => setInstructions([emptyEditableInstruction()])}>
+          <Button variant="secondary" size="sm" onClick={() => setInstructions([emptyEditableInstruction()])}>
             + Add step
-          </button>
+          </Button>
         )}
         <DndContext sensors={dragSensors} collisionDetection={closestCenter} onDragEnd={handleInstructionDragEnd}>
           <SortableContext items={instructions.map((step) => step.dndId)} strategy={verticalListSortingStrategy}>
@@ -752,9 +786,9 @@ export function RecipeDraftEditor({
             ))}
           </SortableContext>
         </DndContext>
-        <button type="button" className="secondary" onClick={addInstructionSection}>
+        <Button variant="secondary" size="sm" onClick={addInstructionSection}>
           + Add section
-        </button>
+        </Button>
       </div>
 
       <label className="field">
@@ -763,13 +797,13 @@ export function RecipeDraftEditor({
       </label>
 
       <div className="editor-actions">
-        <button type="button" onClick={handleSave} disabled={saving}>
+        <Button variant="primary" onClick={handleSave} disabled={saving}>
           {saving ? 'Saving...' : saveLabel}
-        </button>
+        </Button>
         {onCancel && (
-          <button type="button" onClick={onCancel} disabled={saving} className="secondary">
+          <Button variant="secondary" onClick={onCancel} disabled={saving}>
             Cancel
-          </button>
+          </Button>
         )}
       </div>
     </div>

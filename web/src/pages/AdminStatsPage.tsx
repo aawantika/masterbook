@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { getSiteStats } from '../api/client';
 import { SiteStats } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -82,6 +82,20 @@ export function AdminStatsPage() {
               </li>
             ))}
           </ul>
+
+          <h2 className="field-section-heading">Recipes with uploaded images ({stats.images.length})</h2>
+          {stats.images.length === 0 ? (
+            <div className="muted">None saved locally yet.</div>
+          ) : (
+            <ul className="stats-storage-list">
+              {stats.images.map((img) => (
+                <li key={img.recipeId}>
+                  <Link to={`/recipes/${img.recipeId}`}>{img.title}</Link>
+                  <span>{img.bytes != null ? formatBytes(img.bytes) : 'missing file'}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </>
       ) : null}
     </div>

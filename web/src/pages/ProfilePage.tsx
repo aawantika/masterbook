@@ -1,9 +1,10 @@
 import { ChangeEvent, FormEvent, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase';
 import { deleteMyAvatar, updateMyDisplayName, uploadMyAvatar } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { Button } from '../components/Button';
+import { HOW_TO_SECTIONS } from '../content/howTo';
 
 export function ProfilePage() {
   const { user, refreshUser } = useAuth();
@@ -91,13 +92,13 @@ export function ProfilePage() {
           </div>
         )}
         <div className="profile-avatar-actions">
-          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingAvatar}>
+          <Button variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploadingAvatar}>
             {uploadingAvatar ? 'Uploading...' : user.avatarUrl ? 'Change picture' : 'Add picture'}
-          </button>
+          </Button>
           {user.avatarUrl && (
-            <button type="button" className="secondary" onClick={handleRemoveAvatar} disabled={uploadingAvatar}>
+            <Button variant="secondary" size="sm" onClick={handleRemoveAvatar} disabled={uploadingAvatar}>
               Remove
-            </button>
+            </Button>
           )}
           <input
             ref={fileInputRef}
@@ -109,38 +110,52 @@ export function ProfilePage() {
         </div>
       </div>
 
-      <div className="field">
-        <span>Email</span>
-        <div>{user.email}</div>
+      <div className="profile-field-row">
+        <span className="profile-field-label">Email</span>
+        <span>{user.email}</span>
       </div>
 
-      <form onSubmit={handleSaveName} className="field-row">
-        <label className="field" style={{ flex: 1 }}>
-          <span>Name</span>
-          <input
-            value={nameDraft}
-            onChange={(e) => setNameDraft(e.target.value)}
-            placeholder={user.email.split('@')[0]}
-          />
-        </label>
-        <button type="submit" className="primary-button" disabled={savingName}>
-          {savingName ? 'Saving...' : 'Save name'}
-        </button>
+      <form onSubmit={handleSaveName} className="profile-field-row">
+        <span className="profile-field-label">Name</span>
+        <input
+          className="profile-name-input"
+          value={nameDraft}
+          onChange={(e) => setNameDraft(e.target.value)}
+          placeholder={user.email.split('@')[0]}
+        />
+        <Button type="submit" variant="primary" size="sm" disabled={savingName}>
+          {savingName ? 'Saving...' : 'Save'}
+        </Button>
       </form>
 
       <h2 className="field-section-heading">Password</h2>
       <div className="editor-actions">
-        <button type="button" onClick={handleResetPassword} disabled={resettingPassword}>
+        <Button variant="secondary" onClick={handleResetPassword} disabled={resettingPassword}>
           {resettingPassword ? 'Sending...' : 'Send password reset email'}
-        </button>
+        </Button>
       </div>
 
       {error && <div className="editor-error">{error}</div>}
       {notice && <div className="editor-notice">{notice}</div>}
 
-      <div className="profile-howto-link">
-        <Link to="/how-to">How does this app work? →</Link>
-      </div>
+      <h2 className="field-section-heading" style={{ marginTop: 32 }}>
+        How this works
+      </h2>
+      {HOW_TO_SECTIONS.map((section) => (
+        <div key={section.heading} className="howto-section">
+          <h3 className="howto-heading">{section.heading}</h3>
+          {section.paragraphs?.map((p, i) => (
+            <p key={i}>{p}</p>
+          ))}
+          {section.list && (
+            <ul className="howto-list">
+              {section.list.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

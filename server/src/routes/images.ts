@@ -55,3 +55,24 @@ imagesRouter.post('/fetch-remote', async (req, res) => {
     res.status(502).json({ error: err instanceof Error ? err.message : 'Failed to fetch image' });
   }
 });
+
+// Direct file upload -- raw image bytes keyed off Content-Type, same
+// pattern as routes/me.ts's avatar upload. Used by the recipe editor's
+// image field to let you pick a photo from disk instead of only pasting a
+// URL to fetch.
+imagesRouter.post('/upload', express.raw({ type: Object.keys(EXTENSION_BY_MIME), limit: '20mb' }), (req, res) => {
+  const contentType = (req.header('content-type') || '').split(';')[0].trim();
+  const extension = EXTENSION_BY_MIME[contentType];
+  if (!extension || !Buffer.isBuffer(req.body)) {
+    res.status(400).json({ error: `Unsupported image type: ${contentType || 'unknown'}` });
+    return;
+  }
+  if (req.body.byteLength > MAX_IMAGE_BYTES) {
+    res.status(413).json({ error: 'Image is too large' });
+    return;
+  }
+
+  const filename = `${crypto.randomUUID()}.${extension}`;
+  fs.writeFileSync(path.join(imagesDir, filename), req.body);
+  res.json({ imageUrl: `/api/images/${filename}` });
+});

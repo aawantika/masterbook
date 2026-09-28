@@ -5,6 +5,7 @@ import { auth } from '../firebase';
 import { approveUser, createUser, listUsers, updateDisplayName } from '../api/client';
 import { User } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { Button } from '../components/Button';
 
 export function AdminUsersPage() {
   const { user } = useAuth();
@@ -122,9 +123,9 @@ export function AdminUsersPage() {
             <option value="admin">Admin</option>
           </select>
         </label>
-        <button type="submit" className="primary-button" disabled={creating}>
+        <Button type="submit" variant="primary" disabled={creating}>
           {creating ? 'Creating...' : 'Add user'}
-        </button>
+        </Button>
       </form>
       {error && <div className="editor-error">{error}</div>}
       {notice && <div className="editor-notice">{notice}</div>}
@@ -157,13 +158,14 @@ export function AdminUsersPage() {
                         </td>
                         <td className="muted">{u.createdAt.slice(0, 10)}</td>
                         <td>
-                          <button
-                            type="button"
+                          <Button
+                            variant="primary"
+                            size="sm"
                             onClick={() => handleApprove(u)}
                             disabled={approving === u.id || !u.emailVerified}
                           >
                             {approving === u.id ? 'Approving...' : 'Approve'}
-                          </button>
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -195,27 +197,23 @@ export function AdminUsersPage() {
                         onChange={(e) => setNameDrafts((prev) => ({ ...prev, [u.id]: e.target.value }))}
                         placeholder={u.email.split('@')[0]}
                       />
-                      <button
-                        type="button"
-                        className="secondary admin-table-save-name"
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="admin-table-save-name"
                         onClick={() => handleSaveName(u)}
                         disabled={savingName === u.id}
                       >
                         {savingName === u.id ? 'Saving...' : 'Save'}
-                      </button>
+                      </Button>
                     </td>
                     <td className="muted">{u.email}</td>
                     <td className="muted">{u.role}</td>
                     <td className="muted">{u.createdAt.slice(0, 10)}</td>
                     <td>
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={() => handleResendReset(u)}
-                        disabled={resending === u.id}
-                      >
+                      <Button variant="secondary" size="sm" onClick={() => handleResendReset(u)} disabled={resending === u.id}>
                         {resending === u.id ? 'Sending...' : 'Send password reset'}
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))}

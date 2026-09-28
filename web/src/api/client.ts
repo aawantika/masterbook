@@ -178,6 +178,29 @@ export function fetchRemoteImage(url: string): Promise<{ imageUrl: string }> {
   return request<{ imageUrl: string }>('/images/fetch-remote', { method: 'POST', body: JSON.stringify({ url }) });
 }
 
+// Direct file upload -- lets the recipe editor's image field take a photo
+// picked from disk, not just a URL to fetch. Raw bytes, not JSON, same as
+// uploadMyAvatar below.
+export async function uploadImage(file: File): Promise<{ imageUrl: string }> {
+  const response = await fetch('/api/images/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': file.type, ...(await authHeader()) },
+    body: file
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    let message = `${response.status} ${response.statusText}`;
+    try {
+      const parsed = JSON.parse(body);
+      message = describeApiError(parsed?.error) ?? message;
+    } catch {
+      // Not JSON — fall through to the status-line message above.
+    }
+    throw new Error(message);
+  }
+  return response.json();
+}
+
 export function getMealTypes(): Promise<MetaItem[]> {
   return request<MetaItem[]>('/meta/meal-types');
 }

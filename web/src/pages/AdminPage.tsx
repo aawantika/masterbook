@@ -1,8 +1,9 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { getSiteStatus, setSiteFrozen } from '../api/client';
 import { SiteStatus } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { Button, ButtonLink } from '../components/Button';
 
 // Hub page linked from the topbar's "Admin" button -- everything
 // admin-only lives under here (manage users, stats, and the site
@@ -66,12 +67,12 @@ export function AdminPage() {
       <h1>Admin</h1>
 
       <div className="admin-hub-links">
-        <Link to="/admin/users" className="button-link secondary-link">
+        <ButtonLink to="/admin/users" variant="secondary">
           Manage users
-        </Link>
-        <Link to="/admin/stats" className="button-link secondary-link">
+        </ButtonLink>
+        <ButtonLink to="/admin/stats" variant="secondary">
           Stats
-        </Link>
+        </ButtonLink>
       </div>
 
       <h2 className="field-section-heading">Site freeze</h2>
@@ -91,9 +92,9 @@ export function AdminPage() {
             {status?.frozenAt && <div className="muted">Since {status.frozenAt.slice(0, 16).replace('T', ' ')}</div>}
           </div>
           <div className="editor-actions" style={{ marginTop: 10 }}>
-            <button type="button" onClick={handleUnfreeze} disabled={saving}>
+            <Button variant="primary" onClick={handleUnfreeze} disabled={saving}>
               {saving ? 'Unfreezing...' : 'Unfreeze site'}
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
@@ -106,9 +107,9 @@ export function AdminPage() {
               placeholder="e.g. fixing a parsing bug, back in 10 minutes"
             />
           </label>
-          <button type="submit" className="primary-button" disabled={saving}>
+          <Button type="submit" variant="primary" disabled={saving}>
             {saving ? 'Freezing...' : 'Freeze site'}
-          </button>
+          </Button>
         </form>
       )}
       {error && <div className="editor-error">{error}</div>}

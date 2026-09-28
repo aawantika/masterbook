@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { RecipeAttempt } from '../api/types';
+import { Button } from './Button';
 
 type CookingLogListProps = {
   attempts: RecipeAttempt[];
@@ -48,9 +49,9 @@ export function CookingLogList({ attempts, onAddAttempt, onDeleteAttempt }: Cook
           placeholder="Notes / adjustments for next time"
           className="log-notes-input"
         />
-        <button type="button" onClick={handleAdd} disabled={saving}>
+        <Button variant="primary" size="sm" onClick={handleAdd} disabled={saving}>
           Log attempt
-        </button>
+        </Button>
       </div>
 
       {attempts.length === 0 ? (

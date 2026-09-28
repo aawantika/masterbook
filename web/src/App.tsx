@@ -13,7 +13,6 @@ import { AdminPage } from './pages/AdminPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
 import { AdminStatsPage } from './pages/AdminStatsPage';
 import { ProfilePage } from './pages/ProfilePage';
-import { HowToPage } from './pages/HowToPage';
 
 export function App() {
   return (
@@ -37,7 +36,6 @@ export function App() {
         <Route path="admin/users" element={<AdminUsersPage />} />
         <Route path="admin/stats" element={<AdminStatsPage />} />
         <Route path="profile" element={<ProfilePage />} />
-        <Route path="how-to" element={<HowToPage />} />
       </Route>
     </Routes>
   );

@@ -135,10 +135,18 @@ export type UserRecipeCount = {
   recipeCount: number;
 };
 
+export type RecipeImageInfo = {
+  recipeId: number;
+  title: string;
+  imageUrl: string;
+  bytes: number | null;
+};
+
 export type SiteStats = {
   totalRecipes: number;
   totalUsers: number;
   perUser: UserRecipeCount[];
+  images: RecipeImageInfo[];
   storage: {
     databaseBytes: number;
     imagesBytes: number;

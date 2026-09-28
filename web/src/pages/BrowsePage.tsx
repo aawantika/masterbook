@@ -29,6 +29,8 @@ export function BrowsePage() {
     contributors,
     selectedOwnerIds,
     toggleOwner,
+    currentUserId,
+    setOwnerIds,
     sortBy,
     setSortBy,
     results,
@@ -64,6 +66,8 @@ export function BrowsePage() {
         contributors={contributors}
         selectedOwnerIds={selectedOwnerIds}
         onToggleOwner={toggleOwner}
+        currentUserId={currentUserId}
+        onSetOwnerIds={setOwnerIds}
         sortBy={sortBy}
         onChangeSortBy={setSortBy}
         viewMode={viewMode}

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { checkDuplicates, createRecipe, fetchRecipeFromUrl, getCuisines, getMealTypes, parseManualPaste } from '../api/client';
 import { MetaItem, RecipeDraft, RecipeInput, SourceType } from '../api/types';
 import {
@@ -10,6 +9,7 @@ import {
   youtubeThumbnailUrl
 } from '../sourceUrl';
 import { RecipeDraftEditor } from './RecipeDraftEditor';
+import { Button, ButtonLink } from './Button';
 
 type ImportPanelProps = {
   onCreated: (recipeId: number) => void;
@@ -20,8 +20,7 @@ type ImportPanelProps = {
 // typing) -- real starter text instead, so it's actually there to select-
 // all-and-paste-over or edit in place, not something that disappears the
 // moment you click into the box.
-const PASTE_TEMPLATE =
-  'Title:\n\nSource:\n\nIngredients (use - for section names)\n- For the sauce\n2 tbsp gochujang\n...\n\nInstructions\n1. Mix...\n...';
+const PASTE_TEMPLATE = 'Title:\n\nSource:\n\nIngredients (use - for section names)\n\nInstructions';
 
 export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
   const [pasteText, setPasteText] = useState(PASTE_TEMPLATE);
@@ -193,15 +192,15 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
           {fetchError && <div className="editor-error">{fetchError}</div>}
           {fetchNotice && <div className="editor-notice">{fetchNotice}</div>}
           <div className="editor-actions">
-            <button type="button" className="fetch-by-source" onClick={handleFetch} disabled={fetching}>
+            <Button variant="primary" onClick={handleFetch} disabled={fetching}>
               {fetching ? 'Fetching...' : 'Fetch recipe'}
-            </button>
-            <button type="button" className="secondary" onClick={handleSkipToManual}>
+            </Button>
+            <Button variant="secondary" onClick={handleSkipToManual}>
               Skip — just save the link(s)
-            </button>
-            <Link to="/epub" className="secondary button-link">
+            </Button>
+            <ButtonLink to="/epub" variant="secondary">
               + Add from EPUB
-            </Link>
+            </ButtonLink>
           </div>
 
           <div className="import-divider">— or paste the recipe text directly —</div>
@@ -211,12 +210,12 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
             <textarea value={pasteText} onChange={(e) => setPasteText(e.target.value)} rows={12} />
           </label>
           <div className="editor-actions">
-            <button type="button" onClick={handleParse}>
+            <Button variant="primary" onClick={handleParse}>
               Parse recipe
-            </button>
-            <button type="button" className="secondary" onClick={onCancel}>
+            </Button>
+            <Button variant="secondary" onClick={onCancel}>
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       ) : (

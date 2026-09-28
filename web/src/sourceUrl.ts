@@ -90,16 +90,24 @@ function extractInstagramEmbedPath(url: string): string | null {
   }
 }
 
-export type VideoEmbed = { url: string; aspectRatio: '16 / 9' | '9 / 16' };
+export type VideoEmbed = {
+  url: string;
+  aspectRatio: '16 / 9' | '9 / 16';
+  platform: 'youtube' | 'instagram';
+};
 
 // YouTube embeds are landscape (16:9); Instagram Reels/posts are portrait
 // (9:16) — the player needs a different aspect ratio per platform rather
-// than a one-size-fits-all box.
+// than a one-size-fits-all box. platform is exposed so the UI can label
+// which one this is and warn specifically about Instagram's login wall
+// (see RecipeDetailPanel.tsx).
 export function getVideoEmbed(sourceRef: string | null): VideoEmbed | null {
   if (!sourceRef) return null;
   const youtubeId = extractYouTubeVideoId(sourceRef);
-  if (youtubeId) return { url: `https://www.youtube.com/embed/${youtubeId}`, aspectRatio: '16 / 9' };
+  if (youtubeId) return { url: `https://www.youtube.com/embed/${youtubeId}`, aspectRatio: '16 / 9', platform: 'youtube' };
   const instagramEmbedPath = extractInstagramEmbedPath(sourceRef);
-  if (instagramEmbedPath) return { url: `https://www.instagram.com${instagramEmbedPath}`, aspectRatio: '9 / 16' };
+  if (instagramEmbedPath) {
+    return { url: `https://www.instagram.com${instagramEmbedPath}`, aspectRatio: '9 / 16', platform: 'instagram' };
+  }
   return null;
 }

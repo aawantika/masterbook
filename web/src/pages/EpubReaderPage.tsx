@@ -16,6 +16,7 @@ import {
 } from '../api/client';
 import { EpubBlock, EpubBookmark, EpubChapterSummary, EpubSourceDetail, MetaItem, RecipeDraft, RecipeInput } from '../api/types';
 import { RecipeDraftEditor } from '../components/RecipeDraftEditor';
+import { Button } from '../components/Button';
 
 type Coord = { flowIndex: number; blockIndex: number };
 
@@ -380,12 +381,12 @@ export function EpubReaderPage() {
                   />
                 </label>
                 <div className="editor-actions">
-                  <button type="button" onClick={handleSaveBookmark}>
+                  <Button variant="primary" onClick={handleSaveBookmark}>
                     Save bookmark
-                  </button>
-                  <button type="button" className="secondary" onClick={clearSelection}>
+                  </Button>
+                  <Button variant="secondary" onClick={clearSelection}>
                     Cancel selection
-                  </button>
+                  </Button>
                 </div>
               </>
             )}
@@ -402,16 +403,17 @@ export function EpubReaderPage() {
                     <div className="epub-bookmark-title">{bookmark.title || 'Untitled bookmark'}</div>
                     <div className="muted epub-bookmark-range">{bookmarkRangeLabel(source, bookmark)}</div>
                     <div className="editor-actions">
-                      <button
-                        type="button"
+                      <Button
+                        variant="primary"
+                        size="sm"
                         onClick={() => handleExtractBookmark(bookmark)}
                         disabled={extracting === bookmark.id}
                       >
                         {extracting === bookmark.id ? 'Extracting...' : 'Extract'}
-                      </button>
-                      <button type="button" className="secondary" onClick={() => handleDeleteBookmark(bookmark.id)}>
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={() => handleDeleteBookmark(bookmark.id)}>
                         Delete
-                      </button>
+                      </Button>
                     </div>
                   </li>
                 ))}

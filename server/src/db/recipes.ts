@@ -292,15 +292,21 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
   if (filters.needsFixingOnly) {
     clauses.push('r.needs_fixing_at IS NOT NULL');
   }
-  // "Made" means at least one logged attempt exists, regardless of whether
-  // it was rated -- deliberately not reusing the rating-filtered subquery
-  // below that computes avgRating/lastCookedAt, since an unrated attempt
-  // still means the recipe was actually cooked.
+  // "Made" means the *viewer* has logged at least one attempt -- per-user,
+  // like favorites/queue above, not "has anyone ever made this." Ratings
+  // and avgRating/lastCookedAt below stay global/shared (one rating per
+  // attempt, visible to everyone) -- only this made/not-made determination
+  // is scoped per-viewer. Regardless of whether the attempt was rated --
+  // deliberately not reusing the rating-filtered subquery below that
+  // computes avgRating/lastCookedAt, since an unrated attempt still means
+  // the recipe was actually cooked.
   if (filters.madeOnly) {
-    clauses.push('EXISTS (SELECT 1 FROM recipe_attempts WHERE recipe_id = r.id)');
+    clauses.push('EXISTS (SELECT 1 FROM recipe_attempts WHERE recipe_id = r.id AND user_id = ?)');
+    params.push(filters.viewerUserId);
   }
   if (filters.notMadeOnly) {
-    clauses.push('NOT EXISTS (SELECT 1 FROM recipe_attempts WHERE recipe_id = r.id)');
+    clauses.push('NOT EXISTS (SELECT 1 FROM recipe_attempts WHERE recipe_id = r.id AND user_id = ?)');
+    params.push(filters.viewerUserId);
   }
   if (filters.minRating != null) {
     clauses.push(

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   deleteRecipe,
   fetchRecipeFromUrl,
@@ -15,11 +15,17 @@ import { parseBaseServings, scaleQuantityString } from '../scaleQuantity';
 import { getVideoEmbed } from '../sourceUrl';
 import { useAuth } from '../auth/AuthContext';
 import { RecipeDraftEditor } from './RecipeDraftEditor';
+import { Button } from './Button';
 
 type RecipeDetailPanelProps = {
   recipeId: number;
   onDeleted: () => void;
   onChanged: () => void;
+  // Lets the parent (RecipeDetailPage) know when the editor form is showing
+  // in place of the normal detail view -- it hides the cooking-log section
+  // it renders below this panel while editing, since a log entry sitting
+  // underneath a half-finished edit form read as part of the editor.
+  onEditingChange?: (editing: boolean) => void;
 };
 
 type IngredientDisplayGroup = { section: string | null; items: RecipeDetail['ingredients'] };
@@ -56,12 +62,16 @@ function groupInstructionsForDisplay(instructions: RecipeDetail['instructions'])
   return groups;
 }
 
-export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDetailPanelProps) {
+export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingChange }: RecipeDetailPanelProps) {
   const { user } = useAuth();
   const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
   const [mealTypes, setMealTypes] = useState<MetaItem[]>([]);
   const [cuisines, setCuisines] = useState<MetaItem[]>([]);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditingState] = useState(false);
+  const setEditing = (value: boolean) => {
+    setEditingState(value);
+    onEditingChange?.(value);
+  };
   const [targetServings, setTargetServings] = useState<number | null>(null);
   const [refreshedDraft, setRefreshedDraft] = useState<RecipeDraft | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -73,8 +83,19 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
   const [collapsedIngredientGroups, setCollapsedIngredientGroups] = useState<Set<number>>(new Set());
   const [collapsedInstructionGroups, setCollapsedInstructionGroups] = useState<Set<number>>(new Set());
 
+  // Guards against a real race: navigating from recipe A to recipe B fires
+  // a fetch for B, but the in-flight fetch for A (already pending) can
+  // still resolve *after* B's if the network reorders them -- without this
+  // check, A's stale response would land last and overwrite B's correct
+  // one, silently showing the wrong recipe/favorite-state. Bumped every
+  // time recipeId changes; a response is only applied if it's still for
+  // the current recipeId when it comes back.
+  const loadTokenRef = useRef(0);
+
   const load = async () => {
+    const token = ++loadTokenRef.current;
     const [r, mt, c] = await Promise.all([getRecipe(recipeId), getMealTypes(), getCuisines()]);
+    if (token !== loadTokenRef.current) return; // a newer navigation has already happened
     setRecipe(r);
     setMealTypes(mt);
     setCuisines(c);
@@ -240,7 +261,7 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
             className={`heart-toggle${recipe.favoritedAt ? ' active' : ''}`}
             onClick={handleToggleFavorite}
           >
-            <span className="heart-glyph">♥</span> {recipe.favoritedAt ? 'Favorited' : 'Favorite'}
+            ❤️ {recipe.favoritedAt ? 'Favorited' : 'Favorite'}
           </button>
           <button
             type="button"
@@ -254,7 +275,7 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
             className={`fix-toggle${recipe.needsFixingAt ? ' active' : ''}`}
             onClick={handleToggleNeedsFixing}
           >
-            🔧 {recipe.needsFixingAt ? 'Needs fixing' : 'Mark as needs fixing'}
+            🛠️ {recipe.needsFixingAt ? 'Needs fixing' : 'Mark as needs fixing'}
           </button>
         </div>
       </div>
@@ -336,7 +357,7 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
                 ))}
               {recipe.videoRef && (
                 <a href={recipe.videoRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
-                  ▶ Video
+                  ▶ Video ({getVideoEmbed(recipe.videoRef)?.platform === 'instagram' ? 'Instagram' : 'YouTube'})
                 </a>
               )}
             </div>
@@ -344,19 +365,19 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
 
           <div className="recipe-detail-actions info-column-group">
             {canEdit && (
-              <button type="button" onClick={() => setEditing(true)}>
+              <Button variant="primary" onClick={() => setEditing(true)}>
                 Edit
-              </button>
+              </Button>
             )}
             {canRefreshFromSource && (
-              <button type="button" className="secondary" onClick={handleRefreshFromSource} disabled={refreshing}>
+              <Button variant="secondary" onClick={handleRefreshFromSource} disabled={refreshing}>
                 {refreshing ? 'Refreshing...' : '↻ Refresh from source'}
-              </button>
+              </Button>
             )}
             {canDelete && (
-              <button type="button" className="danger" onClick={handleDelete}>
+              <Button variant="danger" onClick={handleDelete}>
                 Delete
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -367,16 +388,33 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged }: RecipeDeta
           </div>
         )}
         {videoEmbed && (
-          <div className="recipe-detail-video-wrap">
-            <iframe
-              className="recipe-detail-video"
-              style={{ aspectRatio: videoEmbed.aspectRatio }}
-              src={videoEmbed.url}
-              title={recipe.title}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-              loading="lazy"
-            />
+          <div className="recipe-detail-video-col">
+            <div className="recipe-detail-video-wrap">
+              <iframe
+                className="recipe-detail-video"
+                style={{ aspectRatio: videoEmbed.aspectRatio }}
+                src={videoEmbed.url}
+                title={recipe.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                loading="lazy"
+              />
+            </div>
+            {/* Instagram's embed shows a login prompt (not an error, no
+                onError-detectable failure) to anyone not logged into
+                Instagram in that browser -- there's no reliable way to
+                detect that from the parent page (cross-origin iframe, the
+                embed still "loads" successfully), so this is said upfront
+                instead of the video just silently reading as a black box. */}
+            {videoEmbed.platform === 'instagram' && (
+              <div className="video-embed-note muted">
+                Blank box or login prompt instead of the video? Instagram requires being logged in for embeds --{' '}
+                <a href={recipe.videoRef ?? recipe.sourceRef ?? '#'} target="_blank" rel="noopener noreferrer">
+                  open it on Instagram directly
+                </a>{' '}
+                instead.
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -37,7 +37,7 @@ export function RecipeCard({
             onClick={() => onToggleFavorite(recipe.id, !isFavorite)}
             title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
           >
-            <span className="heart-glyph">♥</span>
+            ❤️
           </button>
           <button
             type="button"
@@ -53,7 +53,7 @@ export function RecipeCard({
             onClick={() => onToggleNeedsFixing(recipe.id, !needsFixing)}
             title={needsFixing ? 'Marked as needs fixing' : 'Mark as needs fixing'}
           >
-            🔧
+            🛠️
           </button>
         </div>
       </div>
@@ -81,8 +81,8 @@ export function RecipeCard({
           <span className="muted">Not yet rated</span>
         )}
         {recipe.lastCookedAt && <span className="muted">Last made {recipe.lastCookedAt.slice(0, 10)}</span>}
-        {recipe.ownerName && <span className="muted">Added by {recipe.ownerName}</span>}
       </div>
+      {recipe.ownerName && <div className="recipe-card-owner muted">Added by {recipe.ownerName}</div>}
     </div>
   );
 }

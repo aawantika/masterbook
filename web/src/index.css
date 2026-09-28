@@ -27,11 +27,103 @@ html, body, #root {
   height: 100%;
 }
 
+/* ============================================================
+   Button system -- the ONE source of truth for every real action
+   button in the app (Save/Cancel/Delete/Approve/Add.../etc). Buttons
+   used to be styled by whatever context wrapper happened to surround
+   them (.editor-actions button, .import-paste-box button,
+   .log-attempt-form button, .recipe-detail-actions button, a
+   standalone .primary-button, ...) -- each one hand-picked its own
+   padding/font-size/radius, so the same kind of button looked
+   different from one screen to the next. Every real button now uses
+   the <Button> component (components/Button.tsx), which just applies
+   these classes -- change the look in exactly one place.
+
+   Deliberately NOT used by the small icon-only toggles (heart/star/
+   wrench favorite-queue-needs-fixing, the sidebar hamburger, drag
+   handles, servings +/-, section move arrows, collapse carets) --
+   those are compact icon affordances with their own established
+   sizing, not text-labeled CTAs, and forcing them into this padding
+   would make them oversized. "Uniform" for those means internally
+   consistent with each other (already true), not identical to a
+   labeled button.
+   ============================================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.btn-primary {
+  background: #15803d;
+  border-color: #15803d;
+  color: white;
+}
+
+.btn-primary:not(:disabled):hover {
+  background: #12692f;
+  border-color: #12692f;
+}
+
+.btn-secondary {
+  background: white;
+  border-color: #d1d5db;
+  color: #1f2937;
+}
+
+.btn-secondary:not(:disabled):hover {
+  background: #f3f4f6;
+}
+
+.btn-danger {
+  background: white;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.btn-danger:not(:disabled):hover {
+  background: #fef2f2;
+}
+
+/* Compact variant -- dense contexts (table row actions, inline
+   controls next to an input) where the standard size reads too big,
+   without inventing a whole separate padding/font-size combination. */
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
 .cookbook-shell {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
   height: 100vh;
   height: 100dvh;
+  transition: grid-template-columns 0.15s ease;
+}
+
+/* Desktop's persistent-column collapse (see CookbookShell.tsx's
+   sidebarCollapsed state / toggleSidebar). Distinct from the mobile
+   off-canvas drawer's "sidebar-open" class further down (@media
+   max-width: 860px) -- same toggle button drives both, but each name is
+   only ever read by its own breakpoint's CSS. */
+.cookbook-shell.sidebar-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr);
 }
 
 .shell-pane {
@@ -42,6 +134,12 @@ html, body, #root {
 .shell-pane-left {
   border-right: 1px solid #e5e7eb;
   background: #fdfaf5;
+}
+
+.cookbook-shell.sidebar-collapsed .shell-pane-left {
+  padding: 0;
+  overflow: hidden;
+  border-right: none;
 }
 
 .shell-pane-middle {
@@ -238,26 +336,9 @@ html, body, #root {
   font-weight: 600;
 }
 
-.button-link {
-  display: inline-block;
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: none;
-  background: #15803d;
-  color: white;
-  font-size: 14px;
-  cursor: pointer;
-  text-decoration: none;
-}
-
 .middle-topbar-actions {
   display: flex;
   gap: 8px;
-}
-
-.button-link.secondary-link {
-  background: #e5e7eb;
-  color: #1f2937;
 }
 
 .activity-recipe-link {
@@ -464,13 +545,13 @@ html, body, #root {
   flex-shrink: 0;
 }
 
-/* These three render totally different glyph types at the same font-size --
-   a stroked/outlined text heart, a bare star character, and a full-color
-   emoji -- and each font's natural metrics for its glyph differ, so leaving
-   size to the glyph itself made the three buttons visibly different sizes
-   even with matching font-size/padding. Forcing an identical fixed box
-   (inline-flex + centered content) makes them align regardless of what
-   each one is actually rendering inside. */
+/* These three render different glyph types at the same font-size -- a
+   color emoji (heart, wrench) and a bare star character -- and each font's
+   natural metrics for its glyph differ, so leaving size to the glyph
+   itself made the three buttons visibly different sizes even with
+   matching font-size/padding. Forcing an identical fixed box (inline-flex
+   + centered content) makes them align regardless of what each one is
+   actually rendering inside. */
 .star-toggle,
 .heart-toggle,
 .fix-toggle {
@@ -489,44 +570,22 @@ html, body, #root {
   padding: 0;
 }
 
-.heart-toggle.active {
-  color: #dc2626;
-}
-
 .star-toggle.active {
   color: #d97706;
 }
 
-/* The wrench emoji renders in full color regardless of the surrounding
-   text color, so "active" can't be shown by recoloring it like the
-   heart/star toggles do. A background tint instead of dimming the inactive
-   state (an earlier version used opacity: 0.35) -- opacity dimmed the whole
-   button including its text label, which read as disabled rather than
-   just "off". */
+/* The heart and wrench are both emoji -- they render in full color
+   regardless of the surrounding text color, so "active" is shown with a
+   background tint instead of recoloring (unlike the star above, a plain
+   text glyph that still responds to `color`). An earlier version dimmed
+   the inactive state with opacity instead, which read as "disabled"
+   rather than just "off". */
+.heart-toggle.active {
+  background: #fee2e2;
+}
+
 .fix-toggle.active {
   background: #fef3c7;
-}
-
-/* Rendering the same ♥ character for both states (rather than pairing it
-   with the outline ♡ glyph) and toggling fill vs. outline purely via color —
-   different heart Unicode characters have different natural glyph
-   dimensions in most fonts, so swapping characters made the two states
-   visibly different sizes. */
-.heart-glyph {
-  color: transparent;
-  -webkit-text-stroke: 1.5px #9ca3af;
-}
-
-.heart-toggle.active .heart-glyph {
-  color: #dc2626;
-  -webkit-text-stroke: 1.5px #dc2626;
-}
-
-/* Static (non-toggle) heart indicators — sidebar favorites list/heading,
-   filter bar label — use the same bare ♥ character, just solid-colored,
-   so they match the toggle buttons' glyph exactly. */
-.heart-icon {
-  color: #dc2626;
 }
 
 .recipe-card-meta {
@@ -554,6 +613,12 @@ html, body, #root {
   gap: 10px;
   font-size: 12px;
   color: #6b7280;
+}
+
+.recipe-card-owner {
+  display: block;
+  font-size: 12px;
+  margin-top: 4px;
 }
 
 .muted {
@@ -700,6 +765,25 @@ html, body, #root {
   cursor: grabbing;
 }
 
+/* The "×" remove-this-row button on an ingredient/instruction line -- was
+   completely unstyled (bare native button chrome), unlike every other
+   control on the same row. */
+.row-remove-btn {
+  padding: 0 6px;
+  border: none;
+  background: none;
+  color: #9ca3af;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.row-remove-btn:hover {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
 .ingredient-row:hover .insert-section-btn,
 .instruction-row:hover .insert-section-btn,
 .insert-section-btn:focus-visible {
@@ -761,44 +845,7 @@ html, body, #root {
 .editor-actions {
   display: flex;
   gap: 10px;
-}
-
-.editor-actions button {
-  padding: 10px 16px;
-  border-radius: 8px;
-  border: none;
-  background: #15803d;
-  color: white;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.editor-actions .secondary {
-  background: #e5e7eb;
-  color: #1f2937;
-}
-
-.editor-actions .fetch-by-source {
-  background: #15803d;
-}
-
-/* Standalone equivalent of ".editor-actions button" for primary-action
-   buttons that live outside an .editor-actions wrapper (e.g. the admin
-   "Add user" form) -- .editor-actions button is a descendant selector, so
-   it silently does nothing to a button that isn't nested inside one. */
-.primary-button {
-  padding: 10px 16px;
-  border-radius: 8px;
-  border: none;
-  background: #15803d;
-  color: white;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.primary-button:disabled {
-  opacity: 0.6;
-  cursor: default;
+  flex-wrap: wrap;
 }
 
 .editor-error {
@@ -836,17 +883,6 @@ html, body, #root {
   max-width: 640px;
 }
 
-.import-paste-box button {
-  padding: 10px 16px;
-  border-radius: 8px;
-  border: none;
-  background: #15803d;
-  color: white;
-  cursor: pointer;
-  font-size: 14px;
-  width: fit-content;
-}
-
 .recipe-detail-header {
   display: flex;
   align-items: center;
@@ -858,6 +894,11 @@ html, body, #root {
 .recipe-detail-header .star-toggle,
 .recipe-detail-header .heart-toggle,
 .recipe-detail-header .fix-toggle {
+  /* These carry a text label ("☆ Add to queue"), unlike the fixed-size
+     icon-only squares the base rule is otherwise tuned for -- reset back
+     to content-sized so the label isn't squeezed into a 28px box. */
+  width: auto;
+  height: auto;
   font-size: 13px;
   padding: 6px 10px;
   border: 1px solid #d1d5db;
@@ -866,6 +907,10 @@ html, body, #root {
 
 .recipe-detail-header .fix-toggle.active {
   border-color: #d97706;
+}
+
+.recipe-detail-header .heart-toggle.active {
+  border-color: #dc2626;
 }
 
 /* Image and video (when both exist) sit side by side at the same fixed
@@ -926,8 +971,12 @@ html, body, #root {
    its width from this fixed height, clamped by max-width so a landscape
    video can't overflow sideways either. flex-shrink: 0 keeps it from being
    squashed by the image's flex-grow when both are present. */
-.recipe-detail-video-wrap {
+.recipe-detail-video-col {
   flex-shrink: 0;
+  max-width: 480px;
+}
+
+.recipe-detail-video-wrap {
   height: 320px;
   max-width: 480px;
   border-radius: 10px;
@@ -944,6 +993,12 @@ html, body, #root {
   max-width: 100%;
   border: none;
   display: block;
+}
+
+.video-embed-note {
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: 6px;
 }
 
 .editor-image-url-row {
@@ -1079,20 +1134,6 @@ html, body, #root {
   gap: 10px;
 }
 
-.recipe-detail-actions button {
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1px solid #d1d5db;
-  background: white;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.recipe-detail-actions .danger {
-  border-color: #fca5a5;
-  color: #991b1b;
-}
-
 .cooking-log {
   margin-top: 24px;
   padding-top: 20px;
@@ -1132,15 +1173,6 @@ html, body, #root {
 .log-notes-input {
   flex: 1;
   min-width: 200px;
-}
-
-.log-attempt-form button {
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: none;
-  background: #15803d;
-  color: white;
-  cursor: pointer;
 }
 
 .log-timeline {
@@ -1687,33 +1719,46 @@ html, body, #root {
   gap: 8px;
 }
 
+/* Email/Name rows on the profile page -- a fixed-width label column so
+   the value doesn't sit flush against it (the "clobbered" look), and a
+   capped input width so a short name field doesn't stretch to fill the
+   whole remaining row width. */
+.profile-field-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.profile-field-label {
+  flex: 0 0 70px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.profile-name-input {
+  width: 240px;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.howto-section {
+  margin-bottom: 20px;
+}
+
+.howto-heading {
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+
 .howto-list {
   display: grid;
   gap: 10px;
   padding-left: 22px;
   max-width: 640px;
-}
-
-.profile-howto-link {
-  margin-top: 24px;
-}
-
-/* Log out used to be plain .link-button text sitting right next to the
-   email -- easy to miss, and didn't read as clickable. .link-button stays
-   as-is for genuine inline text actions (forgot password, resend reset)
-   elsewhere; this gives log out its own proper button look. */
-.logout-button {
-  padding: 6px 12px;
-  border-radius: 8px;
-  border: 1px solid #d1d5db;
-  background: white;
-  color: #1f2937;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.logout-button:hover {
-  background: #f3f4f6;
 }
 
 /* Mobile shell: the sidebar goes off-canvas (fixed, slid out of view) and

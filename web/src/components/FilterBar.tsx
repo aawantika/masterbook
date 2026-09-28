@@ -25,6 +25,8 @@ type FilterBarProps = {
   contributors: Contributor[];
   selectedOwnerIds: Set<number>;
   onToggleOwner: (id: number) => void;
+  currentUserId: number | null;
+  onSetOwnerIds: (ids: number[]) => void;
   sortBy: SortBy;
   onChangeSortBy: (sort: SortBy) => void;
   viewMode: ViewMode;
@@ -89,6 +91,8 @@ export function FilterBar({
   contributors,
   selectedOwnerIds,
   onToggleOwner,
+  currentUserId,
+  onSetOwnerIds,
   sortBy,
   onChangeSortBy,
   viewMode,
@@ -116,15 +120,33 @@ export function FilterBar({
           className={`filter-chip${favoritesOnly ? ' active' : ''}`}
           onClick={onToggleFavoritesOnly}
         >
-          <span className="heart-icon">♥</span> Favorites
+          ❤️ Favorites
         </button>
         <button
           type="button"
           className={`filter-chip${needsFixingOnly ? ' active' : ''}`}
           onClick={onToggleNeedsFixingOnly}
         >
-          🔧 Needs fixing
+          🛠️ Needs fixing
         </button>
+        {/* Quick shortcut for the single most common case -- narrows
+            straight to your own recipes without opening the Added-by
+            disclosure and finding yourself in the list. Toggling it off
+            (clicking again while active) clears back to "everyone", same
+            as clearing the Added-by group would. */}
+        {currentUserId != null && (
+          <button
+            type="button"
+            className={`filter-chip${selectedOwnerIds.size === 1 && selectedOwnerIds.has(currentUserId) ? ' active' : ''}`}
+            onClick={() =>
+              onSetOwnerIds(
+                selectedOwnerIds.size === 1 && selectedOwnerIds.has(currentUserId) ? [] : [currentUserId]
+              )
+            }
+          >
+            Only me
+          </button>
+        )}
         {/* Was a single-select dropdown ("Added by: X") -- switched to the
             same multi-select disclosure pattern as Meal type/Cuisine below,
             so you can filter to any combination of people at once instead

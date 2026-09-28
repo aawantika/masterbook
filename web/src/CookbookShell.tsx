@@ -12,6 +12,7 @@ import {
 } from './api/client';
 import { Contributor, MetaItem, RecipeSummary, SiteStatus } from './api/types';
 import { Sidebar } from './components/Sidebar';
+import { Button, ButtonLink } from './components/Button';
 import { useAuth } from './auth/AuthContext';
 
 export type SortBy = 'title' | 'recent';
@@ -53,6 +54,8 @@ export type ShellContext = {
   contributors: Contributor[];
   selectedOwnerIds: Set<number>;
   toggleOwner: (id: number) => void;
+  currentUserId: number | null;
+  setOwnerIds: (ids: number[]) => void;
   sortBy: SortBy;
   setSortBy: (sort: SortBy) => void;
   results: RecipeSummary[];
@@ -71,10 +74,19 @@ export function CookbookShell() {
   const [reloadSignal, setReloadSignal] = useState(0);
   const bumpReload = () => setReloadSignal((n) => n + 1);
 
-  // Off-canvas on mobile, collapsed by default (see the @media block in
-  // index.css) -- irrelevant above that breakpoint since the CSS there is
-  // what actually makes the toggle/backdrop visible at all.
+  // Two independent flags driving the SAME toggle button, each meaningful
+  // only within its own breakpoint's CSS (see index.css): sidebarOpen is
+  // the mobile off-canvas drawer (default closed), sidebarCollapsed is the
+  // desktop persistent-column rail (default expanded). Toggling both
+  // together from one click still produces the right behavior at both
+  // sizes, since each breakpoint's CSS only reads its own flag and ignores
+  // the other.
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const toggleSidebar = () => {
+    setSidebarOpen((prev) => !prev);
+    setSidebarCollapsed((prev) => !prev);
+  };
 
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounced(query, 250);
@@ -198,6 +210,8 @@ export function CookbookShell() {
     contributors,
     selectedOwnerIds,
     toggleOwner: (ownerId) => toggleInSet(setSelectedOwnerIds, ownerId),
+    currentUserId: user?.id ?? null,
+    setOwnerIds: (ids) => setSelectedOwnerIds(new Set(ids)),
     sortBy,
     setSortBy,
     results,
@@ -208,12 +222,14 @@ export function CookbookShell() {
   };
 
   return (
-    <div className="cookbook-shell">
+    <div className={`cookbook-shell${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
       <div
         className={`sidebar-backdrop${sidebarOpen ? ' sidebar-open' : ''}`}
         onClick={() => setSidebarOpen(false)}
       />
-      <aside className={`shell-pane shell-pane-left${sidebarOpen ? ' sidebar-open' : ''}`}>
+      <aside
+        className={`shell-pane shell-pane-left${sidebarOpen ? ' sidebar-open' : ''}${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}
+      >
         <Sidebar
           selectedRecipeId={selectedRecipeId}
           onSelectRecipe={(recipeId) => {
@@ -229,29 +245,29 @@ export function CookbookShell() {
           <button
             type="button"
             className="sidebar-toggle"
-            aria-label={sidebarOpen ? 'Close recipe list' : 'Open recipe list'}
-            onClick={() => setSidebarOpen((prev) => !prev)}
+            aria-label="Toggle recipe list panel"
+            onClick={toggleSidebar}
           >
-            {sidebarOpen ? '✕' : '☰'}
+            ☰
           </button>
           <Link to="/" className="shell-title-link">
             <h1 className="shell-title">Masterbook</h1>
           </Link>
           <div className="middle-topbar-actions">
             {user?.role === 'admin' && (
-              <Link to="/admin" className="button-link secondary-link">
+              <ButtonLink to="/admin" variant="secondary">
                 Admin
-              </Link>
+              </ButtonLink>
             )}
             {/* Temporarily hidden -- marked pending for now. The route
                 itself (/epub) is untouched, so this is just a one-line
                 revert whenever it's ready to come back. */}
-            <Link to="/activity" className="button-link secondary-link">
+            <ButtonLink to="/activity" variant="secondary">
               Activity log
-            </Link>
-            <Link to="/add" className="button-link">
+            </ButtonLink>
+            <ButtonLink to="/add" variant="primary">
               + Add recipe
-            </Link>
+            </ButtonLink>
             {user && (
               <span className="topbar-user">
                 <Link to="/profile" className="topbar-profile-link">
@@ -264,9 +280,9 @@ export function CookbookShell() {
                   )}
                   <span className="muted">{user.displayName || user.email}</span>
                 </Link>
-                <button type="button" className="logout-button" onClick={logout}>
+                <Button variant="secondary" size="sm" onClick={logout}>
                   Log out
-                </button>
+                </Button>
               </span>
             )}
           </div>

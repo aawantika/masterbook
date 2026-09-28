@@ -108,6 +108,9 @@ export type User = {
   role: 'admin' | 'user';
   approvedAt: string | null;
   createdAt: string;
+  // Only present on the admin user listing (GET /auth/users) -- Firebase's
+  // live flag for whether the account has proven it owns this email.
+  emailVerified?: boolean;
 };
 
 export type DuplicateMatch = { id: number; title: string; sourceName: string | null };

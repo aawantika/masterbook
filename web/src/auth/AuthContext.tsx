@@ -29,7 +29,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const [me] = await Promise.all([getMe(), createSession()]);
+        const me = await getMe();
+        // Only approved accounts get the image cookie (the server refuses
+        // pending ones) -- asking for it otherwise would just be a 403 that
+        // hides the pending-approval screen behind a "failed" login.
+        if (me.approvedAt) await createSession();
         setUser(me);
       } catch {
         // Authenticated with Firebase but rejected by our server (not yet

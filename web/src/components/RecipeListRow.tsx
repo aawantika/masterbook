@@ -71,6 +71,7 @@ export function RecipeListRow({
         ) : (
           <span className="muted">Not yet rated</span>
         )}
+        {recipe.totalTimeMinutes != null && <span className="muted">⏱ {recipe.totalTimeMinutes} min</span>}
         {recipe.ownerName && <span className="muted">by {recipe.ownerName}</span>}
       </div>
     </div>

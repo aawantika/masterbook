@@ -65,6 +65,9 @@ recipesRouter.get('/', (req, res) => {
     Number.isInteger(requestedMinRating) && requestedMinRating! >= 1 && requestedMinRating! <= 5
       ? requestedMinRating
       : undefined;
+  const requestedMaxTime = typeof req.query.maxTimeMinutes === 'string' ? Number(req.query.maxTimeMinutes) : undefined;
+  const maxTimeMinutes =
+    Number.isInteger(requestedMaxTime) && requestedMaxTime! > 0 ? requestedMaxTime : undefined;
   const mineOnly = req.query.mine === 'true';
   // "Added by" -- one or more contributor ids (?ownerIds=1,2,3). mine=true
   // and the older singular ?ownerId= are both kept as back-compat
@@ -88,6 +91,7 @@ recipesRouter.get('/', (req, res) => {
       madeOnly,
       notMadeOnly,
       minRating,
+      maxTimeMinutes,
       ownerIds,
       sortBy,
       viewerUserId: req.user!.id

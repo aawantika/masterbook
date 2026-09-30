@@ -209,6 +209,7 @@ export type RecipeSummary = {
   sourceRef: string | null;
   sourceName: string | null;
   imageUrl: string | null;
+  totalTimeMinutes: number | null;
   wantToTryAt: string | null;
   favoritedAt: string | null;
   needsFixingAt: string | null;
@@ -233,6 +234,10 @@ export type SearchFilters = {
   // Average rating (across all logged attempts, global -- not per-user,
   // same as the ratings themselves) of at least this many stars.
   minRating?: number;
+  // Total time at or under this many minutes. Recipes with no time set at
+  // all are excluded (can't know they qualify), same reasoning as
+  // minRating excluding recipes with no attempts logged.
+  maxTimeMinutes?: number;
   // One or more contributor ids -- "show me recipes added by any of these
   // people" (an OR across the list, same as mealTypeIds/cuisineIds above).
   // Omitted entirely means "everyone," same as before this became
@@ -314,6 +319,10 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
     );
     params.push(filters.minRating);
   }
+  if (filters.maxTimeMinutes != null) {
+    clauses.push('r.total_time_minutes IS NOT NULL AND r.total_time_minutes <= ?');
+    params.push(filters.maxTimeMinutes);
+  }
   // Omitted entirely (no clause) means "everyone", which keeps that mode
   // byte-for-byte identical to pre-accounts behavior: every recipe,
   // unfiltered.
@@ -328,7 +337,7 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
 
   const rows = db
     .prepare(
-      `SELECT r.id, r.title, r.source_type, r.source_ref, r.source_name, r.image_url, r.needs_fixing_at, r.user_id,
+      `SELECT r.id, r.title, r.source_type, r.source_ref, r.source_name, r.image_url, r.total_time_minutes, r.needs_fixing_at, r.user_id,
               u.email as owner_email, u.display_name as owner_display_name,
               rwt.want_to_try_at as want_to_try_at, rf.favorited_at as favorited_at
        FROM recipes r
@@ -344,6 +353,7 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
     source_ref: string | null;
     source_name: string | null;
     image_url: string | null;
+    total_time_minutes: number | null;
     want_to_try_at: string | null;
     favorited_at: string | null;
     needs_fixing_at: string | null;
@@ -371,6 +381,7 @@ export function searchRecipes(filters: SearchFilters): RecipeSummary[] {
       sourceRef: row.source_ref,
       sourceName: row.source_name,
       imageUrl: row.image_url,
+      totalTimeMinutes: row.total_time_minutes,
       wantToTryAt: row.want_to_try_at,
       favoritedAt: row.favorited_at,
       needsFixingAt: row.needs_fixing_at,

@@ -51,11 +51,14 @@ export type ShellContext = {
   setMadeFilter: (value: MadeFilter) => void;
   minRating: number | null;
   setMinRating: (value: number | null) => void;
+  maxTimeMinutes: number | null;
+  setMaxTimeMinutes: (value: number | null) => void;
   contributors: Contributor[];
   selectedOwnerIds: Set<number>;
   toggleOwner: (id: number) => void;
   currentUserId: number | null;
   setOwnerIds: (ids: number[]) => void;
+  clearFilters: () => void;
   sortBy: SortBy;
   setSortBy: (sort: SortBy) => void;
   results: RecipeSummary[];
@@ -100,6 +103,7 @@ export function CookbookShell() {
   const [needsFixingOnly, setNeedsFixingOnly] = useState(false);
   const [madeFilter, setMadeFilter] = useState<MadeFilter>('all');
   const [minRating, setMinRating] = useState<number | null>(null);
+  const [maxTimeMinutes, setMaxTimeMinutes] = useState<number | null>(null);
   const [selectedOwnerIds, setSelectedOwnerIds] = useState<Set<number>>(new Set());
   const [sortBy, setSortBy] = useState<SortBy>('title');
   const [results, setResults] = useState<RecipeSummary[]>([]);
@@ -137,6 +141,7 @@ export function CookbookShell() {
         made: madeFilter === 'made',
         notMade: madeFilter === 'not-made',
         minRating: minRating ?? undefined,
+        maxTimeMinutes: maxTimeMinutes ?? undefined,
         ownerIds: Array.from(selectedOwnerIds),
         sort: sortBy
       });
@@ -158,6 +163,7 @@ export function CookbookShell() {
     needsFixingOnly,
     madeFilter,
     minRating,
+    maxTimeMinutes,
     selectedOwnerIds,
     sortBy,
     reloadSignal
@@ -170,6 +176,22 @@ export function CookbookShell() {
       else next.add(id);
       return next;
     });
+  };
+
+  // Resets every filter back to its default -- deliberately leaves sortBy
+  // and viewMode alone, since those are display preferences, not filters
+  // narrowing down which recipes show up.
+  const clearFilters = () => {
+    setQuery('');
+    setSelectedMealTypeIds(new Set());
+    setSelectedCuisineIds(new Set());
+    setToTryOnly(false);
+    setFavoritesOnly(false);
+    setNeedsFixingOnly(false);
+    setMadeFilter('all');
+    setMinRating(null);
+    setMaxTimeMinutes(null);
+    setSelectedOwnerIds(new Set());
   };
 
   const handleToggleWantToTry = async (recipeId: number, want: boolean) => {
@@ -207,11 +229,14 @@ export function CookbookShell() {
     setMadeFilter,
     minRating,
     setMinRating,
+    maxTimeMinutes,
+    setMaxTimeMinutes,
     contributors,
     selectedOwnerIds,
     toggleOwner: (ownerId) => toggleInSet(setSelectedOwnerIds, ownerId),
     currentUserId: user?.id ?? null,
     setOwnerIds: (ids) => setSelectedOwnerIds(new Set(ids)),
+    clearFilters,
     sortBy,
     setSortBy,
     results,

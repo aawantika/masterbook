@@ -11,23 +11,24 @@ export type HowToSection = {
 export const HOW_TO_SECTIONS: HowToSection[] = [
   {
     heading: 'Adding a recipe',
-    paragraphs: [
-      'From "+ Add recipe": paste a website link and it\'ll try to fetch and structure the recipe automatically. Instagram, YouTube, Serious Eats, and Maangchi links can\'t be auto-fetched (they\'re either login-gated, or just don\'t hand back usable structured data) -- paste the recipe text into the box further down instead, and the link still gets saved alongside it. You can also just paste recipe text directly with no link at all.'
+    paragraphs: ['From "+ Add recipe": paste a website link and it\'ll try to fetch and structure the recipe automatically.'],
+    list: [
+      "Instagram and YouTube — login-gated, or don't expose the recipe as structured data.",
+      'Serious Eats and Maangchi — confirmed not to hand back usable structured data either.',
+      'For any of these: paste the recipe text into the box further down instead — the link still gets saved alongside it.',
+      'You can also skip the link entirely and just paste recipe text directly.'
     ]
   },
   {
     heading: "What's shared vs. what's just yours",
     paragraphs: ["This is the part that trips people up, since it's not obvious from the UI alone:"],
     list: [
-      'Per-person (just you): favorites (❤️), your queue (★, "want to try"), and made / not made yet. Everyone sees their own set -- favoriting or marking something made doesn\'t affect anyone else\'s view of it.',
-      'Shared (everyone sees the same thing): "Needs fixing" (🛠️) is a flag on the recipe itself -- if you mark something as needing fixing, everyone sees that. Ratings and cooking notes logged from the activity log are also shared/global, not per-person -- one rating per attempt, visible to everyone, attributed to whoever logged it.',
-      'Recipes themselves are shared -- everyone sees everyone\'s recipes by default. Use the "Added by" filter to narrow down to one or more specific people, or "Only me" to jump straight to your own.'
-    ]
-  },
-  {
-    heading: 'Activity log',
-    paragraphs: [
-      'Every time you log a cooking attempt (rating + notes) on a recipe, it shows up on the activity log page for everyone, with your name attached, newest first.'
+      'Favorites (❤️) — per-person, just you.',
+      'Queue (★, "want to try") — per-person, just you.',
+      'Made / not made yet — per-person, just you.',
+      '"Needs fixing" (🛠️) — shared, a flag on the recipe itself. Everyone sees it once anyone sets it.',
+      'Ratings and cooking notes — shared/global, one rating per attempt, attributed to whoever logged it. Every logged attempt also shows up on the activity log page for everyone, newest first.',
+      'Recipes themselves — shared, everyone sees everyone\'s by default. Narrow down with the "Added by" filter, or "Only me" for just your own.'
     ]
   },
   {

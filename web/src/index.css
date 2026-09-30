@@ -191,11 +191,14 @@ html, body, #root {
   max-width: 100%;
 }
 
-/* Hidden on desktop -- only meaningful once the sidebar goes off-canvas
-   below the mobile breakpoint (see the @media block near the bottom of
-   this file, which flips this to display: inline-flex). */
+/* Visible at every width -- toggles the mobile off-canvas drawer below
+   860px, and the desktop persistent-column collapse above it (see
+   CookbookShell.tsx's toggleSidebar/sidebarCollapsed). Used to be
+   display: none outside the mobile @media block, which meant desktop
+   collapse was fully wired up in JS/CSS but had no way to actually be
+   triggered -- the button that does it was never shown. */
 .sidebar-toggle {
-  display: none;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 36px;
@@ -1083,23 +1086,35 @@ html, body, #root {
 
 /* Section headings are now buttons (collapse/expand that section) rather
    than plain <h4>s -- resets the native button chrome so they still read
-   as the same heading style, just clickable. */
+   as the same heading style, just clickable. Only resets font-family (the
+   actual native-button-chrome problem) rather than the full `font`
+   shorthand -- that shorthand also resets font-size/weight, which at equal
+   specificity silently clobbered whichever of .ingredient-section-heading/
+   .instruction-section-heading happened to be declared earlier in this
+   file (confirmed: ingredient headings were losing their 12px/700 sizing
+   to this rule, instruction headings weren't, purely because of which one
+   came later in the stylesheet). */
 .section-collapse-toggle {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
   border: none;
   background: none;
-  padding: 0;
-  font: inherit;
+  padding: 4px 0;
+  border-radius: 6px;
+  font-family: inherit;
   text-align: left;
   cursor: pointer;
 }
 
+.section-collapse-toggle:hover {
+  background: #f3f4f6;
+}
+
 .section-collapse-caret {
-  font-size: 10px;
-  color: #9ca3af;
+  font-size: 15px;
+  color: #6b7280;
   flex: none;
 }
 
@@ -1114,7 +1129,7 @@ html, body, #root {
 .recipe-ingredients ul,
 .recipe-instructions ol {
   display: grid;
-  gap: 10px;
+  gap: 7px;
   margin: 0;
   padding-left: 22px;
 }

@@ -26,11 +26,14 @@ export function BrowsePage() {
     setMadeFilter,
     minRating,
     setMinRating,
+    maxTimeMinutes,
+    setMaxTimeMinutes,
     contributors,
     selectedOwnerIds,
     toggleOwner,
     currentUserId,
     setOwnerIds,
+    clearFilters,
     sortBy,
     setSortBy,
     results,
@@ -63,6 +66,8 @@ export function BrowsePage() {
         onChangeMadeFilter={setMadeFilter}
         minRating={minRating}
         onChangeMinRating={setMinRating}
+        maxTimeMinutes={maxTimeMinutes}
+        onChangeMaxTimeMinutes={setMaxTimeMinutes}
         contributors={contributors}
         selectedOwnerIds={selectedOwnerIds}
         onToggleOwner={toggleOwner}
@@ -72,6 +77,7 @@ export function BrowsePage() {
         onChangeSortBy={setSortBy}
         viewMode={viewMode}
         onChangeViewMode={setViewMode}
+        onClearFilters={clearFilters}
       />
 
       {loading ? (

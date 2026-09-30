@@ -81,6 +81,8 @@ export type SearchParams = {
   notMade?: boolean;
   // Minimum average rating (1-5 stars, global -- not per-user).
   minRating?: number;
+  // Total time at or under this many minutes.
+  maxTimeMinutes?: number;
   // One or more contributor ids -- "everyone" is just omitting this
   // entirely (or passing an empty array), same as every other optional
   // filter here.
@@ -100,6 +102,7 @@ export function searchRecipes(params: SearchParams): Promise<RecipeSummary[]> {
   if (params.made) query.set('made', 'true');
   if (params.notMade) query.set('notMade', 'true');
   if (params.minRating != null) query.set('minRating', String(params.minRating));
+  if (params.maxTimeMinutes != null) query.set('maxTimeMinutes', String(params.maxTimeMinutes));
   if (params.ownerIds?.length) query.set('ownerIds', params.ownerIds.join(','));
   if (params.sort === 'recent') query.set('sort', 'recent');
   const qs = query.toString();

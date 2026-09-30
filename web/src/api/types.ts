@@ -50,6 +50,7 @@ export type RecipeSummary = {
   sourceRef: string | null;
   sourceName: string | null;
   imageUrl: string | null;
+  totalTimeMinutes: number | null;
   wantToTryAt: string | null;
   favoritedAt: string | null;
   needsFixingAt: string | null;

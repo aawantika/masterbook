@@ -22,6 +22,8 @@ type FilterBarProps = {
   onChangeMadeFilter: (value: MadeFilter) => void;
   minRating: number | null;
   onChangeMinRating: (value: number | null) => void;
+  maxTimeMinutes: number | null;
+  onChangeMaxTimeMinutes: (value: number | null) => void;
   contributors: Contributor[];
   selectedOwnerIds: Set<number>;
   onToggleOwner: (id: number) => void;
@@ -31,6 +33,7 @@ type FilterBarProps = {
   onChangeSortBy: (sort: SortBy) => void;
   viewMode: ViewMode;
   onChangeViewMode: (mode: ViewMode) => void;
+  onClearFilters: () => void;
 };
 
 // One shared visual treatment for every control in this row -- plain
@@ -52,7 +55,11 @@ function FilterGroup({
 }) {
   if (items.length === 0) return null;
   return (
-    <details className="filter-group">
+    // The shared `name` makes these into a native HTML exclusive-accordion
+    // group -- opening one automatically closes any other <details> with
+    // the same name, no JS state needed. Covers all three (Added by, Meal
+    // type, Cuisine) since they all render through this one component.
+    <details className="filter-group" name="filter-dropdown-group">
       <summary className={`filter-chip${selected.size > 0 ? ' active' : ''}`}>
         {label}
         {selected.size > 0 ? ` (${selected.size})` : ''}
@@ -88,6 +95,8 @@ export function FilterBar({
   onChangeMadeFilter,
   minRating,
   onChangeMinRating,
+  maxTimeMinutes,
+  onChangeMaxTimeMinutes,
   contributors,
   selectedOwnerIds,
   onToggleOwner,
@@ -96,13 +105,9 @@ export function FilterBar({
   sortBy,
   onChangeSortBy,
   viewMode,
-  onChangeViewMode
+  onChangeViewMode,
+  onClearFilters
 }: FilterBarProps) {
-  // "Made"/"Not made" are mutually exclusive (a recipe can't be both), so
-  // clicking the already-active one clears back to "all" instead of the
-  // independent-boolean toggle behavior the other chips use.
-  const toggleMade = (value: 'made' | 'not-made') => onChangeMadeFilter(madeFilter === value ? 'all' : value);
-
   return (
     <div className="filter-bar">
       <input
@@ -147,28 +152,27 @@ export function FilterBar({
             Only me
           </button>
         )}
+        <FilterGroup label="Meal type" items={mealTypes} selected={selectedMealTypeIds} onToggle={onToggleMealType} />
+        <FilterGroup label="Cuisine" items={cuisines} selected={selectedCuisineIds} onToggle={onToggleCuisine} />
         {/* Was a single-select dropdown ("Added by: X") -- switched to the
-            same multi-select disclosure pattern as Meal type/Cuisine below,
+            same multi-select disclosure pattern as Meal type/Cuisine above,
             so you can filter to any combination of people at once instead
             of just one. An empty selection means "everyone", same as it
             always has. */}
         <FilterGroup label="Added by" items={contributors} selected={selectedOwnerIds} onToggle={onToggleOwner} />
-        <FilterGroup label="Meal type" items={mealTypes} selected={selectedMealTypeIds} onToggle={onToggleMealType} />
-        <FilterGroup label="Cuisine" items={cuisines} selected={selectedCuisineIds} onToggle={onToggleCuisine} />
-        <button
-          type="button"
-          className={`filter-chip${madeFilter === 'made' ? ' active' : ''}`}
-          onClick={() => toggleMade('made')}
+        {/* Was two separate mutually-exclusive chips (Made / Not made yet) --
+            a 3-way choice reads more clearly as one dropdown than two
+            buttons where clicking one has to silently un-click the other. */}
+        <select
+          className="sort-select"
+          value={madeFilter}
+          onChange={(e) => onChangeMadeFilter(e.target.value as MadeFilter)}
+          aria-label="Made status"
         >
-          🍳 Made
-        </button>
-        <button
-          type="button"
-          className={`filter-chip${madeFilter === 'not-made' ? ' active' : ''}`}
-          onClick={() => toggleMade('not-made')}
-        >
-          Not made yet
-        </button>
+          <option value="all">Made: Any</option>
+          <option value="made">🍳 Made</option>
+          <option value="not-made">Not made yet</option>
+        </select>
         <select
           className="sort-select"
           value={minRating ?? ''}
@@ -182,6 +186,19 @@ export function FilterBar({
           <option value="2">★★+</option>
           <option value="1">★+</option>
         </select>
+        <select
+          className="sort-select"
+          value={maxTimeMinutes ?? ''}
+          onChange={(e) => onChangeMaxTimeMinutes(e.target.value === '' ? null : Number(e.target.value))}
+          aria-label="Maximum time"
+        >
+          <option value="">Time: Any</option>
+          <option value="15">Under 15 min</option>
+          <option value="30">Under 30 min</option>
+          <option value="45">Under 45 min</option>
+          <option value="60">Under 1 hour</option>
+          <option value="120">Under 2 hours</option>
+        </select>
         <div className="filter-group-divider" />
         <select
           className="sort-select"
@@ -192,6 +209,9 @@ export function FilterBar({
           <option value="title">Sort: A–Z</option>
           <option value="recent">Sort: Recently added</option>
         </select>
+        <button type="button" className="filter-chip" onClick={onClearFilters}>
+          Clear filters
+        </button>
         <div className="filter-group-divider" />
         <button
           type="button"

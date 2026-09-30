@@ -209,14 +209,11 @@ function buildReadableRawText(input: {
 
 export type WebsiteFetchResult = RecipeDraft & { usedStructuredData: boolean };
 
-export async function fetchRecipeFromUrl(url: string): Promise<WebsiteFetchResult> {
-  const response = await fetch(url, {
-    headers: { 'User-Agent': USER_AGENT, Accept: 'text/html,application/xhtml+xml' }
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
-  }
-  const html = await response.text();
+// Split out from fetchRecipeFromUrl so the actual parsing logic is
+// testable against a fixture HTML string, without a real network call --
+// see server/tests/fetchRecipeFromUrl.test.ts. url is only used to derive
+// sourceName and (in the fallback path) isn't fetched again here.
+export function extractRecipeFromHtml(html: string, url: string): WebsiteFetchResult {
   const $ = cheerio.load(html);
 
   let recipeNode: Record<string, unknown> | null = null;
@@ -352,4 +349,15 @@ export async function fetchRecipeFromUrl(url: string): Promise<WebsiteFetchResul
   const bodyText = ($content.text() || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
   const fallback = parseManualPaste(bodyText);
   return { ...fallback, sourceName: deriveSourceNameFromUrl(url), usedStructuredData: false };
+}
+
+export async function fetchRecipeFromUrl(url: string): Promise<WebsiteFetchResult> {
+  const response = await fetch(url, {
+    headers: { 'User-Agent': USER_AGENT, Accept: 'text/html,application/xhtml+xml' }
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+  }
+  const html = await response.text();
+  return extractRecipeFromHtml(html, url);
 }

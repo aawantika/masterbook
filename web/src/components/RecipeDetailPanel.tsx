@@ -265,7 +265,7 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
             className={`heart-toggle${recipe.favoritedAt ? ' active' : ''}`}
             onClick={handleToggleFavorite}
           >
-            ❤️ {recipe.favoritedAt ? 'Favorited' : 'Favorite'}
+            {recipe.favoritedAt ? '❤️ Favorited' : '🤍 Favorite'}
           </button>
           <button
             type="button"

@@ -30,7 +30,7 @@ export function RecipeListRow({
           onClick={() => onToggleFavorite(recipe.id, !isFavorite)}
           title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
         >
-          ❤️
+          {isFavorite ? '❤️' : '🤍'}
         </button>
         <button
           type="button"

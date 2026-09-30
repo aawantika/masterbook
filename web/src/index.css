@@ -599,16 +599,20 @@ html, body, #root {
   color: #d97706;
 }
 
-/* The heart and wrench are both emoji -- they render in full color
-   regardless of the surrounding text color, so "active" is shown with a
-   background tint instead of recoloring (unlike the star above, a plain
-   text glyph that still responds to `color`). An earlier version dimmed
-   the inactive state with opacity instead, which read as "disabled"
-   rather than just "off". */
-.heart-toggle.active {
-  background: #fee2e2;
+/* Heart now swaps glyph (🤍 unselected -> ❤️ favorited, see RecipeCard.tsx
+   etc.) instead of tinting a background behind the same emoji -- the more
+   standard "outline vs. filled" pattern, and one less color to maintain.
+   🤍 washes out against a light card background with no help, so a
+   subtle drop-shadow keeps it visible without needing a background tint
+   just for legibility. Harmless on the ❤️ state too. */
+.heart-toggle {
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.35));
 }
 
+/* The wrench is still a single glyph regardless of state (there's no
+   "empty wrench" equivalent), so it still needs the background-tint
+   treatment the heart used to use -- it renders in full color regardless
+   of text color, so recoloring like the star above isn't an option. */
 .fix-toggle.active {
   background: #fef3c7;
 }

@@ -218,6 +218,9 @@ html, body, #root {
 }
 
 .sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin-bottom: 12px;
 }
 
@@ -1842,6 +1845,19 @@ html, body, #root {
 
 .howto-heading {
   font-size: 15px;
+  margin: 0 0 6px;
+}
+
+.howto-subsection {
+  margin: 12px 0 0 4px;
+}
+
+.howto-subheading {
+  font-size: 13px;
+  font-weight: 600;
+  color: #92400e;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   margin: 0 0 6px;
 }
 

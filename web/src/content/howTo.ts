@@ -2,10 +2,13 @@
 // one place and can be edited without touching component code. Rendered
 // inline on the profile page (see ProfilePage.tsx) -- there's no separate
 // /how-to route anymore, this is meant to be seen without a click-through.
+export type HowToSubsection = { heading: string; list: string[] };
+
 export type HowToSection = {
   heading: string;
   paragraphs?: string[];
   list?: string[];
+  subsections?: HowToSubsection[];
 };
 
 export const HOW_TO_SECTIONS: HowToSection[] = [
@@ -22,19 +25,23 @@ export const HOW_TO_SECTIONS: HowToSection[] = [
   {
     heading: "What's shared vs. what's just yours",
     paragraphs: ["This is the part that trips people up, since it's not obvious from the UI alone:"],
-    list: [
-      'Favorites (❤️) — per-person, just you.',
-      'Queue (★, "want to try") — per-person, just you.',
-      'Made / not made yet — per-person, just you.',
-      '"Needs fixing" (🛠️) — shared, a flag on the recipe itself. Everyone sees it once anyone sets it.',
-      'Ratings and cooking notes — shared/global, one rating per attempt, attributed to whoever logged it. Every logged attempt also shows up on the activity log page for everyone, newest first.',
-      'Recipes themselves — shared, everyone sees everyone\'s by default. Narrow down with the "Added by" filter, or "Only me" for just your own.'
-    ]
-  },
-  {
-    heading: 'Your profile',
-    paragraphs: [
-      'Right here: change your display name (what shows up in "added by" and the activity log), add a profile picture, and send yourself a password reset email.'
+    subsections: [
+      {
+        heading: "What's shared",
+        list: [
+          '"Needs fixing" (🛠️) — a flag on the recipe itself. Everyone sees it once anyone sets it.',
+          'Ratings and cooking notes — one rating per attempt, attributed to whoever logged it. Every logged attempt also shows up on the activity log page for everyone, newest first.',
+          'Recipes themselves — everyone sees everyone\'s by default. Narrow down with the "Added by" filter, or "Only me" for just your own.'
+        ]
+      },
+      {
+        heading: "What's just yours",
+        list: [
+          'Favorites (❤️).',
+          'Queue (★, "want to try").',
+          'Made / not made yet.'
+        ]
+      }
     ]
   }
 ];

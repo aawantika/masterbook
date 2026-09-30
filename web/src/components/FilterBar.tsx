@@ -134,11 +134,15 @@ export function FilterBar({
         >
           🛠️ Needs fixing
         </button>
+        <FilterGroup label="Meal type" items={mealTypes} selected={selectedMealTypeIds} onToggle={onToggleMealType} />
+        <FilterGroup label="Cuisine" items={cuisines} selected={selectedCuisineIds} onToggle={onToggleCuisine} />
         {/* Quick shortcut for the single most common case -- narrows
             straight to your own recipes without opening the Added-by
             disclosure and finding yourself in the list. Toggling it off
             (clicking again while active) clears back to "everyone", same
-            as clearing the Added-by group would. */}
+            as clearing the Added-by group would. Kept directly next to
+            Added by since they're two ways of doing the same kind of
+            filtering. */}
         {currentUserId != null && (
           <button
             type="button"
@@ -152,8 +156,6 @@ export function FilterBar({
             Only me
           </button>
         )}
-        <FilterGroup label="Meal type" items={mealTypes} selected={selectedMealTypeIds} onToggle={onToggleMealType} />
-        <FilterGroup label="Cuisine" items={cuisines} selected={selectedCuisineIds} onToggle={onToggleCuisine} />
         {/* Was a single-select dropdown ("Added by: X") -- switched to the
             same multi-select disclosure pattern as Meal type/Cuisine above,
             so you can filter to any combination of people at once instead

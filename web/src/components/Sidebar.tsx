@@ -6,6 +6,7 @@ type SidebarProps = {
   selectedRecipeId: number | null;
   onSelectRecipe: (id: number) => void;
   reloadSignal: number;
+  onToggleCollapse: () => void;
 };
 
 type GroupMode = 'source' | 'cuisine';
@@ -108,7 +109,7 @@ function RecipeLinkList({
   );
 }
 
-export function Sidebar({ selectedRecipeId, onSelectRecipe, reloadSignal }: SidebarProps) {
+export function Sidebar({ selectedRecipeId, onSelectRecipe, reloadSignal, onToggleCollapse }: SidebarProps) {
   const [recipes, setRecipes] = useState<RecipeSummary[]>([]);
   const [groupMode, setGroupMode] = useState<GroupMode>('source');
 
@@ -139,6 +140,14 @@ export function Sidebar({ selectedRecipeId, onSelectRecipe, reloadSignal }: Side
   return (
     <div className="sidebar">
       <div className="sidebar-header">
+        <button
+          type="button"
+          className="sidebar-toggle"
+          aria-label="Toggle recipe list panel"
+          onClick={onToggleCollapse}
+        >
+          ☰
+        </button>
         <h2>Recipes</h2>
       </div>
 

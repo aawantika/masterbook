@@ -262,19 +262,12 @@ export function CookbookShell() {
             navigate(`/recipes/${recipeId}`);
           }}
           reloadSignal={reloadSignal}
+          onToggleCollapse={toggleSidebar}
         />
       </aside>
 
       <main className="shell-pane shell-pane-middle">
         <div className="middle-topbar">
-          <button
-            type="button"
-            className="sidebar-toggle"
-            aria-label="Toggle recipe list panel"
-            onClick={toggleSidebar}
-          >
-            ☰
-          </button>
           <Link to="/" className="shell-title-link">
             <h1 className="shell-title">Masterbook</h1>
           </Link>

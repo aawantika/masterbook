@@ -154,6 +154,16 @@ export function ProfilePage() {
               ))}
             </ul>
           )}
+          {section.subsections?.map((sub) => (
+            <div key={sub.heading} className="howto-subsection">
+              <h4 className="howto-subheading">{sub.heading}</h4>
+              <ul className="howto-list">
+                {sub.list.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       ))}
     </div>

@@ -128,9 +128,9 @@ export function ProfilePage() {
         </Button>
       </form>
 
-      <h2 className="field-section-heading">Password</h2>
-      <div className="editor-actions">
-        <Button variant="secondary" onClick={handleResetPassword} disabled={resettingPassword}>
+      <div className="profile-field-row">
+        <span className="profile-field-label">Password</span>
+        <Button variant="secondary" size="sm" onClick={handleResetPassword} disabled={resettingPassword}>
           {resettingPassword ? 'Sending...' : 'Send password reset email'}
         </Button>
       </div>
@@ -138,9 +138,9 @@ export function ProfilePage() {
       {error && <div className="editor-error">{error}</div>}
       {notice && <div className="editor-notice">{notice}</div>}
 
-      <h2 className="field-section-heading" style={{ marginTop: 32 }}>
-        How this works
-      </h2>
+      <hr className="profile-section-divider" />
+
+      <h2 className="field-section-heading">How this works</h2>
       {HOW_TO_SECTIONS.map((section) => (
         <div key={section.heading} className="howto-section">
           <h3 className="howto-heading">{section.heading}</h3>

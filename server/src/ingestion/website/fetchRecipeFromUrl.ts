@@ -294,10 +294,62 @@ export async function fetchRecipeFromUrl(url: string): Promise<WebsiteFetchResul
   }
 
   // No structured data found — fall back to the page's visible text run
-  // through the same heuristic splitter used for manual pastes, after
-  // stripping obvious non-recipe chrome so it isn't drowning in nav/footer text.
-  $('script, style, nav, footer, header, noscript, iframe').remove();
-  const bodyText = ($('body').text() || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  // through the same heuristic splitter used for manual pastes. Confirmed
+  // on bakeomaniac.com: without this, whole-<body> text drags in the
+  // theme's "Skip to content" accessibility link (becomes the "title" —
+  // parseManualPaste takes the first non-blank line as-is), plus sidebar/
+  // comments/related-posts/social-follow chrome that isn't wrapped in
+  // nav/footer/header at all, all of which the "no headings found" fallback
+  // then dumps wholesale into "instructions" (158 fake steps on that page).
+  $('script, style, nav, footer, header, noscript, iframe, aside').remove();
+  // Deliberately NOT matching [class*="widget"] -- confirmed on
+  // bakeomaniac.com (Avada/Fusion Builder) that page builders often name a
+  // layout wrapper *around* the real post content "widget-area" too (not
+  // just actual sidebar widgets), which deleted the entire content column,
+  // ancestor and all, before the selectors below ever got a chance to find
+  // it. Same page's <body> itself carries a "has-sidebar" layout-flag
+  // class, which a plain $('[class*="sidebar"]') also matched and wiped
+  // out (removing <body> removes everything) -- .find() scopes every
+  // removal to descendants of body, never body/html themselves.
+  // meta-info/entry-meta/post-meta strips byline/date/category cruft that
+  // otherwise runs into the title as one unbroken line (confirmed on the
+  // same page: author handle + ISO timestamp + categories, all glued to
+  // the actual title with no separator once flattened to plain text).
+  $('body')
+    .find(
+      '[class*="sidebar" i], [class*="comment" i], [class*="related" i], [id*="comment" i], ' +
+        '[class*="skip-link" i], [class*="skip-to" i], a[href*="#content" i], ' +
+        '[class*="meta-info" i], [class*="entry-meta" i], [class*="post-meta" i]'
+    )
+    .remove();
+
+  // Scope to the actual article body when the page markup identifies one --
+  // covers the overwhelming majority of blogs/WordPress themes, which wrap
+  // post content in one of these. Falls back to the whole (now-stripped)
+  // body only if none of them match, rather than assuming every page has
+  // one -- still better than nothing on a page with an unrecognized layout.
+  const contentSelectors = [
+    'article',
+    '[itemprop="articleBody"]',
+    '[class*="entry-content" i]',
+    '[class*="post-content" i]',
+    '[class*="recipe-content" i]',
+    'main'
+  ];
+  // Typed loosely on purpose -- $(selector) for a plain (non-literal)
+  // string type widens its node type beyond what $('body') alone would
+  // infer, and .text()/.length (the only members used below) are
+  // available regardless of exactly which node-type parameter applies.
+  let $content: cheerio.Cheerio<any> = $('body');
+  for (const selector of contentSelectors) {
+    const match = $(selector).first();
+    if (match.length > 0 && match.text().trim().length > 200) {
+      $content = match;
+      break;
+    }
+  }
+
+  const bodyText = ($content.text() || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
   const fallback = parseManualPaste(bodyText);
   return { ...fallback, sourceName: deriveSourceNameFromUrl(url), usedStructuredData: false };
 }

@@ -678,6 +678,12 @@ html, body, #root {
 .field-row {
   display: flex;
   gap: 12px;
+  /* Without this, a button sitting next to a label+input column (taller,
+     since it stacks a caption above the input) stretches to match that
+     full height by default -- looks huge/oversized. Bottom-aligning it
+     with the input itself is what every "label above, button beside"
+     form row actually wants. */
+  align-items: flex-end;
 }
 
 .field-row .field {
@@ -1761,6 +1767,12 @@ html, body, #root {
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 14px;
+}
+
+.profile-section-divider {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 28px 0 20px;
 }
 
 .howto-section {

@@ -887,6 +887,44 @@ html, body, #root {
   font-size: 13px;
 }
 
+.confirm-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.confirm-dialog {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.confirm-dialog-title {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.confirm-dialog-message {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .editor-notice {
   background: #fef3c7;
   color: #92400e;

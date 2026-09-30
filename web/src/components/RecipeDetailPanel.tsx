@@ -16,6 +16,7 @@ import { getVideoEmbed } from '../sourceUrl';
 import { useAuth } from '../auth/AuthContext';
 import { RecipeDraftEditor } from './RecipeDraftEditor';
 import { Button } from './Button';
+import { ConfirmDialog } from './ConfirmDialog';
 
 type RecipeDetailPanelProps = {
   recipeId: number;
@@ -76,6 +77,7 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
   const [refreshedDraft, setRefreshedDraft] = useState<RecipeDraft | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   // Purely local display state -- which sectioned ingredient/instruction
   // groups are collapsed. Deliberately not saved anywhere (not to the
   // recipe, not to localStorage): a fresh mount always starts with
@@ -129,8 +131,10 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
     });
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm(`Delete "${recipe.title}"? This can't be undone.`)) return;
+  const handleDelete = () => setConfirmingDelete(true);
+
+  const confirmDelete = async () => {
+    setConfirmingDelete(false);
     await deleteRecipe(recipe.id);
     onDeleted();
   };
@@ -381,6 +385,16 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
             )}
           </div>
         </div>
+
+        {confirmingDelete && (
+          <ConfirmDialog
+            title="Delete this recipe?"
+            message={`"${recipe.title}" will be permanently deleted. This can't be undone.`}
+            confirmLabel="Delete"
+            onConfirm={confirmDelete}
+            onCancel={() => setConfirmingDelete(false)}
+          />
+        )}
 
         {recipe.imageUrl && (
           <div className="recipe-detail-image-wrap">

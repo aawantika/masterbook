@@ -136,10 +136,18 @@ html, body, #root {
   background: #fdfaf5;
 }
 
-.cookbook-shell.sidebar-collapsed .shell-pane-left {
-  padding: 0;
-  overflow: hidden;
-  border-right: none;
+/* Desktop only (min-width complement of the max-width: 860px mobile block
+   below) -- sidebarOpen and sidebarCollapsed flip together from the same
+   toggle button, so without this scoping, opening the mobile off-canvas
+   drawer (sidebarOpen: true) would also apply this (sidebarCollapsed is
+   true at the same moment), clipping the open drawer's own scrollable
+   content and padding. */
+@media (min-width: 861px) {
+  .cookbook-shell.sidebar-collapsed .shell-pane-left {
+    padding: 0;
+    overflow: hidden;
+    border-right: none;
+  }
 }
 
 .shell-pane-middle {
@@ -157,13 +165,21 @@ html, body, #root {
 }
 
 .middle-topbar {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   margin-bottom: 16px;
 }
 
 .shell-title-link {
+  /* Truly centered regardless of what's on either side of it in the flex
+     row (the sidebar toggle on the left, admin/activity/add/profile
+     actions on the right) -- those two sides are never the same width, so
+     centering this via flex justify-content: space-between alone drifted
+     visibly off-center depending on how many actions happened to render. */
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   color: inherit;
   text-decoration: none;
 }
@@ -344,7 +360,9 @@ html, body, #root {
 
 .middle-topbar-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
+  margin-left: auto;
 }
 
 .activity-recipe-link {

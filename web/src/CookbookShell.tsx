@@ -271,22 +271,26 @@ export function CookbookShell() {
             broke re-opening entirely (the only "show it again" button was
             inside the very panel it had just hidden -- on mobile, which
             starts closed, that broke opening it the very first time too).
-            Always reachable here instead; .shell-title-link is absolutely
-            centered (see index.css) specifically so this button's presence
-            doesn't knock the title off-center the way a plain flex
-            space-between row did before. */}
+            Grouped with the title rather than centering the title
+            independently -- centering a middle item between two unequal
+            side groups (toggle vs. a whole row of actions) kept drifting
+            no matter how the centering math was done; two plain flex
+            groups with space-between has no such problem, there's nothing
+            to center, just a left edge and a right edge. */}
         <div className="middle-topbar">
-          <button
-            type="button"
-            className="sidebar-toggle"
-            aria-label="Toggle recipe list panel"
-            onClick={toggleSidebar}
-          >
-            ☰
-          </button>
-          <Link to="/" className="shell-title-link">
-            <h1 className="shell-title">Masterbook</h1>
-          </Link>
+          <div className="middle-topbar-left">
+            <button
+              type="button"
+              className="sidebar-toggle"
+              aria-label="Toggle recipe list panel"
+              onClick={toggleSidebar}
+            >
+              ☰
+            </button>
+            <Link to="/" className="shell-title-link">
+              <h1 className="shell-title">Masterbook</h1>
+            </Link>
+          </div>
           <div className="middle-topbar-actions">
             {user?.role === 'admin' && (
               <ButtonLink to="/admin" variant="secondary">

@@ -29,6 +29,11 @@ fi
 log "deploying $(git rev-parse --short HEAD) -> $(git rev-parse --short origin/main)"
 git checkout --quiet main
 git pull --quiet --ff-only origin main
+# Exported so docker-compose.yml's build.args can pick it up -- shows up
+# on /admin as "server last updated" (see /api/auth/version). Commit time
+# (not deploy time) is what's useful here: it answers "did my push make it
+# live yet," which deploy time wouldn't.
+export GIT_COMMIT_TIME="$(git log -1 --format=%cI)"
 docker compose up -d --build 2>&1 | tail -5
 docker image prune -f >/dev/null
-log "deployed $(git rev-parse --short HEAD)"
+log "deployed $(git rev-parse --short HEAD) (committed $GIT_COMMIT_TIME)"

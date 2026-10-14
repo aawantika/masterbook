@@ -130,6 +130,13 @@ export type SiteStatus = {
   frozenMessage: string | null;
 };
 
+// null if the running image was built without the GIT_COMMIT_TIME build
+// arg (e.g. a plain local `docker compose up --build` rather than the
+// real deploy.sh path).
+export type ServerVersion = {
+  commitTime: string | null;
+};
+
 export type UserRecipeCount = {
   userId: number | null;
   name: string;

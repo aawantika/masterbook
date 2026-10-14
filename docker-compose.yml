@@ -1,6 +1,14 @@
 services:
   masterbook:
-    build: .
+    build:
+      context: .
+      # Picked up from the shell environment deploy.sh runs in (see
+      # scripts/deploy.sh) so /api/auth/version can show when the running
+      # commit was pushed. Blank for a plain `docker compose up --build`
+      # run by hand -- harmless, just means the admin page won't have a
+      # time to show.
+      args:
+        GIT_COMMIT_TIME: ${GIT_COMMIT_TIME:-}
     restart: unless-stopped
     ports:
       - '127.0.0.1:3001:3001'

@@ -32,6 +32,13 @@ RUN npm run build -w web && npm run build -w server
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+# When this image's commit was pushed -- .git/ is excluded from the build
+# context (.dockerignore), so the only way the running container knows
+# this is if the build passes it in. Unset if built without --build-arg
+# (e.g. a plain local `docker compose up --build` run by hand) -- see
+# /api/auth/version and docker-compose.yml.
+ARG GIT_COMMIT_TIME=unknown
+ENV GIT_COMMIT_TIME=$GIT_COMMIT_TIME
 COPY package.json package-lock.json ./
 COPY server/package.json server/package.json
 COPY web/package.json web/package.json

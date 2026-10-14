@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { getSiteStatus, setSiteFrozen } from '../api/client';
-import { SiteStatus } from '../api/types';
+import { getServerVersion, getSiteStatus, setSiteFrozen } from '../api/client';
+import { ServerVersion, SiteStatus } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Button, ButtonLink } from '../components/Button';
 
@@ -9,9 +9,23 @@ import { Button, ButtonLink } from '../components/Button';
 // admin-only lives under here (manage users, stats, and the site
 // freeze/unfreeze toggle) instead of scattering separate topbar links for
 // each one.
+// "2 hours ago" / "3 days ago" -- coarse on purpose, this is answering
+// "is the hourly auto-deploy keeping up," not a precise countdown.
+function formatRelativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.round(diffMs / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
 export function AdminPage() {
   const { user } = useAuth();
   const [status, setStatus] = useState<SiteStatus | null>(null);
+  const [version, setVersion] = useState<ServerVersion | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
@@ -22,6 +36,7 @@ export function AdminPage() {
     getSiteStatus()
       .then(setStatus)
       .finally(() => setLoading(false));
+    getServerVersion().then(setVersion);
   };
 
   useEffect(reload, []);
@@ -65,6 +80,12 @@ export function AdminPage() {
   return (
     <div className="detail-panel">
       <h1>Admin</h1>
+
+      {version?.commitTime && (
+        <p className="muted admin-version-line">
+          Server last updated {formatRelativeTime(version.commitTime)} ({new Date(version.commitTime).toLocaleString()})
+        </p>
+      )}
 
       <div className="admin-hub-links">
         <ButtonLink to="/admin/users" variant="secondary">

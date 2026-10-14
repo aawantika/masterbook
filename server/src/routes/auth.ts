@@ -189,3 +189,14 @@ authRouter.patch('/site-status', requireAdmin, (req, res) => {
 authRouter.get('/stats', requireAdmin, (_req, res) => {
   res.json(getSiteStats());
 });
+
+// When the running commit was pushed -- so "did the auto-deploy on the Mac
+// mini actually pick up my latest push?" is a glance at /admin instead of
+// SSHing in to check. GIT_COMMIT_TIME is baked in as a build arg at
+// image-build time (see Dockerfile, docker-compose.yml, scripts/deploy.sh)
+// since .dockerignore excludes .git/ from the build context -- the
+// running container has no git metadata of its own to read at request
+// time.
+authRouter.get('/version', requireAdmin, (_req, res) => {
+  res.json({ commitTime: process.env.GIT_COMMIT_TIME || null });
+});

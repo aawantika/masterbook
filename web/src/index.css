@@ -290,6 +290,16 @@ html, body, #root {
   content: '▸ ';
 }
 
+/* Separates the Queue/Favorites/Needs-fixing quick sections above from
+   the by-source/by-cuisine tree below -- previously nothing marked where
+   the quick sections ended and the full recipe tree began. Same divider
+   treatment as .sidebar-quick-section's own border-top, for consistency. */
+.sidebar-tree {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid #eee7db;
+}
+
 .sidebar-group-toggle {
   display: flex;
   gap: 4px;

@@ -12,6 +12,7 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { AdminPage } from './pages/AdminPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
 import { AdminStatsPage } from './pages/AdminStatsPage';
+import { AdminTaxonomyPage } from './pages/AdminTaxonomyPage';
 import { ProfilePage } from './pages/ProfilePage';
 
 export function App() {
@@ -35,6 +36,7 @@ export function App() {
         <Route path="admin" element={<AdminPage />} />
         <Route path="admin/users" element={<AdminUsersPage />} />
         <Route path="admin/stats" element={<AdminStatsPage />} />
+        <Route path="admin/taxonomy" element={<AdminTaxonomyPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
     </Routes>

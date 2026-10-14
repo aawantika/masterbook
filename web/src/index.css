@@ -109,6 +109,39 @@ html, body, #root {
   font-size: 13px;
 }
 
+/* Had no rule at all anywhere in this file despite six call sites (Reset
+   servings, remove a cooking-log attempt, remove an ingredient/instruction
+   section, the EPUB "Delete" button, "forgot password") -- every one of
+   them was rendering as a raw unstyled browser-default <button>: default
+   chrome, no font-size override (so 16px, visibly bigger than the 13px
+   muted text usually sitting right next to it). A lightweight text-style
+   action, not a bordered button. */
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  font-size: 13px;
+  color: #6b7280;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: #1f2937;
+}
+
+/* For the actually-destructive ones (EPUB delete) -- Reset/"Remove
+   section"/"forgot password" stay neutral since they're not destructive. */
+.link-button.danger {
+  color: #991b1b;
+}
+
+.link-button.danger:hover {
+  color: #7f1d1d;
+}
+
 .cookbook-shell {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
@@ -1072,6 +1105,10 @@ html, body, #root {
 
 .rd-quickactions .heart-toggle.active {
   border-color: #dc2626;
+  /* The emoji version's ❤️ carried its own red built into the glyph --
+     the real SVG icon uses currentColor, so this has to be set explicitly
+     now for the filled heart to actually render red when favorited. */
+  color: #dc2626;
 }
 
 /* The drop-shadow on .heart-toggle (below) exists to keep 🤍 visible
@@ -1506,8 +1543,21 @@ html, body, #root {
 
 .admin-hub-links {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin: 12px 0 20px;
+}
+
+.admin-taxonomy-section {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.admin-taxonomy-section:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 
 .stats-summary-row {

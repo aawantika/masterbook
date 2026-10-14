@@ -12,11 +12,12 @@ import {
 } from '../api/client';
 import { MetaItem, RecipeDetail, RecipeDraft, SourceType } from '../api/types';
 import { normalizeUnitSpacing, parseBaseServings, scaleQuantityString } from '../scaleQuantity';
-import { getVideoEmbed, sourceLinkEmoji } from '../sourceUrl';
+import { getVideoEmbed } from '../sourceUrl';
 import { useAuth } from '../auth/AuthContext';
 import { RecipeDraftEditor } from './RecipeDraftEditor';
 import { Button } from './Button';
 import { ConfirmDialog } from './ConfirmDialog';
+import { HeartIcon, StarIcon, WrenchIcon } from './icons';
 
 type RecipeDetailPanelProps = {
   recipeId: number;
@@ -344,17 +345,22 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
               recipe.servings && <span className="muted">Serves {recipe.servings}</span>
             )}
             {recipe.totalTimeMinutes != null && <span className="muted">Total time {recipe.totalTimeMinutes} min</span>}
+            {/* Normalized per-link, not per-platform -- "Recipe" (the
+                written source) is always 🔗 regardless of what domain it
+                happens to be on; "Video" varies by platform (📷 Instagram,
+                ▶ YouTube) since it's actually a video either way. */}
             {recipe.sourceRef &&
               (/^https?:\/\//i.test(recipe.sourceRef) ? (
                 <a href={recipe.sourceRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
-                  {sourceLinkEmoji(recipe.sourceRef)} Recipe
+                  🔗 Recipe
                 </a>
               ) : (
                 <span className="muted">{recipe.sourceRef}</span>
               ))}
             {recipe.videoRef && (
               <a href={recipe.videoRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
-                ▶ Video ({getVideoEmbed(recipe.videoRef)?.platform === 'instagram' ? 'Instagram' : 'YouTube'})
+                {getVideoEmbed(recipe.videoRef)?.platform === 'instagram' ? '📷' : '▶'} Video (
+                {getVideoEmbed(recipe.videoRef)?.platform === 'instagram' ? 'Instagram' : 'YouTube'})
               </a>
             )}
           </div>
@@ -366,7 +372,7 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
               onClick={handleToggleFavorite}
               aria-label={recipe.favoritedAt ? 'Favorited' : 'Favorite'}
             >
-              <span aria-hidden="true">{recipe.favoritedAt ? '❤️' : '🤍'}</span>
+              <HeartIcon filled={!!recipe.favoritedAt} />
               <span className="btn-label">{recipe.favoritedAt ? 'Favorited' : 'Favorite'}</span>
             </button>
             <button
@@ -375,7 +381,7 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
               onClick={handleToggleWantToTry}
               aria-label={recipe.wantToTryAt ? 'In queue' : 'Add to queue'}
             >
-              <span aria-hidden="true">{recipe.wantToTryAt ? '★' : '☆'}</span>
+              <StarIcon filled={!!recipe.wantToTryAt} />
               <span className="btn-label">{recipe.wantToTryAt ? 'In queue' : 'Add to queue'}</span>
             </button>
             <button
@@ -384,7 +390,7 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
               onClick={handleToggleNeedsFixing}
               aria-label={recipe.needsFixingAt ? 'Needs fixing' : 'Needs Fixing'}
             >
-              <span aria-hidden="true">🛠️</span>
+              <WrenchIcon />
               <span className="btn-label">{recipe.needsFixingAt ? 'Needs fixing' : 'Needs Fixing'}</span>
             </button>
           </div>

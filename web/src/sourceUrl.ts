@@ -60,16 +60,6 @@ export function isUnfetchableRecipeUrl(url: string): boolean {
   return isInstagramUrl(url) || extractYouTubeVideoId(url) !== null || isKnownUnfetchableHostname(url);
 }
 
-// One glyph per platform for the "Recipe" source link -- so a glance at
-// the icon tells you where the link goes before you click it, instead of
-// every source (website, YouTube, Instagram) wearing the same 🔗 regardless
-// of what's actually behind it.
-export function sourceLinkEmoji(url: string): string {
-  if (isInstagramUrl(url)) return '📷';
-  if (extractYouTubeVideoId(url) !== null) return '▶️';
-  return '🔗';
-}
-
 // Bare hostname as a starting-point source name -- the user can rename it
 // to something prettier in the editor. Instagram/YouTube are excluded: a
 // domain name isn't a useful "source" label for those (a creator handle

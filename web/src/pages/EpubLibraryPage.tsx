@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { deleteEpubSource, listEpubSources, uploadEpub } from '../api/client';
 import { EpubSource } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export function EpubLibraryPage() {
   const { user } = useAuth();
@@ -11,6 +12,7 @@ export function EpubLibraryPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState<EpubSource | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reload = () => {
@@ -22,13 +24,13 @@ export function EpubLibraryPage() {
 
   useEffect(reload, []);
 
-  const handleDelete = async (source: EpubSource) => {
-    const name = source.title || source.filename || 'this book';
-    const warning =
-      source.recipeCount > 0
-        ? `Delete "${name}"? Its ${source.recipeCount} saved recipe${source.recipeCount === 1 ? '' : 's'} will stay in your cookbook, but any unextracted bookmarks will be lost. This can't be undone.`
-        : `Delete "${name}"? This can't be undone.`;
-    if (!window.confirm(warning)) return;
+  // Same ConfirmDialog as recipe delete, not window.confirm -- the native
+  // browser dialog can't be styled and reads as jarring/out of place next
+  // to everything else in the app.
+  const confirmDelete = async () => {
+    if (!confirmingDelete) return;
+    const source = confirmingDelete;
+    setConfirmingDelete(null);
     await deleteEpubSource(source.id);
     reload();
   };
@@ -108,14 +110,28 @@ export function EpubLibraryPage() {
               </Link>
               <button
                 type="button"
-                className="link-button epub-source-delete"
-                onClick={() => handleDelete(source)}
+                className="link-button danger epub-source-delete"
+                onClick={() => setConfirmingDelete(source)}
               >
                 Delete
               </button>
             </li>
           ))}
         </ul>
+      )}
+
+      {confirmingDelete && (
+        <ConfirmDialog
+          title="Delete this book?"
+          message={
+            confirmingDelete.recipeCount > 0
+              ? `"${confirmingDelete.title || confirmingDelete.filename || 'This book'}" will be deleted. Its ${confirmingDelete.recipeCount} saved recipe${confirmingDelete.recipeCount === 1 ? '' : 's'} will stay in your cookbook, but any unextracted bookmarks will be lost. This can't be undone.`
+              : `"${confirmingDelete.title || confirmingDelete.filename || 'This book'}" will be permanently deleted. This can't be undone.`
+          }
+          confirmLabel="Delete"
+          onConfirm={confirmDelete}
+          onCancel={() => setConfirmingDelete(null)}
+        />
       )}
     </div>
   );

@@ -105,6 +105,9 @@ export type RecipeDetail = {
 
 export type MetaItem = { id: number; name: string };
 
+// Admin-only taxonomy management view (GET /api/meta/{meal-types,cuisines}/admin)
+export type TaxonomyItem = { id: number; name: string; recipeCount: number };
+
 // The "who's in this group" list for the browse page's "Added by" filter --
 // GET /api/meta/contributors, visible to any approved member, not just
 // admins (unlike User/GET /auth/users below).

@@ -620,6 +620,118 @@ export function listCuisines(): Array<{ id: number; name: string }> {
   return db.prepare('SELECT id, name FROM cuisines ORDER BY name ASC').all() as Array<{ id: number; name: string }>;
 }
 
+// ---------------------------------------------------------------------
+// Admin taxonomy management (meal types / cuisines) -- cuisines in
+// particular were meant to stay a short, fixed/curated list (see
+// CUISINE_SUGGESTIONS in db/seed.ts), but website-fetch/manual-paste
+// parsing still freely creates whatever string shows up on the source
+// page (getOrCreateCuisine above), so stray near-duplicates like "Middle
+// Eastern-inspired" slip in over time. This is the cleanup tool.
+// ---------------------------------------------------------------------
+
+export type TaxonomyItem = { id: number; name: string; recipeCount: number };
+
+export function listMealTypesWithCounts(): TaxonomyItem[] {
+  return db
+    .prepare(
+      `SELECT mt.id, mt.name, COUNT(rmt.recipe_id) as recipeCount
+       FROM meal_types mt
+       LEFT JOIN recipe_meal_types rmt ON rmt.meal_type_id = mt.id
+       GROUP BY mt.id
+       ORDER BY mt.name ASC`
+    )
+    .all() as TaxonomyItem[];
+}
+
+export function listCuisinesWithCounts(): TaxonomyItem[] {
+  return db
+    .prepare(
+      `SELECT c.id, c.name, COUNT(rc.recipe_id) as recipeCount
+       FROM cuisines c
+       LEFT JOIN recipe_cuisines rc ON rc.cuisine_id = c.id
+       GROUP BY c.id
+       ORDER BY c.name ASC`
+    )
+    .all() as TaxonomyItem[];
+}
+
+export function createMealType(name: string): number {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error('Name cannot be empty.');
+  const result = db.prepare('INSERT INTO meal_types (name) VALUES (?)').run(trimmed);
+  return Number(result.lastInsertRowid);
+}
+
+export function createCuisine(name: string): number {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error('Name cannot be empty.');
+  const result = db.prepare('INSERT INTO cuisines (name) VALUES (?)').run(trimmed);
+  return Number(result.lastInsertRowid);
+}
+
+// Renaming to a name that already exists on a DIFFERENT row merges into it
+// instead of hitting the UNIQUE constraint -- every recipe tagged with the
+// old name ends up tagged with the target name (INSERT OR IGNORE avoids a
+// primary-key collision on a recipe that already has both), and the
+// now-empty old row is removed. This one action is the actual fix for the
+// motivating case: rename "Middle Eastern-inspired" to "Middle Eastern"
+// and it quietly folds into the real one instead of erroring.
+export function renameMealType(id: number, newName: string): void {
+  const trimmed = newName.trim();
+  if (!trimmed) throw new Error('Name cannot be empty.');
+  const existing = db.prepare('SELECT id FROM meal_types WHERE name = ? AND id != ?').get(trimmed, id) as
+    | { id: number }
+    | undefined;
+  const rename = db.transaction(() => {
+    if (existing) {
+      db.prepare(
+        'INSERT OR IGNORE INTO recipe_meal_types (recipe_id, meal_type_id) SELECT recipe_id, ? FROM recipe_meal_types WHERE meal_type_id = ?'
+      ).run(existing.id, id);
+      db.prepare('DELETE FROM recipe_meal_types WHERE meal_type_id = ?').run(id);
+      db.prepare('DELETE FROM meal_types WHERE id = ?').run(id);
+    } else {
+      db.prepare('UPDATE meal_types SET name = ? WHERE id = ?').run(trimmed, id);
+    }
+  });
+  rename();
+}
+
+export function renameCuisine(id: number, newName: string): void {
+  const trimmed = newName.trim();
+  if (!trimmed) throw new Error('Name cannot be empty.');
+  const existing = db.prepare('SELECT id FROM cuisines WHERE name = ? COLLATE NOCASE AND id != ?').get(trimmed, id) as
+    | { id: number }
+    | undefined;
+  const rename = db.transaction(() => {
+    if (existing) {
+      db.prepare(
+        'INSERT OR IGNORE INTO recipe_cuisines (recipe_id, cuisine_id) SELECT recipe_id, ? FROM recipe_cuisines WHERE cuisine_id = ?'
+      ).run(existing.id, id);
+      db.prepare('DELETE FROM recipe_cuisines WHERE cuisine_id = ?').run(id);
+      db.prepare('DELETE FROM cuisines WHERE id = ?').run(id);
+    } else {
+      db.prepare('UPDATE cuisines SET name = ? WHERE id = ?').run(trimmed, id);
+    }
+  });
+  rename();
+}
+
+// Deliberately refuses rather than cascading -- deleting a cuisine/meal
+// type that's still tagged on recipes would silently untag them. Rename
+// (merge) it into something else first if the goal is consolidation; this
+// is only for removing an entry nothing actually uses.
+export function deleteMealType(id: number): void {
+  const row = db.prepare('SELECT COUNT(*) as c FROM recipe_meal_types WHERE meal_type_id = ?').get(id) as { c: number };
+  if (row.c > 0) throw new Error('This meal type is still used by recipes -- rename/merge it into another one first.');
+  db.prepare('DELETE FROM meal_types WHERE id = ?').run(id);
+}
+
+export function deleteCuisine(id: number): void {
+  const row = db.prepare('SELECT COUNT(*) as c FROM recipe_cuisines WHERE cuisine_id = ?').get(id) as { c: number };
+  if (row.c > 0) throw new Error('This cuisine is still used by recipes -- rename/merge it into another one first.');
+  db.prepare('DELETE FROM cuisines WHERE id = ?').run(id);
+}
+
 export function listIngredientNames(): Array<{ id: number; name: string }> {
   return db.prepare('SELECT id, canonical_name as name FROM ingredient_catalog ORDER BY canonical_name ASC').all() as Array<{
     id: number;

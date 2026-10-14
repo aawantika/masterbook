@@ -94,6 +94,9 @@ export function AdminPage() {
         <ButtonLink to="/admin/stats" variant="secondary">
           Stats
         </ButtonLink>
+        <ButtonLink to="/admin/taxonomy" variant="secondary">
+          Meal types &amp; cuisines
+        </ButtonLink>
       </div>
 
       <h2 className="field-section-heading">Site freeze</h2>

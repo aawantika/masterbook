@@ -14,6 +14,7 @@ import {
   ServerVersion,
   SiteStats,
   SiteStatus,
+  TaxonomyItem,
   User
 } from './types';
 import { auth } from '../firebase';
@@ -215,6 +216,38 @@ export function getCuisines(): Promise<MetaItem[]> {
 
 export function getIngredientNames(): Promise<MetaItem[]> {
   return request<MetaItem[]>('/meta/ingredients');
+}
+
+export function getMealTypesAdmin(): Promise<TaxonomyItem[]> {
+  return request<TaxonomyItem[]>('/meta/meal-types/admin');
+}
+
+export function getCuisinesAdmin(): Promise<TaxonomyItem[]> {
+  return request<TaxonomyItem[]>('/meta/cuisines/admin');
+}
+
+export function createMealType(name: string): Promise<TaxonomyItem[]> {
+  return request<TaxonomyItem[]>('/meta/meal-types', { method: 'POST', body: JSON.stringify({ name }) });
+}
+
+export function createCuisine(name: string): Promise<TaxonomyItem[]> {
+  return request<TaxonomyItem[]>('/meta/cuisines', { method: 'POST', body: JSON.stringify({ name }) });
+}
+
+export function renameMealType(id: number, name: string): Promise<TaxonomyItem[]> {
+  return request<TaxonomyItem[]>(`/meta/meal-types/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) });
+}
+
+export function renameCuisine(id: number, name: string): Promise<TaxonomyItem[]> {
+  return request<TaxonomyItem[]>(`/meta/cuisines/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) });
+}
+
+export function deleteMealType(id: number): Promise<TaxonomyItem[]> {
+  return request<TaxonomyItem[]>(`/meta/meal-types/${id}`, { method: 'DELETE' });
+}
+
+export function deleteCuisine(id: number): Promise<TaxonomyItem[]> {
+  return request<TaxonomyItem[]>(`/meta/cuisines/${id}`, { method: 'DELETE' });
 }
 
 export function getContributors(): Promise<Contributor[]> {

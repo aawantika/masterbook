@@ -28,8 +28,12 @@ export function CookingLogPanel({ recipeId, onChanged }: CookingLogPanelProps) {
     return <div className="shell-pane-placeholder muted">Select a recipe to see its cooking log.</div>;
   }
 
+  // No loading text here -- RecipeDetailPanel (rendered just above this,
+  // fetching the same recipeId independently) already shows its own
+  // "Loading..." for this exact moment. Rendering nothing avoids the two
+  // stacking on top of each other while both fetches are in flight.
   if (!recipe) {
-    return <div className="muted">Loading...</div>;
+    return null;
   }
 
   return (

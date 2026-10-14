@@ -1548,16 +1548,40 @@ html, body, #root {
   margin: 12px 0 20px;
 }
 
-.admin-taxonomy-section {
-  margin-top: 28px;
-  padding-top: 20px;
-  border-top: 1px solid #e5e7eb;
+/* Tabs switch between sections (Meal types / Cuisines / whatever gets
+   added later) instead of stacking every table on one long page -- same
+   active-state pattern as .sidebar-group-toggle. */
+.admin-taxonomy-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 16px 0;
+  border-bottom: 1px solid #e5e7eb;
 }
 
-.admin-taxonomy-section:first-of-type {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: none;
+.admin-taxonomy-tabs button {
+  padding: 8px 14px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+
+.admin-taxonomy-tabs button.active {
+  color: #15803d;
+  border-bottom-color: #15803d;
+}
+
+.admin-taxonomy-section {
+  margin-top: 16px;
+}
+
+.admin-taxonomy-filter {
+  max-width: 280px;
+  margin: 14px 0;
 }
 
 .stats-summary-row {

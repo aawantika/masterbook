@@ -20,15 +20,7 @@ type Kind = 'mealType' | 'cuisine';
 // One table component reused for both meal types and cuisines -- identical
 // shape (name, recipe count, rename-which-merges-if-the-name-already-exists,
 // delete-only-if-unused), just pointed at different API functions.
-function TaxonomyTable({
-  kind,
-  title,
-  helpText
-}: {
-  kind: Kind;
-  title: string;
-  helpText: string;
-}) {
+function TaxonomyTable({ kind, helpText }: { kind: Kind; helpText: string }) {
   const [items, setItems] = useState<TaxonomyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +29,11 @@ function TaxonomyTable({
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [saving, setSaving] = useState<number | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<TaxonomyItem | null>(null);
+  // Resets whenever the active tab changes (see the `key` prop in
+  // AdminTaxonomyPage below, which remounts this component per tab) --
+  // switching tabs with a filter still typed in from the other section
+  // would be a confusing stale-looking empty state otherwise.
+  const [filter, setFilter] = useState('');
 
   const list = kind === 'mealType' ? getMealTypesAdmin : getCuisinesAdmin;
   const create = kind === 'mealType' ? createMealType : createCuisine;
@@ -99,9 +96,13 @@ function TaxonomyTable({
     }
   };
 
+  // Client-side, not a server round-trip -- the full list is already
+  // loaded (there's no pagination), and this is purely a "find the one
+  // entry I'm here for" aid, not a real search feature.
+  const filtered = items.filter((item) => item.name.toLowerCase().includes(filter.trim().toLowerCase()));
+
   return (
     <div className="admin-taxonomy-section">
-      <h2 className="field-section-heading">{title}</h2>
       <p className="muted">{helpText}</p>
 
       <form onSubmit={handleCreate} className="field-row">
@@ -114,8 +115,17 @@ function TaxonomyTable({
         </Button>
       </form>
 
+      {!loading && items.length > 5 && (
+        <label className="field admin-taxonomy-filter">
+          <span>Filter</span>
+          <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Start typing a name..." />
+        </label>
+      )}
+
       {loading ? (
         <div className="muted">Loading...</div>
+      ) : filtered.length === 0 ? (
+        <div className="muted">{items.length === 0 ? 'None yet.' : 'No matches.'}</div>
       ) : (
         <div className="admin-table-wrap">
           <table className="admin-table">
@@ -127,7 +137,7 @@ function TaxonomyTable({
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {filtered.map((item) => (
                 <tr key={item.id}>
                   <td>
                     <input
@@ -181,14 +191,25 @@ function TaxonomyTable({
   );
 }
 
+const TABS: Array<{ kind: Kind; label: string; helpText: string }> = [
+  { kind: 'mealType', label: 'Meal types', helpText: 'What a recipe is, categorically (Breakfast, Dessert, ...).' },
+  { kind: 'cuisine', label: 'Cuisines', helpText: 'Where a recipe is from.' }
+];
+
 export function AdminTaxonomyPage() {
   const { user } = useAuth();
+  // One section visible at a time instead of every table stacked on one
+  // long page -- stacking gets harder to keep track of as more sections
+  // get added here later, not just as each table's own row count grows.
+  const [activeTab, setActiveTab] = useState<Kind>('mealType');
 
   // Real enforcement is server-side (requireAdmin) -- this is just UX so a
   // non-admin never sees the form flash before being redirected.
   if (user && user.role !== 'admin') {
     return <Navigate to="/" replace />;
   }
+
+  const active = TABS.find((t) => t.kind === activeTab)!;
 
   return (
     <div className="detail-panel">
@@ -199,8 +220,23 @@ export function AdminTaxonomyPage() {
         Eastern-inspired" instead of "Middle Eastern").
       </p>
 
-      <TaxonomyTable kind="mealType" title="Meal types" helpText="What a recipe is, categorically (Breakfast, Dessert, ...)." />
-      <TaxonomyTable kind="cuisine" title="Cuisines" helpText="Where a recipe is from." />
+      <div className="admin-taxonomy-tabs" role="tablist">
+        {TABS.map((tab) => (
+          <button
+            key={tab.kind}
+            type="button"
+            className={tab.kind === activeTab ? 'active' : ''}
+            onClick={() => setActiveTab(tab.kind)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* key forces a remount on tab switch -- each tab's filter/draft/
+          error state starts fresh instead of carrying over from the other
+          section. */}
+      <TaxonomyTable key={active.kind} kind={active.kind} helpText={active.helpText} />
     </div>
   );
 }

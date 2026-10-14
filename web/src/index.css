@@ -1282,16 +1282,19 @@ html, body, #root {
 }
 
 .log-attempt-form input,
-.log-attempt-form select {
+.log-attempt-form select,
+.log-attempt-form textarea {
   padding: 8px 10px;
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 13px;
+  font-family: inherit;
 }
 
 .log-notes-input {
   flex: 1;
   min-width: 200px;
+  resize: vertical;
 }
 
 .log-timeline {

@@ -43,11 +43,12 @@ export function CookingLogList({ attempts, onAddAttempt, onDeleteAttempt }: Cook
             </option>
           ))}
         </select>
-        <input
+        <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Notes / adjustments for next time"
           className="log-notes-input"
+          rows={2}
         />
         <Button variant="primary" size="sm" onClick={handleAdd} disabled={saving}>
           Log attempt

@@ -8,7 +8,12 @@ fix is not done until there's a test in `server/tests/` that reproduces
 the exact failure and would catch it regressing.
 
 This applies to `parseIngredientLine.ts`, `parseManualPaste.ts`, and
-`fetchRecipeFromUrl.ts` (website fetching/extraction) alike.
+`fetchRecipeFromUrl.ts` (website fetching/extraction) alike — and to
+web-side display-formatting helpers too (e.g. `normalizeUnitSpacing` in
+`web/src/scaleQuantity.ts`), not just server-side ingestion. "The recipe
+shows up wrong" is the bar, regardless of which layer caused it. Web
+tests live next to the source file (`*.test.ts`) and run via `npm test`
+(vitest) in `web/`.
 
 **How to do this for a website-fetch bug specifically**: don't write a
 test that hits a real URL over the network. `fetchRecipeFromUrl.ts`

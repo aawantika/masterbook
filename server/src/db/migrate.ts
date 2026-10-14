@@ -199,6 +199,32 @@ function ensureSiteStatusRow(): void {
   db.exec('INSERT OR IGNORE INTO site_status (id, frozen_at, frozen_by, frozen_message) VALUES (1, NULL, NULL, NULL)');
 }
 
+function hasMigrationRun(name: string): boolean {
+  return !!db.prepare('SELECT 1 FROM migrations_log WHERE name = ?').get(name);
+}
+
+function markMigrationRan(name: string): void {
+  db.prepare('INSERT INTO migrations_log (name, ran_at) VALUES (?, ?)').run(name, new Date().toISOString());
+}
+
+// One-time backfill, not a recurring rule -- flags every recipe that has
+// no image as needing fixing, once, the first time this ever runs. Ongoing
+// enforcement (any recipe saved from here on with no image gets flagged
+// too) lives in db/recipes.ts's createRecipe/updateRecipe instead, right
+// next to where image_url is actually set. This only exists to catch the
+// backlog that predates that rule. Guarded via migrations_log (see schema.sql)
+// rather than a column-existence check, specifically so it never re-runs
+// and re-flags a recipe whose owner already reviewed it, added a photo
+// later and removed it again, or just dismissed the flag on purpose.
+function migrateFlagMissingImagesNeedsFixing(): void {
+  const name = 'flag-missing-images-needs-fixing';
+  if (hasMigrationRun(name)) return;
+  db.prepare(
+    `UPDATE recipes SET needs_fixing_at = ? WHERE image_url IS NULL AND needs_fixing_at IS NULL`
+  ).run(new Date().toISOString());
+  markMigrationRan(name);
+}
+
 export function migrate(): void {
   db.exec(getSchemaSql());
   migrateRecipeTimeColumns();
@@ -212,6 +238,7 @@ export function migrate(): void {
   migrateUserDisplayName();
   migrateUserAvatarUrl();
   ensureSiteStatusRow();
+  migrateFlagMissingImagesNeedsFixing();
 
   const fts5Check = db.prepare(
     "SELECT count(*) as count FROM pragma_compile_options WHERE compile_options LIKE '%FTS5%'"

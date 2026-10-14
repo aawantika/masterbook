@@ -1000,17 +1000,56 @@ html, body, #root {
   max-width: 640px;
 }
 
-.recipe-detail-header {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 12px;
+/* Title and the condensed meta block (badges/attribution, then
+   serves/time/link, then the quick-action buttons) each span BOTH
+   columns -- media only ever shares a row with rd-body (ingredients/
+   instructions), never with meta or quickactions. That's the fix for
+   every earlier dead-gap bug: those always came from media sharing a row
+   with some unrelated, differently-sized piece of UI chrome. Body and
+   media are both substantial, real-sized content, so that pairing is
+   safe. Left-aligned under the topbar, not centered -- every other
+   capped-width section in this app (.recipe-editor, .import-paste-box,
+   the profile page) is left-aligned too, with whitespace trailing on the
+   right at wide viewports. */
+.recipe-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  grid-template-areas:
+    'title title'
+    'meta  meta'
+    'body  media';
+  gap: 18px 28px;
+  align-items: start;
+  margin: 16px 0;
+  max-width: 1100px;
 }
 
-.recipe-detail-header .star-toggle,
-.recipe-detail-header .heart-toggle,
-.recipe-detail-header .fix-toggle {
+/* 16:9 (YouTube) at the Instagram-tuned 260px column comes out short --
+   widening the column for YouTube specifically gives it real size instead
+   of looking like an afterthought. No cost to Instagram's case, since
+   each recipe page only ever shows one video type at a time. */
+.recipe-detail-grid--youtube {
+  grid-template-columns: 1fr 380px;
+}
+
+.rd-title {
+  grid-area: title;
+  margin: 0;
+}
+
+.rd-body { grid-area: body; }
+.rd-media { grid-area: media; }
+
+.rd-quickactions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rd-quickactions .star-toggle,
+.rd-quickactions .heart-toggle,
+.rd-quickactions .fix-toggle {
   /* These carry a text label ("☆ Add to queue"), unlike the fixed-size
      icon-only squares the base rule is otherwise tuned for -- reset back
      to content-sized so the label isn't squeezed into a 28px box. */
@@ -1020,55 +1059,55 @@ html, body, #root {
   padding: 6px 10px;
   border: 1px solid #d1d5db;
   border-radius: 9999px;
-}
-
-.recipe-detail-header .fix-toggle.active {
-  border-color: #d97706;
-}
-
-.recipe-detail-header .heart-toggle.active {
-  border-color: #dc2626;
-}
-
-/* Image and video (when both exist) sit side by side at the same fixed
-   height, rather than either stacking (doubling the vertical footprint) or
-   hiding one when the other's present. flex-wrap lets them stack on a
-   narrow window instead of squeezing. */
-/* Info column (servings/time/author/source/meal-type/cuisine), photo, and
-   video all sit in one row under the title -- flex-wrap lets the column
-   drop below the media on a narrow window instead of squeezing. */
-.recipe-detail-top-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin: 16px 0;
-  align-items: flex-start;
-}
-
-.recipe-detail-info-column {
-  flex: 0 0 220px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.badge-row {
-  display: flex;
-  flex-wrap: wrap;
+  /* Flexbox wraps even bare text in an anonymous flex item, so this
+     guarantees consistent spacing between the emoji and the label
+     regardless of source whitespace -- more reliable than counting on a
+     literal space character surviving in JSX. */
   gap: 6px;
 }
 
-/* max-width keeps this from growing to fill all leftover row space when a
-   portrait photo (object-fit: contain) only actually needs a narrow slice
-   of it -- without it, a tall/narrow photo sat centered in a mostly-empty
-   slab the width of whatever space the video wasn't using. */
-.recipe-detail-image-wrap {
-  flex: 1 1 240px;
-  min-width: 0;
-  max-width: 420px;
-  height: 320px;
+.rd-quickactions .fix-toggle.active {
+  border-color: #d97706;
+}
+
+.rd-quickactions .heart-toggle.active {
+  border-color: #dc2626;
+}
+
+/* The drop-shadow on .heart-toggle (below) exists to keep 🤍 visible
+   against a plain card background with no border -- this pill already has
+   its own border for contrast, and the shadow was smearing across the
+   emoji's thin line-art details here, reading as blur rather than
+   definition. */
+.rd-quickactions .heart-toggle {
+  filter: none;
+}
+
+/* Flattened to 2-3 flat lines instead of one row per fact -- each line
+   is a wrapping flex row mixing plain muted text and badge pills. No
+   font-size override on the lines themselves: badges/links/muted text
+   each carry their own size already, and inherit body size otherwise. */
+.rd-meta-condensed {
+  grid-area: meta;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rd-meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The one case with no video at all -- kept to its natural proportions
+   (not forced into a video aspect ratio that has nothing to do with it),
+   just height-capped so an unusually tall photo doesn't run away. Fills
+   the sidebar column's width (unlike a bottom-of-page placement, there's
+   a real target width to fill here). */
+.recipe-detail-image-wrap--standalone {
+  max-height: 420px;
   border-radius: 10px;
   overflow: hidden;
 }
@@ -1076,38 +1115,67 @@ html, body, #root {
 .recipe-detail-image {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   border-radius: 10px;
   display: block;
 }
 
-/* Bounded by height (not width) so a portrait video (Instagram, 9:16)
-   doesn't blow up to ~850px tall the way a width-driven aspect-ratio box
-   would. Landscape (YouTube, 16:9) naturally lands well under this height
-   anyway. The iframe's own aspect-ratio (set inline per platform) computes
-   its width from this fixed height, clamped by max-width so a landscape
-   video can't overflow sideways either. flex-shrink: 0 keeps it from being
-   squashed by the image's flex-grow when both are present. */
-.recipe-detail-video-col {
-  flex-shrink: 0;
-  max-width: 480px;
+.recipe-detail-image-wrap--standalone .recipe-detail-image {
+  height: auto;
+  max-height: 420px;
+  object-fit: contain;
 }
 
+/* Photo-first tap-to-play state (Instagram) and the live embed itself
+   share the same box treatment -- aspect-ratio comes from an inline style
+   driven by videoEmbed.aspectRatio (9:16 Instagram / 16:9 YouTube) so
+   swapping between "photo" and "playing" never jumps in size. Width-
+   driven (fills the 260/380px sidebar column, height follows from the
+   aspect-ratio) -- safe here because the column width is already capped,
+   unlike a bottom-of-page placement where width:100% would make a
+   portrait video enormous. */
+.recipe-detail-media-photo-btn,
 .recipe-detail-video-wrap {
-  height: 320px;
-  max-width: 480px;
+  position: relative;
+  display: block;
+  width: 100%;
+  border: none;
+  padding: 0;
   border-radius: 10px;
   overflow: hidden;
   background: black;
+  cursor: pointer;
+}
+
+.recipe-detail-video-wrap { cursor: default; }
+
+.recipe-detail-media-photo-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.media-play-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1f2937;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
 
 .recipe-detail-video {
+  width: 100%;
   height: 100%;
-  width: auto;
-  max-width: 100%;
   border: none;
   display: block;
 }
@@ -1140,25 +1208,63 @@ html, body, #root {
 .servings-scaler {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
-.servings-scaler button {
-  width: 22px;
-  height: 22px;
+/* The −/value/+ trio used to each render as its own unstyled browser-
+   default button/input -- three separate boxes floating next to plain
+   text. One shared pill border instead, with dividers between the parts
+   rather than gaps, reads as a single control. */
+.servings-scaler-controls {
+  display: inline-flex;
+  align-items: stretch;
+  /* Matches the "Serves" label right next to it (.muted, 13px) -- had no
+     size of its own before, so it fell back to the browser default (16px)
+     and rendered visibly bigger than its own label. */
+  font-size: 13px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.servings-scaler-controls button {
+  width: 26px;
+  height: 26px;
   padding: 0;
   line-height: 1;
+  border: none;
+  background: white;
+  cursor: pointer;
 }
 
-.servings-scaler input {
-  width: 44px;
+.servings-scaler-controls button:hover {
+  background: #f3f4f6;
+}
+
+.servings-scaler-controls input {
+  width: 40px;
   text-align: center;
+  border: none;
+  border-left: 1px solid #d1d5db;
+  border-right: 1px solid #d1d5db;
+  -moz-appearance: textfield;
 }
 
+/* Hides the native up/down spinner arrows -- redundant with the +/−
+   buttons already either side of this input. */
+.servings-scaler-controls input::-webkit-outer-spin-button,
+.servings-scaler-controls input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Side by side -- reads better together than stacked. Media moved out of
+   a sidebar entirely (now its own full-width section at the bottom of the
+   page), so this has the whole stack's width to itself. */
 .recipe-detail-body {
   display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 24px;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 20px;
 }
 
 .ingredient-display-group {
@@ -1238,32 +1344,23 @@ html, body, #root {
   margin: 0 0 4px;
 }
 
+/* Separated from Notes/Instructions above by a divider line -- these are
+   management actions (Edit/Delete), not more recipe content, so the line
+   marks "you've reached the end" before them. */
 .recipe-detail-actions {
   display: flex;
   gap: 10px;
-  margin: 20px 0;
-}
-
-/* A visually distinct cluster within the info column (links, then actions),
-   separated from what's above it by a divider line -- rather than one
-   undifferentiated stack of unrelated items. */
-.info-column-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 12px 0 0;
-  padding-top: 12px;
+  margin: 24px 0 0;
+  padding-top: 20px;
   border-top: 1px solid #e5e7eb;
 }
 
-/* Edit/Refresh/Delete live in the narrow left info column now, not a full-
-   width row at the page bottom -- stack them instead of a horizontal row,
-   since "↻ Refresh from source" alone is wider than the column. */
-.recipe-detail-actions.info-column-group {
-  gap: 10px;
-}
-
+/* Sibling of .recipe-detail-grid in RecipeDetailPage.tsx, not nested
+   inside it -- matches its max-width (1100px) directly, since it had no
+   cap of its own and was stretching full page width while the recipe
+   content above it was constrained, reading as oddly oversized. */
 .cooking-log {
+  max-width: 1100px;
   margin-top: 24px;
   padding-top: 20px;
   border-top: 1px solid #e5e7eb;
@@ -1983,10 +2080,45 @@ html, body, #root {
     grid-template-columns: 1fr;
   }
 
-  /* A fixed 220px info column fighting a wrapped photo for space read as
-     cramped on a narrow screen -- let it take the full row on its own. */
-  .recipe-detail-info-column {
-    flex-basis: 100%;
+  /* Reorders to media-first (a dedicated full-width media block) instead
+     of just stacking the desktop order -- the desktop order buries the
+     photo/video below the entire title/meta/ingredients/instructions,
+     which is backwards for a thumb-scrolling phone session. */
+  .recipe-detail-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'media'
+      'title'
+      'meta'
+      'body';
+  }
+  /* Single-column is correct at this width regardless of platform --
+     beats the youtube-widened-column rule above regardless of selector
+     specificity. */
+  .recipe-detail-grid.recipe-detail-grid--youtube {
+    grid-template-columns: 1fr;
+  }
+
+  /* Icon-only row instead of 3 full text pills stacked -- on a narrow
+     screen, "Favorite" / "Add to queue" / "Needs Fixing" spelled out cost
+     real vertical space above the photo. aria-label on each button (see
+     RecipeDetailPanel.tsx) carries the label to screen readers once the
+     visible text is hidden. */
+  .rd-quickactions {
+    flex-direction: row;
+    gap: 10px;
+  }
+  .rd-quickactions .star-toggle,
+  .rd-quickactions .heart-toggle,
+  .rd-quickactions .fix-toggle {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    justify-content: center;
+    font-size: 16px;
+  }
+  .rd-quickactions .btn-label {
+    display: none;
   }
 
   /* Forms built from side-by-side .field-row entries (admin's "Add user",

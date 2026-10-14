@@ -75,14 +75,20 @@ function writeCuisines(recipeId: number, cuisineNames: string[]): void {
   }
 }
 
+// Auto-flags a brand-new recipe saved with no image -- mirrors the
+// one-time backlog backfill in migrate.ts, but for anything saved from
+// here on. Only ever SETS the flag, never clears it (see updateRecipe for
+// why that matters more there, where a recipe can already have one).
 export function createRecipe(input: RecipeInput, userId: number): number {
   const now = new Date().toISOString();
+  const imageUrl = input.imageUrl ?? null;
+  const needsFixingAt = imageUrl ? null : now;
   const create = db.transaction(() => {
     const result = db
       .prepare(
         `INSERT INTO recipes
-          (title, servings, total_time_minutes, instructions_json, ingredients_text, raw_text, source_type, source_ref, source_name, video_ref, image_url, notes, user_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          (title, servings, total_time_minutes, instructions_json, ingredients_text, raw_text, source_type, source_ref, source_name, video_ref, image_url, notes, needs_fixing_at, user_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         input.title,
@@ -95,8 +101,9 @@ export function createRecipe(input: RecipeInput, userId: number): number {
         input.sourceRef ?? null,
         input.sourceName ?? null,
         input.videoRef ?? null,
-        input.imageUrl ?? null,
+        imageUrl,
         input.notes ?? null,
+        needsFixingAt,
         userId,
         now,
         now
@@ -111,13 +118,23 @@ export function createRecipe(input: RecipeInput, userId: number): number {
   return create();
 }
 
+// Auto-flags on save if the recipe ends up with no image -- but only ever
+// SETS needs_fixing_at (the CASE's ELSE keeps whatever was already there),
+// never clears it. Editing in an image shouldn't silently un-flag a
+// recipe that was flagged for some other, unrelated reason, and removing
+// a photo that was there before shouldn't silently unflag either -- the
+// existing flag just isn't touched either way unless the recipe currently
+// has no image AND no flag yet.
 export function updateRecipe(recipeId: number, input: RecipeInput): void {
   const now = new Date().toISOString();
+  const imageUrl = input.imageUrl ?? null;
   const update = db.transaction(() => {
     db.prepare(
       `UPDATE recipes SET
         title = ?, servings = ?, total_time_minutes = ?,
-        instructions_json = ?, raw_text = ?, source_type = ?, source_ref = ?, source_name = ?, video_ref = ?, image_url = ?, notes = ?, updated_at = ?
+        instructions_json = ?, raw_text = ?, source_type = ?, source_ref = ?, source_name = ?, video_ref = ?, image_url = ?, notes = ?,
+        needs_fixing_at = CASE WHEN ? IS NULL AND needs_fixing_at IS NULL THEN ? ELSE needs_fixing_at END,
+        updated_at = ?
        WHERE id = ?`
     ).run(
       input.title,
@@ -129,8 +146,10 @@ export function updateRecipe(recipeId: number, input: RecipeInput): void {
       input.sourceRef ?? null,
       input.sourceName ?? null,
       input.videoRef ?? null,
-      input.imageUrl ?? null,
+      imageUrl,
       input.notes ?? null,
+      imageUrl,
+      now,
       now,
       recipeId
     );

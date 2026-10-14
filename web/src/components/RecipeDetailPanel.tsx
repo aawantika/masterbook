@@ -78,6 +78,13 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // Instagram embeds show a login prompt to anyone not logged into
+  // Instagram in that browser, and there's no way for this page to detect
+  // that in advance (cross-origin iframe, no signal exposed) -- so rather
+  // than gambling on a possibly-blank embed as the first thing shown,
+  // Instagram defaults to the photo with an explicit play tap. YouTube has
+  // no such login wall, so it's never gated (see showVideo below).
+  const [mediaPlaying, setMediaPlaying] = useState(false);
   // Purely local display state -- which sectioned ingredient/instruction
   // groups are collapsed. Deliberately not saved anywhere (not to the
   // recipe, not to localStorage): a fresh mount always starts with
@@ -108,6 +115,7 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
     setTargetServings(null);
     setRefreshedDraft(null);
     setRefreshError(null);
+    setMediaPlaying(false);
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recipeId]);
@@ -121,6 +129,23 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
   const videoEmbed = getVideoEmbed(recipe.videoRef) ?? getVideoEmbed(recipe.sourceRef);
   const baseServings = parseBaseServings(recipe.servings);
   const scaleFactor = baseServings && targetServings ? targetServings / baseServings : 1;
+
+  // Gating only makes sense when there's actually a photo to show instead
+  // -- with no saved image, there's nothing to gate behind, so the video
+  // (Instagram or YouTube) just renders directly either way.
+  const hasPhoto = !!recipe.imageUrl;
+  const instagramGated = videoEmbed?.platform === 'instagram' && hasPhoto;
+  const showVideo = !!videoEmbed && (!instagramGated || mediaPlaying);
+  const videoIframe = videoEmbed && (
+    <iframe
+      className="recipe-detail-video"
+      src={videoEmbed.url}
+      title={recipe.title}
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowFullScreen
+      loading="lazy"
+    />
+  );
 
   const toggleCollapsedGroup = (setter: React.Dispatch<React.SetStateAction<Set<number>>>, groupIndex: number) => {
     setter((prev) => {
@@ -257,117 +282,194 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
 
   return (
     <div className="detail-panel">
-      <div className="recipe-detail-header">
-        <h1>{recipe.title}</h1>
-        <div className="recipe-card-toggles">
-          <button
-            type="button"
-            className={`heart-toggle${recipe.favoritedAt ? ' active' : ''}`}
-            onClick={handleToggleFavorite}
-          >
-            {recipe.favoritedAt ? '❤️ Favorited' : '🤍 Favorite'}
-          </button>
-          <button
-            type="button"
-            className={`star-toggle${recipe.wantToTryAt ? ' active' : ''}`}
-            onClick={handleToggleWantToTry}
-          >
-            {recipe.wantToTryAt ? '★ In queue' : '☆ Add to queue'}
-          </button>
-          <button
-            type="button"
-            className={`fix-toggle${recipe.needsFixingAt ? ' active' : ''}`}
-            onClick={handleToggleNeedsFixing}
-          >
-            🛠️ {recipe.needsFixingAt ? 'Needs fixing' : 'Mark as needs fixing'}
-          </button>
-        </div>
-      </div>
+      <div className={`recipe-detail-grid${videoEmbed?.platform === 'youtube' ? ' recipe-detail-grid--youtube' : ''}`}>
+        <h1 className="rd-title">{recipe.title}</h1>
 
-      <div className="recipe-detail-top-row">
-        <div className="recipe-detail-info-column">
-          {recipe.totalTimeMinutes != null && <div>Total time {recipe.totalTimeMinutes} min</div>}
-          {/* A static "Serves X" line alongside the scaler was redundant --
-              the scaler's own input already shows the current count. Only
-              fall back to plain text when servings isn't a parseable number
-              (e.g. "4-6"), since then there's nothing to scale at all. */}
-          {baseServings != null ? (
-            <div className="servings-scaler">
-              Serves
-              <button
-                type="button"
-                onClick={() => setTargetServings(Math.max(1, (targetServings ?? baseServings) - 1))}
-              >
-                −
-              </button>
-              <input
-                type="number"
-                min={1}
-                value={targetServings ?? baseServings}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  setTargetServings(Number.isFinite(n) && n > 0 ? n : baseServings);
-                }}
-              />
-              <button type="button" onClick={() => setTargetServings((targetServings ?? baseServings) + 1)}>
-                +
-              </button>
-              {targetServings != null && targetServings !== baseServings && (
-                <button type="button" className="link-button" onClick={() => setTargetServings(null)}>
-                  Reset
-                </button>
-              )}
-            </div>
-          ) : (
-            recipe.servings && <div>Serves {recipe.servings}</div>
-          )}
-
-          {/* Descriptive metadata about the recipe -- what it is, categorically. */}
-          <div>
-            <span className="badge">{recipe.sourceName || recipe.sourceType}</span>
-          </div>
-          {recipe.ownerName && <div className="muted">Added by {recipe.ownerName}</div>}
-          {recipe.mealTypeIds.length > 0 && (
-            <div className="badge-row">
-              {mealTypes
-                .filter((mt) => recipe.mealTypeIds.includes(mt.id))
-                .map((mt) => (
-                  <span className="badge" key={mt.id}>
-                    {mt.name}
-                  </span>
-                ))}
-            </div>
-          )}
-          {recipe.cuisineNames.length > 0 && (
-            <div className="badge-row">
-              {recipe.cuisineNames.map((c) => (
-                <span className="badge badge-cuisine" key={c}>
-                  {c}
+        {/* One full-width block, three flat lines: what it is (category +
+            attribution), practical facts (serves/time/link), then the
+            casual action buttons last. Spans both columns so it never has
+            to share a row with media -- that pairing (unrelated heights)
+            is what caused every dead-gap bug earlier. Body/media below
+            share a row on purpose: both are substantial, real-sized
+            content, so that pairing doesn't have the same problem. */}
+        <div className="rd-meta-condensed">
+          <div className="rd-meta-line">
+            {mealTypes
+              .filter((mt) => recipe.mealTypeIds.includes(mt.id))
+              .map((mt) => (
+                <span className="badge" key={mt.id}>
+                  {mt.name}
                 </span>
               ))}
-            </div>
-          )}
+            {recipe.cuisineNames.map((c) => (
+              <span className="badge badge-cuisine" key={c}>
+                {c}
+              </span>
+            ))}
+            <span className="badge">{recipe.sourceName || recipe.sourceType}</span>
+            {recipe.ownerName && <span className="muted">Added by {recipe.ownerName}</span>}
+          </div>
 
-          {/* Clickable links -- where to go, not what it is. */}
-          {(recipe.sourceRef || recipe.videoRef) && (
-            <div className="info-column-group">
-              {recipe.sourceRef &&
-                (/^https?:\/\//i.test(recipe.sourceRef) ? (
-                  <a href={recipe.sourceRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
-                    {sourceLinkEmoji(recipe.sourceRef)} Recipe
-                  </a>
-                ) : (
-                  <span className="muted">{recipe.sourceRef}</span>
-                ))}
-              {recipe.videoRef && (
-                <a href={recipe.videoRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
-                  ▶ Video ({getVideoEmbed(recipe.videoRef)?.platform === 'instagram' ? 'Instagram' : 'YouTube'})
+          <div className="rd-meta-line">
+            {baseServings != null ? (
+              <span className="servings-scaler">
+                <span className="muted">Serves</span>
+                <span className="servings-scaler-controls">
+                  <button
+                    type="button"
+                    onClick={() => setTargetServings(Math.max(1, (targetServings ?? baseServings) - 1))}
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    value={targetServings ?? baseServings}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      setTargetServings(Number.isFinite(n) && n > 0 ? n : baseServings);
+                    }}
+                  />
+                  <button type="button" onClick={() => setTargetServings((targetServings ?? baseServings) + 1)}>
+                    +
+                  </button>
+                </span>
+                {targetServings != null && targetServings !== baseServings && (
+                  <button type="button" className="link-button" onClick={() => setTargetServings(null)}>
+                    Reset
+                  </button>
+                )}
+              </span>
+            ) : (
+              recipe.servings && <span className="muted">Serves {recipe.servings}</span>
+            )}
+            {recipe.totalTimeMinutes != null && <span className="muted">Total time {recipe.totalTimeMinutes} min</span>}
+            {recipe.sourceRef &&
+              (/^https?:\/\//i.test(recipe.sourceRef) ? (
+                <a href={recipe.sourceRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
+                  {sourceLinkEmoji(recipe.sourceRef)} Recipe
                 </a>
-              )}
+              ) : (
+                <span className="muted">{recipe.sourceRef}</span>
+              ))}
+            {recipe.videoRef && (
+              <a href={recipe.videoRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
+                ▶ Video ({getVideoEmbed(recipe.videoRef)?.platform === 'instagram' ? 'Instagram' : 'YouTube'})
+              </a>
+            )}
+          </div>
+
+          <div className="rd-quickactions">
+            <button
+              type="button"
+              className={`heart-toggle${recipe.favoritedAt ? ' active' : ''}`}
+              onClick={handleToggleFavorite}
+              aria-label={recipe.favoritedAt ? 'Favorited' : 'Favorite'}
+            >
+              <span aria-hidden="true">{recipe.favoritedAt ? '❤️' : '🤍'}</span>
+              <span className="btn-label">{recipe.favoritedAt ? 'Favorited' : 'Favorite'}</span>
+            </button>
+            <button
+              type="button"
+              className={`star-toggle${recipe.wantToTryAt ? ' active' : ''}`}
+              onClick={handleToggleWantToTry}
+              aria-label={recipe.wantToTryAt ? 'In queue' : 'Add to queue'}
+            >
+              <span aria-hidden="true">{recipe.wantToTryAt ? '★' : '☆'}</span>
+              <span className="btn-label">{recipe.wantToTryAt ? 'In queue' : 'Add to queue'}</span>
+            </button>
+            <button
+              type="button"
+              className={`fix-toggle${recipe.needsFixingAt ? ' active' : ''}`}
+              onClick={handleToggleNeedsFixing}
+              aria-label={recipe.needsFixingAt ? 'Needs fixing' : 'Needs Fixing'}
+            >
+              <span aria-hidden="true">🛠️</span>
+              <span className="btn-label">{recipe.needsFixingAt ? 'Needs fixing' : 'Needs Fixing'}</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="rd-body">
+          <div className="recipe-detail-body">
+            <div className="recipe-ingredients">
+              <h3>Ingredients</h3>
+              {groupIngredientsForDisplay(recipe.ingredients).map((group, groupIndex) => {
+                const collapsed = collapsedIngredientGroups.has(groupIndex);
+                return (
+                  <div className="ingredient-display-group" key={groupIndex}>
+                    {group.section && (
+                      <button
+                        type="button"
+                        className="section-collapse-toggle ingredient-section-heading"
+                        onClick={() => toggleCollapsedGroup(setCollapsedIngredientGroups, groupIndex)}
+                      >
+                        <span className="section-collapse-caret">{collapsed ? '▸' : '▾'}</span>
+                        {group.section}
+                      </button>
+                    )}
+                    {!collapsed && (
+                      <ul>
+                        {group.items.map((ing, i) => {
+                          // "nos"/"no" is a bare count, not a real unit word —
+                          // kept as the stored value, but left out of the
+                          // display text.
+                          const displayUnit = ing.unit === 'nos' ? null : ing.unit;
+                          const text =
+                            scaleFactor !== 1
+                              ? [scaleQuantityString(ing.quantity, scaleFactor), displayUnit, ing.name]
+                                  .filter(Boolean)
+                                  .join(' ')
+                              : normalizeUnitSpacing(
+                                  ing.rawText || [ing.quantity, displayUnit, ing.name].filter(Boolean).join(' ')
+                                );
+                          return <li key={i}>{text}</li>;
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="recipe-instructions">
+              <h3>Instructions</h3>
+              {groupInstructionsForDisplay(recipe.instructions).map((group, groupIndex) => {
+                const collapsed = collapsedInstructionGroups.has(groupIndex);
+                return (
+                  <div className="instruction-display-group" key={groupIndex}>
+                    {group.section && (
+                      <button
+                        type="button"
+                        className="section-collapse-toggle instruction-section-heading"
+                        onClick={() => toggleCollapsedGroup(setCollapsedInstructionGroups, groupIndex)}
+                      >
+                        <span className="section-collapse-caret">{collapsed ? '▸' : '▾'}</span>
+                        {group.section}
+                      </button>
+                    )}
+                    {!collapsed && (
+                      <ol>
+                        {group.items.map((step, i) => (
+                          <li key={i}>{step.text}</li>
+                        ))}
+                      </ol>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {recipe.notes && (
+            <div className="recipe-notes">
+              <h3>Notes</h3>
+              <p>{recipe.notes}</p>
             </div>
           )}
 
-          <div className="recipe-detail-actions info-column-group">
+          {/* Only after the whole recipe -- Edit/Delete are management
+              actions, not something you need on the way in. */}
+          <div className="recipe-detail-actions">
             {canEdit && (
               <Button variant="primary" onClick={() => setEditing(true)}>
                 Edit
@@ -386,41 +488,45 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
           </div>
         </div>
 
-        {confirmingDelete && (
-          <ConfirmDialog
-            title="Delete this recipe?"
-            message={`"${recipe.title}" will be permanently deleted. This can't be undone.`}
-            confirmLabel="Delete"
-            onConfirm={confirmDelete}
-            onCancel={() => setConfirmingDelete(false)}
-          />
-        )}
-
-        {recipe.imageUrl && (
-          <div className="recipe-detail-image-wrap">
-            <img className="recipe-detail-image" src={recipe.imageUrl} alt={recipe.title} />
-          </div>
-        )}
-        {videoEmbed && (
-          <div className="recipe-detail-video-col">
-            <div className="recipe-detail-video-wrap">
-              <iframe
-                className="recipe-detail-video"
+        {(hasPhoto || videoEmbed) && (
+          <div className="rd-media">
+            {showVideo ? (
+              <div
+                className="recipe-detail-video-wrap"
+                style={videoEmbed ? { aspectRatio: videoEmbed.aspectRatio } : undefined}
+              >
+                {videoIframe}
+              </div>
+            ) : hasPhoto && videoEmbed ? (
+              // Instagram, gated: photo first, explicit tap to attempt the
+              // real embed (works if you're logged into Instagram in this
+              // browser, shows Instagram's own login prompt if not).
+              <button
+                type="button"
+                className="recipe-detail-media-photo-btn"
                 style={{ aspectRatio: videoEmbed.aspectRatio }}
-                src={videoEmbed.url}
-                title={recipe.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                loading="lazy"
-              />
-            </div>
-            {/* Instagram's embed shows a login prompt (not an error, no
-                onError-detectable failure) to anyone not logged into
-                Instagram in that browser -- there's no reliable way to
-                detect that from the parent page (cross-origin iframe, the
-                embed still "loads" successfully), so this is said upfront
-                instead of the video just silently reading as a black box. */}
-            {videoEmbed.platform === 'instagram' && (
+                onClick={() => setMediaPlaying(true)}
+                aria-label="Play video"
+              >
+                <img className="recipe-detail-image" src={recipe.imageUrl!} alt={recipe.title} />
+                <span className="media-play-overlay" aria-hidden="true">
+                  ▶
+                </span>
+              </button>
+            ) : hasPhoto ? (
+              <div className="recipe-detail-image-wrap recipe-detail-image-wrap--standalone">
+                <img className="recipe-detail-image" src={recipe.imageUrl!} alt={recipe.title} />
+              </div>
+            ) : (
+              <div className="recipe-detail-video-wrap" style={{ aspectRatio: videoEmbed!.aspectRatio }}>
+                {videoIframe}
+              </div>
+            )}
+            {/* Same "not an error, no way to detect it in advance" situation
+                as before -- said upfront once the viewer has actually
+                attempted the embed, instead of the video just silently
+                reading as a blank box. */}
+            {instagramGated && showVideo && (
               <div className="video-embed-note muted">
                 Blank box or login prompt instead of the video? Instagram requires being logged in for embeds --{' '}
                 <a href={recipe.videoRef ?? recipe.sourceRef ?? '#'} target="_blank" rel="noopener noreferrer">
@@ -433,80 +539,14 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
         )}
       </div>
 
-      <div className="recipe-detail-body">
-        <div className="recipe-ingredients">
-          <h3>Ingredients</h3>
-          {groupIngredientsForDisplay(recipe.ingredients).map((group, groupIndex) => {
-            const collapsed = collapsedIngredientGroups.has(groupIndex);
-            return (
-              <div className="ingredient-display-group" key={groupIndex}>
-                {group.section && (
-                  <button
-                    type="button"
-                    className="section-collapse-toggle ingredient-section-heading"
-                    onClick={() => toggleCollapsedGroup(setCollapsedIngredientGroups, groupIndex)}
-                  >
-                    <span className="section-collapse-caret">{collapsed ? '▸' : '▾'}</span>
-                    {group.section}
-                  </button>
-                )}
-                {!collapsed && (
-                  <ul>
-                    {group.items.map((ing, i) => {
-                      // "nos"/"no" is a bare count, not a real unit word —
-                      // kept as the stored value, but left out of the
-                      // display text.
-                      const displayUnit = ing.unit === 'nos' ? null : ing.unit;
-                      const text =
-                        scaleFactor !== 1
-                          ? [scaleQuantityString(ing.quantity, scaleFactor), displayUnit, ing.name]
-                              .filter(Boolean)
-                              .join(' ')
-                          : normalizeUnitSpacing(
-                              ing.rawText || [ing.quantity, displayUnit, ing.name].filter(Boolean).join(' ')
-                            );
-                      return <li key={i}>{text}</li>;
-                    })}
-                  </ul>
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <div className="recipe-instructions">
-          <h3>Instructions</h3>
-          {groupInstructionsForDisplay(recipe.instructions).map((group, groupIndex) => {
-            const collapsed = collapsedInstructionGroups.has(groupIndex);
-            return (
-              <div className="instruction-display-group" key={groupIndex}>
-                {group.section && (
-                  <button
-                    type="button"
-                    className="section-collapse-toggle instruction-section-heading"
-                    onClick={() => toggleCollapsedGroup(setCollapsedInstructionGroups, groupIndex)}
-                  >
-                    <span className="section-collapse-caret">{collapsed ? '▸' : '▾'}</span>
-                    {group.section}
-                  </button>
-                )}
-                {!collapsed && (
-                  <ol>
-                    {group.items.map((step, i) => (
-                      <li key={i}>{step.text}</li>
-                    ))}
-                  </ol>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {recipe.notes && (
-        <div className="recipe-notes">
-          <h3>Notes</h3>
-          <p>{recipe.notes}</p>
-        </div>
+      {confirmingDelete && (
+        <ConfirmDialog
+          title="Delete this recipe?"
+          message={`"${recipe.title}" will be permanently deleted. This can't be undone.`}
+          confirmLabel="Delete"
+          onConfirm={confirmDelete}
+          onCancel={() => setConfirmingDelete(false)}
+        />
       )}
 
       {refreshError && <div className="editor-error">{refreshError}</div>}

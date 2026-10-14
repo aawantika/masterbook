@@ -177,6 +177,18 @@ CREATE TABLE IF NOT EXISTS site_status (
   frozen_message TEXT
 );
 
+-- Ledger of one-time data backfills that aren't tied to a schema change --
+-- every other migrate.ts backfill so far was guarded by "does this column
+-- exist yet," which only works because each one happened to coincide with
+-- a real ALTER TABLE. A pure data fix (e.g. "flag already-existing rows
+-- matching some condition") has no column to key off of, so it needs its
+-- own explicit "have I run before" record instead, or it would silently
+-- re-apply (and re-flag things a user explicitly dismissed) on every boot.
+CREATE TABLE IF NOT EXISTS migrations_log (
+  name TEXT PRIMARY KEY,
+  ran_at TEXT NOT NULL
+);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS recipes_fts USING fts5(
   title,
   raw_text,

@@ -1065,8 +1065,19 @@ html, body, #root {
   grid-template-columns: 1fr 380px;
 }
 
-.rd-title {
+/* Title and the quick-action buttons share a row, actions pinned to the
+   right -- the standard "heading + actions" pattern. Works now that the
+   buttons are icon-only circles instead of text pills; those needed their
+   own full-width row to have anywhere to go. */
+.rd-title-row {
   grid-area: title;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.rd-title {
   margin: 0;
 }
 
@@ -1075,28 +1086,28 @@ html, body, #root {
 
 .rd-quickactions {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
   gap: 8px;
+  flex: none;
+  margin-top: 2px;
 }
 
+/* Icon-only bordered circles -- replaces the old text-labeled pills (no
+   label anymore, so these are their own explicit size/shape rather than
+   reusing the fixed-size icon-only squares RecipeCard/RecipeListRow still
+   use for their emoji-based versions). */
 .rd-quickactions .star-toggle,
 .rd-quickactions .heart-toggle,
 .rd-quickactions .fix-toggle {
-  /* These carry a text label ("☆ Add to queue"), unlike the fixed-size
-     icon-only squares the base rule is otherwise tuned for -- reset back
-     to content-sized so the label isn't squeezed into a 28px box. */
-  width: auto;
-  height: auto;
-  font-size: 13px;
-  padding: 6px 10px;
+  width: 36px;
+  height: 36px;
+  flex: none;
   border: 1px solid #d1d5db;
-  border-radius: 9999px;
-  /* Flexbox wraps even bare text in an anonymous flex item, so this
-     guarantees consistent spacing between the emoji and the label
-     regardless of source whitespace -- more reliable than counting on a
-     literal space character surviving in JSX. */
-  gap: 6px;
+  border-radius: 50%;
+  background: #fdfaf5;
+}
+
+.rd-quickactions .star-toggle.active {
+  border-color: #d97706;
 }
 
 .rd-quickactions .fix-toggle.active {
@@ -1112,10 +1123,12 @@ html, body, #root {
 }
 
 /* The drop-shadow on .heart-toggle (below) exists to keep 🤍 visible
-   against a plain card background with no border -- this pill already has
-   its own border for contrast, and the shadow was smearing across the
+   against a plain card background with no border -- this circle already
+   has its own border for contrast, and the shadow was smearing across the
    emoji's thin line-art details here, reading as blur rather than
-   definition. */
+   definition. Still relevant here even though this is an SVG icon now,
+   not emoji -- the base rule's filter is shared with RecipeCard/
+   RecipeListRow's emoji-based buttons, which still need it. */
 .rd-quickactions .heart-toggle {
   filter: none;
 }
@@ -2171,28 +2184,6 @@ html, body, #root {
      specificity. */
   .recipe-detail-grid.recipe-detail-grid--youtube {
     grid-template-columns: 1fr;
-  }
-
-  /* Icon-only row instead of 3 full text pills stacked -- on a narrow
-     screen, "Favorite" / "Add to queue" / "Needs Fixing" spelled out cost
-     real vertical space above the photo. aria-label on each button (see
-     RecipeDetailPanel.tsx) carries the label to screen readers once the
-     visible text is hidden. */
-  .rd-quickactions {
-    flex-direction: row;
-    gap: 10px;
-  }
-  .rd-quickactions .star-toggle,
-  .rd-quickactions .heart-toggle,
-  .rd-quickactions .fix-toggle {
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    justify-content: center;
-    font-size: 16px;
-  }
-  .rd-quickactions .btn-label {
-    display: none;
   }
 
   /* Forms built from side-by-side .field-row entries (admin's "Add user",

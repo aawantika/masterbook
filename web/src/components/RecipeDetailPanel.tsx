@@ -284,15 +284,50 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
   return (
     <div className="detail-panel">
       <div className={`recipe-detail-grid${videoEmbed?.platform === 'youtube' ? ' recipe-detail-grid--youtube' : ''}`}>
-        <h1 className="rd-title">{recipe.title}</h1>
+        {/* Title + quick actions share a row, actions pinned to the right --
+            standard header pattern, and icon-only (no more text labels)
+            means there's actually room for it on one line, including
+            alongside a long wrapped title. */}
+        <div className="rd-title-row">
+          <h1 className="rd-title">{recipe.title}</h1>
+          <div className="rd-quickactions">
+            <button
+              type="button"
+              className={`heart-toggle${recipe.favoritedAt ? ' active' : ''}`}
+              onClick={handleToggleFavorite}
+              aria-label={recipe.favoritedAt ? 'Favorited' : 'Favorite'}
+              title={recipe.favoritedAt ? 'Favorited' : 'Favorite'}
+            >
+              <HeartIcon filled={!!recipe.favoritedAt} />
+            </button>
+            <button
+              type="button"
+              className={`star-toggle${recipe.wantToTryAt ? ' active' : ''}`}
+              onClick={handleToggleWantToTry}
+              aria-label={recipe.wantToTryAt ? 'In queue' : 'Add to queue'}
+              title={recipe.wantToTryAt ? 'In queue' : 'Add to queue'}
+            >
+              <StarIcon filled={!!recipe.wantToTryAt} />
+            </button>
+            <button
+              type="button"
+              className={`fix-toggle${recipe.needsFixingAt ? ' active' : ''}`}
+              onClick={handleToggleNeedsFixing}
+              aria-label={recipe.needsFixingAt ? 'Needs fixing' : 'Needs Fixing'}
+              title={recipe.needsFixingAt ? 'Needs fixing' : 'Mark needs fixing'}
+            >
+              <WrenchIcon />
+            </button>
+          </div>
+        </div>
 
-        {/* One full-width block, three flat lines: what it is (category +
-            attribution), practical facts (serves/time/link), then the
-            casual action buttons last. Spans both columns so it never has
-            to share a row with media -- that pairing (unrelated heights)
-            is what caused every dead-gap bug earlier. Body/media below
-            share a row on purpose: both are substantial, real-sized
-            content, so that pairing doesn't have the same problem. */}
+        {/* Now two flat lines instead of three: what it is (category +
+            attribution), then practical facts (serves/time/link). Spans
+            both columns so it never has to share a row with media -- that
+            pairing (unrelated heights) is what caused every dead-gap bug
+            earlier. Body/media below share a row on purpose: both are
+            substantial, real-sized content, so that pairing doesn't have
+            the same problem. */}
         <div className="rd-meta-condensed">
           <div className="rd-meta-line">
             {mealTypes
@@ -363,36 +398,6 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
                 {getVideoEmbed(recipe.videoRef)?.platform === 'instagram' ? 'Instagram' : 'YouTube'})
               </a>
             )}
-          </div>
-
-          <div className="rd-quickactions">
-            <button
-              type="button"
-              className={`heart-toggle${recipe.favoritedAt ? ' active' : ''}`}
-              onClick={handleToggleFavorite}
-              aria-label={recipe.favoritedAt ? 'Favorited' : 'Favorite'}
-            >
-              <HeartIcon filled={!!recipe.favoritedAt} />
-              <span className="btn-label">{recipe.favoritedAt ? 'Favorited' : 'Favorite'}</span>
-            </button>
-            <button
-              type="button"
-              className={`star-toggle${recipe.wantToTryAt ? ' active' : ''}`}
-              onClick={handleToggleWantToTry}
-              aria-label={recipe.wantToTryAt ? 'In queue' : 'Add to queue'}
-            >
-              <StarIcon filled={!!recipe.wantToTryAt} />
-              <span className="btn-label">{recipe.wantToTryAt ? 'In queue' : 'Add to queue'}</span>
-            </button>
-            <button
-              type="button"
-              className={`fix-toggle${recipe.needsFixingAt ? ' active' : ''}`}
-              onClick={handleToggleNeedsFixing}
-              aria-label={recipe.needsFixingAt ? 'Needs fixing' : 'Needs Fixing'}
-            >
-              <WrenchIcon />
-              <span className="btn-label">{recipe.needsFixingAt ? 'Needs fixing' : 'Needs Fixing'}</span>
-            </button>
           </div>
         </div>
 

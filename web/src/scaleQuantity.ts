@@ -110,3 +110,19 @@ export function parseBaseServings(servings: string | null): number | null {
   const n = Number(match[0]);
   return n > 0 ? n : null;
 }
+
+// Display-only formatting fix -- "15 g" vs "5g" in the same ingredient
+// list happens because ing.rawText preserves whatever spacing the
+// original source used verbatim (deliberately -- raw_text is never
+// rewritten/lost), so two ingredients copied from slightly different
+// formatting conventions show up looking inconsistent side by side. This
+// normalizes spacing at render time only, never touching the stored
+// rawText itself, by inserting a space between a digit and an
+// immediately-adjacent common unit abbreviation. Only matches the
+// no-space case (a digit directly followed by the unit letters) --
+// "15 g" already has a space there, so it's left untouched either way.
+const UNIT_SPACING_PATTERN = /(\d)(kg|mg|g|ml|cl|l|tbsp|tsp|oz|lb|cm|mm)\b/gi;
+
+export function normalizeUnitSpacing(text: string): string {
+  return text.replace(UNIT_SPACING_PATTERN, '$1 $2');
+}

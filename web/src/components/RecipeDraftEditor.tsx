@@ -1,4 +1,4 @@
-import { ChangeEvent, CSSProperties, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, ClipboardEvent, CSSProperties, useMemo, useRef, useState } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -438,9 +438,9 @@ export function RecipeDraftEditor({
     setInstructions((prev) => [...prev, emptyEditableInstruction(makeBlankSectionValue())]);
   };
 
-  const saveImageLocally = async () => {
-    const trimmed = imageUrl.trim();
-    if (!trimmed) return;
+  const saveImageLocallyFromUrl = async (url: string) => {
+    const trimmed = url.trim();
+    if (!trimmed || trimmed.startsWith('/api/images/')) return;
     setSavingImage(true);
     setError(null);
     try {
@@ -450,6 +450,21 @@ export function RecipeDraftEditor({
       setError(err instanceof Error ? err.message : 'Failed to save image locally.');
     } finally {
       setSavingImage(false);
+    }
+  };
+
+  const saveImageLocally = () => saveImageLocallyFromUrl(imageUrl);
+
+  // Pasting an image URL (the one unavoidable manual step -- grabbing it out
+  // of devtools) now saves it immediately, same gesture as before, no
+  // separate "Save locally" click after. Reads clipboardData directly
+  // instead of the imageUrl state, since React hasn't applied the paste to
+  // state yet at the point this fires. The button below stays as a manual
+  // fallback for a typed-in (not pasted) URL or a retry after a failure.
+  const handleImageUrlPaste = (e: ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData.getData('text').trim();
+    if (pasted && /^https?:\/\//i.test(pasted)) {
+      setTimeout(() => void saveImageLocallyFromUrl(pasted), 0);
     }
   };
 
@@ -584,7 +599,8 @@ export function RecipeDraftEditor({
           <input
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="https://... (paste an image link, e.g. from Instagram)"
+            onPaste={handleImageUrlPaste}
+            placeholder="Paste an image link (e.g. from Instagram) — saves automatically"
           />
           {imageUrl.trim() && !imageUrl.trim().startsWith('/api/images/') && (
             <Button type="button" variant="secondary" size="sm" onClick={saveImageLocally} disabled={savingImage}>

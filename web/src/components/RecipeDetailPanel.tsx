@@ -11,8 +11,8 @@ import {
   updateRecipe
 } from '../api/client';
 import { MetaItem, RecipeDetail, RecipeDraft, SourceType } from '../api/types';
-import { parseBaseServings, scaleQuantityString } from '../scaleQuantity';
-import { getVideoEmbed } from '../sourceUrl';
+import { normalizeUnitSpacing, parseBaseServings, scaleQuantityString } from '../scaleQuantity';
+import { getVideoEmbed, sourceLinkEmoji } from '../sourceUrl';
 import { useAuth } from '../auth/AuthContext';
 import { RecipeDraftEditor } from './RecipeDraftEditor';
 import { Button } from './Button';
@@ -354,7 +354,7 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
               {recipe.sourceRef &&
                 (/^https?:\/\//i.test(recipe.sourceRef) ? (
                   <a href={recipe.sourceRef} target="_blank" rel="noopener noreferrer" className="muted source-link">
-                    🔗 Recipe
+                    {sourceLinkEmoji(recipe.sourceRef)} Recipe
                   </a>
                 ) : (
                   <span className="muted">{recipe.sourceRef}</span>
@@ -462,7 +462,9 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
                           ? [scaleQuantityString(ing.quantity, scaleFactor), displayUnit, ing.name]
                               .filter(Boolean)
                               .join(' ')
-                          : ing.rawText || [ing.quantity, displayUnit, ing.name].filter(Boolean).join(' ');
+                          : normalizeUnitSpacing(
+                              ing.rawText || [ing.quantity, displayUnit, ing.name].filter(Boolean).join(' ')
+                            );
                       return <li key={i}>{text}</li>;
                     })}
                   </ul>

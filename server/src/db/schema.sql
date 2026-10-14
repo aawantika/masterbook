@@ -177,6 +177,24 @@ CREATE TABLE IF NOT EXISTS site_status (
   frozen_message TEXT
 );
 
+-- Reference photos (e.g. a handwritten recipe card, a cookbook page you
+-- snapped a picture of) -- distinct from recipes.image_url, which is the
+-- finished-dish photo shown as the recipe's "face." A recipe can have
+-- several (a handwritten recipe might span multiple notebook pages).
+-- Deliberately no ON DELETE for the files themselves, same as image_url:
+-- deleting the row doesn't clean up the underlying file on disk, matching
+-- existing behavior there (orphaned files are an accepted tradeoff, not
+-- new scope introduced here).
+CREATE TABLE IF NOT EXISTS recipe_source_photos (
+  id INTEGER PRIMARY KEY,
+  recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  image_url TEXT NOT NULL,
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_recipe_source_photos_recipe ON recipe_source_photos(recipe_id);
+
 -- Ledger of one-time data backfills that aren't tied to a schema change --
 -- every other migrate.ts backfill so far was guarded by "does this column
 -- exist yet," which only works because each one happened to coincide with

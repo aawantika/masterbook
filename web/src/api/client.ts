@@ -165,6 +165,19 @@ export function deleteAttempt(id: number): Promise<void> {
   return request<void>(`/attempts/${id}`, { method: 'DELETE' });
 }
 
+// imageUrl is already-uploaded (see uploadImage above) -- this just
+// attaches it to the recipe.
+export function addSourcePhoto(recipeId: number, imageUrl: string): Promise<RecipeDetail> {
+  return request<RecipeDetail>(`/recipes/${recipeId}/source-photos`, {
+    method: 'POST',
+    body: JSON.stringify({ imageUrl })
+  });
+}
+
+export function deleteSourcePhoto(id: number): Promise<void> {
+  return request<void>(`/source-photos/${id}`, { method: 'DELETE' });
+}
+
 export function getActivityLog(): Promise<ActivityEntry[]> {
   return request<ActivityEntry[]>('/attempts');
 }

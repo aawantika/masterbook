@@ -9,6 +9,7 @@ import {
   youtubeThumbnailUrl
 } from '../sourceUrl';
 import { RecipeDraftEditor } from './RecipeDraftEditor';
+import { QuickPhotoUpload } from './QuickPhotoUpload';
 import { Button, ButtonLink } from './Button';
 import { useAuth } from '../auth/AuthContext';
 
@@ -36,6 +37,7 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [fetchNotice, setFetchNotice] = useState<string | null>(null);
   const [prefilledImageUrl, setPrefilledImageUrl] = useState<string | null>(null);
+  const [quickPhotoMode, setQuickPhotoMode] = useState(false);
 
   useEffect(() => {
     Promise.all([getMealTypes(), getCuisines()]).then(([mt, c]) => {
@@ -173,7 +175,9 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
     <div className="detail-panel">
       <h1>Add a recipe</h1>
 
-      {!draft ? (
+      {quickPhotoMode ? (
+        <QuickPhotoUpload onCreated={onCreated} onCancel={() => setQuickPhotoMode(false)} />
+      ) : !draft ? (
         <div className="import-paste-box">
           <label className="field">
             <span>Paste a website, Instagram, or YouTube link</span>
@@ -205,6 +209,13 @@ export function ImportPanel({ onCreated, onCancel }: ImportPanelProps) {
                 + Add from EPUB
               </ButtonLink>
             )}
+            {/* No typing at all -- for a handwritten recipe (a photo of a
+                notebook page, a recipe card) you'd rather transcribe later
+                than type in on the spot. Experimental: just saves the
+                photos, no ingredients/instructions -- see QuickPhotoUpload. */}
+            <Button variant="secondary" onClick={() => setQuickPhotoMode(true)}>
+              📷 Upload photos (experimental)
+            </Button>
           </div>
 
           <div className="import-divider">— or paste the recipe text directly —</div>

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  addSourcePhoto,
   deleteRecipe,
+  deleteSourcePhoto,
   fetchRecipeFromUrl,
   getCuisines,
   getMealTypes,
@@ -8,7 +10,8 @@ import {
   setFavorite,
   setNeedsFixing,
   setWantToTry,
-  updateRecipe
+  updateRecipe,
+  uploadImage
 } from '../api/client';
 import { MetaItem, RecipeDetail, RecipeDraft, SourceType } from '../api/types';
 import { normalizeUnitSpacing, parseBaseServings, scaleQuantityString } from '../scaleQuantity';
@@ -79,6 +82,9 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [uploadingSourcePhoto, setUploadingSourcePhoto] = useState(false);
+  const [sourcePhotoError, setSourcePhotoError] = useState<string | null>(null);
+  const sourcePhotoInputRef = useRef<HTMLInputElement>(null);
   // Instagram embeds show a login prompt to anyone not logged into
   // Instagram in that browser, and there's no way for this page to detect
   // that in advance (cross-origin iframe, no signal exposed) -- so rather
@@ -163,6 +169,28 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
     setConfirmingDelete(false);
     await deleteRecipe(recipe.id);
     onDeleted();
+  };
+
+  const handleAddSourcePhoto = async (file: File | undefined) => {
+    if (!file) return;
+    setSourcePhotoError(null);
+    setUploadingSourcePhoto(true);
+    try {
+      const { imageUrl } = await uploadImage(file);
+      await addSourcePhoto(recipe.id, imageUrl);
+      load();
+    } catch (err) {
+      setSourcePhotoError(err instanceof Error ? err.message : 'Failed to upload photo.');
+    } finally {
+      setUploadingSourcePhoto(false);
+    }
+  };
+
+  // No confirm dialog -- a reference photo is low-stakes and easy to
+  // re-upload, unlike deleting the whole recipe.
+  const handleDeleteSourcePhoto = async (photoId: number) => {
+    await deleteSourcePhoto(photoId);
+    load();
   };
 
   const handleToggleWantToTry = async () => {
@@ -470,6 +498,56 @@ export function RecipeDetailPanel({ recipeId, onDeleted, onChanged, onEditingCha
             <div className="recipe-notes">
               <h3>Notes</h3>
               <p>{recipe.notes}</p>
+            </div>
+          )}
+
+          {/* Reference photos -- a handwritten card, a cookbook page --
+              kept separate from the dish photo/video above, not mixed into
+              that media slot. Shown whenever any exist, or whenever the
+              viewer could add one. */}
+          {(recipe.sourcePhotos.length > 0 || canEdit) && (
+            <div className="recipe-source-photos">
+              <h3>Source photos</h3>
+              <div className="source-photo-grid">
+                {recipe.sourcePhotos.map((photo) => (
+                  <div className="source-photo-thumb" key={photo.id}>
+                    <a href={photo.imageUrl} target="_blank" rel="noopener noreferrer">
+                      <img src={photo.imageUrl} alt="" />
+                    </a>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        className="source-photo-remove"
+                        onClick={() => handleDeleteSourcePhoto(photo.id)}
+                        aria-label="Remove photo"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {canEdit && (
+                  <button
+                    type="button"
+                    className="source-photo-add"
+                    onClick={() => sourcePhotoInputRef.current?.click()}
+                    disabled={uploadingSourcePhoto}
+                  >
+                    {uploadingSourcePhoto ? 'Uploading...' : '+ Add photo'}
+                  </button>
+                )}
+              </div>
+              {sourcePhotoError && <div className="editor-error">{sourcePhotoError}</div>}
+              <input
+                ref={sourcePhotoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  handleAddSourcePhoto(e.target.files?.[0]);
+                  e.target.value = '';
+                }}
+              />
             </div>
           )}
 

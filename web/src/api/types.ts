@@ -99,9 +99,14 @@ export type RecipeDetail = {
   mealTypeIds: number[];
   cuisineNames: string[];
   attempts: RecipeAttempt[];
+  sourcePhotos: SourcePhoto[];
   ownerId: number | null;
   ownerName: string | null;
 };
+
+// Reference photos (a handwritten recipe card, a cookbook page) -- distinct
+// from imageUrl above, which is the finished-dish photo.
+export type SourcePhoto = { id: number; recipeId: number; imageUrl: string; position: number; createdAt: string };
 
 export type MetaItem = { id: number; name: string };
 

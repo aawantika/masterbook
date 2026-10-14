@@ -1,6 +1,7 @@
 import { db } from './client.js';
 import { ParsedIngredientLine, ParsedInstructionStep } from '../types/recipe.js';
 import { findUserById, resolveDisplayName } from './users.js';
+import { listSourcePhotos, SourcePhoto } from './sourcePhotos.js';
 
 export type RecipeInput = {
   title: string;
@@ -440,6 +441,7 @@ export type RecipeDetail = {
   mealTypeIds: number[];
   cuisineNames: string[];
   attempts: Array<{ id: number; attemptedAt: string; rating: number | null; notes: string | null }>;
+  sourcePhotos: SourcePhoto[];
   ownerId: number | null;
   ownerName: string | null;
 };
@@ -537,6 +539,7 @@ export function getRecipeById(recipeId: number, viewerUserId: number): RecipeDet
     mealTypeIds,
     cuisineNames,
     attempts: attempts.map((a) => ({ id: a.id, attemptedAt: a.attempted_at, rating: a.rating, notes: a.notes })),
+    sourcePhotos: listSourcePhotos(recipeId),
     ownerId: row.user_id,
     ownerName: row.user_id != null ? resolveDisplayNameForOwner(row.user_id) : null
   };

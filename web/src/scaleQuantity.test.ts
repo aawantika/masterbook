@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { normalizeUnitSpacing } from './scaleQuantity';
 
 describe('normalizeUnitSpacing', () => {
-  // Exact lines pasted by a real recipe (masterbook.frostedpeaks.app/recipes/52)
-  // that showed up with inconsistent spacing -- some ingredients had a space
+  // Exact lines pasted from a real recipe in the app that showed up with
+  // inconsistent spacing -- some ingredients had a space
   // between the number and unit ("113 g"), others didn't ("140g"), because
   // rawText preserves whatever spacing the original source used verbatim.
   it('inserts a space between a number and an immediately-adjacent unit', () => {

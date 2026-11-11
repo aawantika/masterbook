@@ -1,9 +1,11 @@
+import fs from 'node:fs';
 import { Router } from 'express';
 import { z } from 'zod';
 import { getFirebaseAuth } from '../auth/firebaseAdmin.js';
 import { approveUser, createUserRecord, findUserById, listUsers, updateDisplayName } from '../db/users.js';
 import { getSiteStatus, setFrozen } from '../db/siteStatus.js';
 import { getSiteStats } from '../db/stats.js';
+import { dbPath } from '../db/client.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { SESSION_COOKIE, SESSION_MAX_AGE_MS } from '../middleware/sessionCookie.js';
 
@@ -199,4 +201,21 @@ authRouter.get('/stats', requireAdmin, (_req, res) => {
 // time.
 authRouter.get('/version', requireAdmin, (_req, res) => {
   res.json({ commitTime: process.env.GIT_COMMIT_TIME || null });
+});
+
+const serverStartedAt = Date.now();
+
+// Backs the Server status panel on /admin -- same route shape as every
+// other frostedpeaks app, carried over by hand from frostedpeaks-starter
+// (see that repo's README) rather than a shared dependency.
+authRouter.get('/server-status', requireAdmin, (_req, res) => {
+  let dbBytes: number | null = null;
+  try { dbBytes = fs.statSync(dbPath).size; } catch { /* db not created yet */ }
+  res.json({
+    serverStartedAt,
+    uptimeSeconds: Math.floor((Date.now() - serverStartedAt) / 1000),
+    deployCommitTime: process.env.GIT_COMMIT_TIME || null,
+    nodeVersion: process.version,
+    dbBytes
+  });
 });

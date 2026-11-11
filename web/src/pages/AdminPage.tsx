@@ -1,9 +1,23 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { getServerVersion, getSiteStatus, setSiteFrozen } from '../api/client';
-import { ServerVersion, SiteStatus } from '../api/types';
+import { getServerStatus, getServerVersion, getSiteStatus, setSiteFrozen } from '../api/client';
+import { ServerStatus, ServerVersion, SiteStatus } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Button, ButtonLink } from '../components/Button';
+
+function formatBytes(bytes: number | null): string {
+  if (bytes === null) return '—';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatUptime(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours < 1) return `${minutes}m`;
+  return `${hours}h ${minutes}m`;
+}
 
 // Hub page linked from the topbar's "Admin" button -- everything
 // admin-only lives under here (manage users, stats, and the site
@@ -26,6 +40,7 @@ export function AdminPage() {
   const { user } = useAuth();
   const [status, setStatus] = useState<SiteStatus | null>(null);
   const [version, setVersion] = useState<ServerVersion | null>(null);
+  const [serverStatus, setServerStatus] = useState<ServerStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
@@ -37,6 +52,7 @@ export function AdminPage() {
       .then(setStatus)
       .finally(() => setLoading(false));
     getServerVersion().then(setVersion);
+    getServerStatus().then(setServerStatus);
   };
 
   useEffect(reload, []);
@@ -85,6 +101,34 @@ export function AdminPage() {
         <p className="muted admin-version-line">
           Server last updated {formatRelativeTime(version.commitTime)} ({new Date(version.commitTime).toLocaleString()})
         </p>
+      )}
+
+      {serverStatus && (
+        <>
+          <h2 className="field-section-heading">Server</h2>
+          <ul className="stats-storage-list">
+            <li>
+              <span>Status</span>
+              <span>Running</span>
+            </li>
+            <li>
+              <span>Server started</span>
+              <span>{new Date(serverStatus.serverStartedAt).toLocaleString()}</span>
+            </li>
+            <li>
+              <span>Uptime</span>
+              <span>{formatUptime(serverStatus.uptimeSeconds)}</span>
+            </li>
+            <li>
+              <span>Node version</span>
+              <span>{serverStatus.nodeVersion}</span>
+            </li>
+            <li>
+              <span>Database size</span>
+              <span>{formatBytes(serverStatus.dbBytes)}</span>
+            </li>
+          </ul>
+        </>
       )}
 
       <div className="admin-hub-links">

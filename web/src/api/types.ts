@@ -140,6 +140,14 @@ export type ServerVersion = {
   commitTime: string | null;
 };
 
+export type ServerStatus = {
+  serverStartedAt: number;
+  uptimeSeconds: number;
+  deployCommitTime: string | null;
+  nodeVersion: string;
+  dbBytes: number | null;
+};
+
 export type UserRecipeCount = {
   userId: number | null;
   name: string;

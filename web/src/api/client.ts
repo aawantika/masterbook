@@ -11,6 +11,7 @@ import {
   RecipeDraft,
   RecipeInput,
   RecipeSummary,
+  ServerStatus,
   ServerVersion,
   SiteStats,
   SiteStatus,
@@ -408,6 +409,10 @@ export function setSiteFrozen(frozen: boolean, message: string | null): Promise<
 
 export function getSiteStats(): Promise<SiteStats> {
   return request<SiteStats>('/auth/stats');
+}
+
+export function getServerStatus(): Promise<ServerStatus> {
+  return request<ServerStatus>('/auth/server-status');
 }
 
 export function getServerVersion(): Promise<ServerVersion> {
